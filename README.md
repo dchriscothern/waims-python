@@ -1,68 +1,36 @@
-\# WAIMS Python - Athlete Monitoring Demo
+# WAIMS-R Production
 
+Production monitoring for professional basketball.
 
+## Features
 
-SQLite database with 1,600+ integrated monitoring data points.
+✅ Multi-source integration
+✅ wehoop - 2025 WNBA data
+✅ Research-validated
+✅ Automated workflows
 
-
-
-\## 🎯 Quick Demo
-
-```python
-
-import sqlite3
-
-import pandas as pd
-
-
-
-conn = sqlite3.connect('waims\_demo.db')
-
-
-
-\# Show players
-
-players = pd.read\_sql\_query('SELECT \* FROM players', conn)
-
-print(players)
-
+## Quick Start
+```r
+install.packages(c("tidyverse","duckdb","wehoop"))
+source("scripts/generate_sample_data.R")
 ```
 
-
-
-\## 📊 Database
-
-
-
-\*\*6 tables, 1,637 data points:\*\*
-
-\- players: 12 athletes
-
-\- wellness: 600 records
-
-\- training\_load: 600 sessions
-
-\- acwr: 348 calculations
-
-\- force\_plate: 84 tests
-
-\- injuries: 5 events
-
-
-
-\## 🔧 Setup
-
-```bash
-
-pip install -r requirements.txt
-
-python generate\_database.py  # Regenerate
-
-```
-
-
-
-\## License
-
+## License
 MIT
+```
 
+Save.
+
+---
+
+### **Step 5: Update .gitignore**
+
+Open `.gitignore`, add at bottom:
+```
+
+# Data files
+raw/*.csv
+warehouse/*.duckdb
+gold_export/*.csv
+logs/*.log
+desktop.ini
