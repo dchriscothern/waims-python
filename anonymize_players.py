@@ -21,8 +21,8 @@ print(f"\nCurrent players ({len(players)}):")
 for name in players['name']:
     print(f"  - {name}")
 
-# Create anonymized names
-players['name'] = [f'Player {chr(65+i)}' for i in range(len(players))]
+# Create anonymized names using ATH_001 format (industry standard)
+players['name'] = [f'ATH_{str(i+1).zfill(3)}' for i in range(len(players))]
 
 # Update database
 players.to_sql('players', conn, if_exists='replace', index=False)
