@@ -89,8 +89,7 @@ print("\n2. Engineering features...")
 
 # Fill missing values
 df['acwr'] = df['acwr'].fillna(1.0)
-df['cmj_height_cm'] = df['cmj_height_cm'].fillna(method='ffill')
-df['asymmetry_percent'] = df['asymmetry_percent'].fillna(5.0)
+df['cmj_height_cm'] = df.groupby('player_id')['cmj_height_cm'].ffill()
 df['rsi_modified'] = df['rsi_modified'].fillna(0.35)
 
 # Create rolling features
