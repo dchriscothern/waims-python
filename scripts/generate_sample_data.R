@@ -316,6 +316,9 @@ log_msg("Generating force plate data...")
 # Test on Mondays (weekly)
 test_dates <- dates[wday(dates, week_start = 1) == 1]
 
+# Determine multiplier based on scenario (outside of mutate)
+progress_multiplier <- if (SCENARIO == "OFF_SEASON") 0.3 else -0.5
+
 fp <- expand_grid(date = test_dates, force_plate_id = roster$force_plate_id) %>%
   left_join(roster %>% select(force_plate_id, display_name, position), by = "force_plate_id") %>%
   group_by(force_plate_id) %>%
@@ -326,10 +329,9 @@ fp <- expand_grid(date = test_dates, force_plate_id = roster$force_plate_id) %>%
     # Baseline with individual variation
     baseline_height = 30 + (position == "G") * 5 + rnorm(1, 0, 3),
     
-    # Off-season = improving (strength focus)
-    # In-season = declining (fatigue accumulation)
-    weeks_in = as.numeric(date - min(dates)) / 7,
-    progress = if_else(SCENARIO == "OFF_SEASON", weeks_in * 0.3, -weeks_in * 0.5),
+    # Progress over time
+    weeks_in = as.numeric(date - min(test_dates)) / 7,
+    progress = weeks_in * progress_multiplier,
     
     # Jump metrics
     jump_height_cm = pmax(20, baseline_height + progress + rnorm(n(), 0, 2)),
