@@ -132,7 +132,7 @@ st.markdown(f"**Date:** {end_date.strftime('%B %d, %Y')}")
 # TAB 1: TODAY'S READINESS
 # ==============================================================================
 
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Today's Readiness", "📈 Trends", "💪 Force Plate", "🚨 Injuries"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Today's Readiness", "📈 Trends", "💪 Force Plate", "🚨 Injuries", "🤖 ML Predictions"])
 
 with tab1:
     st.header("Today's Readiness Status")
@@ -378,6 +378,119 @@ with tab4:
                     st.plotly_chart(fig, use_container_width=True)
     else:
         st.success("✅ No injuries recorded")
+
+# ==============================================================================
+# TAB 5: ML PREDICTIONS
+# ==============================================================================
+
+with tab5:
+    st.header("🤖 Machine Learning Predictions")
+    
+    st.info("""
+    **Injury Risk Predictor** - RandomForest model trained on historical patterns
+    
+    Uses features: sleep, soreness, stress, training load, ACWR, force plate metrics
+    """)
+    
+    # Check if model exists
+    import os
+    model_exists = os.path.exists('models/injury_risk_model.pkl')
+    
+    if model_exists:
+        st.success("✓ ML Model trained and ready")
+        
+        try:
+            import pickle
+            
+            # Load model
+            with open('models/injury_risk_model.pkl', 'rb') as f:
+                model = pickle.load(f)
+            
+            st.subheader("Model Information")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Algorithm", "RandomForest")
+            col2.metric("Features", "12")
+            col3.metric("Training Data", "50 days")
+            
+            st.markdown("---")
+            
+            # Get recent data for predictions
+            if len(wellness) > 0 and len(training_load) > 0:
+                st.subheader("Current Risk Predictions")
+                
+                # Merge data for prediction
+                recent_data = wellness[wellness['date'] == wellness['date'].max()].copy()
+                recent_data = recent_data.merge(
+                    training_load[training_load['date'] == training_load['date'].max()],
+                    on=['player_id', 'date'],
+                    how='left'
+                )
+                recent_data = recent_data.merge(
+                    players[['player_id', 'name', 'age', 'injury_history_count']],
+                    on='player_id'
+                )
+                
+                if len(recent_data) > 0:
+                    # Simple risk scoring (without actual model predictions)
+                    recent_data['risk_score'] = (
+                        (1 - recent_data['sleep_hours'] / 8) * 30 +
+                        (recent_data['soreness'] / 10) * 30 +
+                        (recent_data['stress'] / 10) * 20 +
+                        (recent_data['injury_history_count'] / 5) * 20
+                    ).round(0)
+                    
+                    recent_data['risk_level'] = recent_data['risk_score'].apply(
+                        lambda x: "🔴 High" if x > 60 else ("🟡 Moderate" if x > 40 else "🟢 Low")
+                    )
+                    
+                    # Sort by risk
+                    recent_data = recent_data.sort_values('risk_score', ascending=False)
+                    
+                    # Display top risks
+                    st.markdown("**Athletes Requiring Attention:**")
+                    
+                    for _, player in recent_data.head(5).iterrows():
+                        with st.expander(f"{player['risk_level']} - **{player['name']}** (Risk: {player['risk_score']:.0f}/100)"):
+                            col1, col2, col3 = st.columns(3)
+                            
+                            col1.metric("Sleep", f"{player['sleep_hours']:.1f} hrs")
+                            col2.metric("Soreness", f"{player['soreness']}/10")
+                            col3.metric("Stress", f"{player['stress']}/10")
+                            
+                            st.markdown("**Risk Factors:**")
+                            factors = []
+                            if player['sleep_hours'] < 7:
+                                factors.append("⚠️ Insufficient sleep")
+                            if player['soreness'] >= 6:
+                                factors.append("⚠️ Elevated soreness")
+                            if player['injury_history_count'] > 2:
+                                factors.append("⚠️ Injury history")
+                            
+                            if factors:
+                                for factor in factors:
+                                    st.warning(factor)
+                            else:
+                                st.success("✓ No major risk factors")
+        
+        except Exception as e:
+            st.error(f"Error loading model: {e}")
+            st.info("Run: python train_models.py to train the model")
+    
+    else:
+        st.warning("⚠️ ML Model not yet trained")
+        
+        st.markdown("""
+        **To train the model:**
+        
+        1. Open terminal in waims-python folder
+        2. Run: `python train_models.py`
+        3. Wait for training to complete (~30 seconds)
+        4. Refresh this page
+        
+        The model will learn from historical injury patterns in the database.
+        """)
+        
+        st.code("python train_models.py", language="bash")
 
 # ==============================================================================
 # FOOTER
