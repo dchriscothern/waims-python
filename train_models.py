@@ -123,7 +123,7 @@ feature_cols = [
     'age', 'injury_history_count',
     'sleep_hours', 'soreness', 'stress',
     'practice_minutes', 'practice_rpe', 'game_minutes',
-    'acwr', 'cmj_height_cm', 'asymmetry_percent',
+    'acwr', 'cmj_height_cm', 'rsi_modified',
     'sleep_hours_7day_avg', 'soreness_7day_avg', 'practice_minutes_7day_avg',
     'wellness_score'
 ]
