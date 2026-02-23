@@ -48,11 +48,10 @@ df = pd.read_sql_query('''
         w.mood,
         t.practice_minutes,
         t.practice_rpe,
-        t.strength_volume,
+        t.total_daily_load,
         t.game_minutes,
         a.acwr,
         f.cmj_height_cm,
-        f.asymmetry_percent,
         f.rsi_modified
     FROM players p
     LEFT JOIN wellness w ON p.player_id = w.player_id
