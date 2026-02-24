@@ -51,12 +51,12 @@ print("STEP 1: Checking wehoop package...")
 print("=" * 70)
 
 try:
-    from wehoop.wnba import load_wnba_player_box
-    print("✓ wehoop package found")
+    from sportsdataverse.wnba import load_wnba_player_box
+    print("✓ sportsdataverse package found")
 except ImportError:
-    print("\n❌ wehoop not installed!")
+    print("\n❌ sportsdataverse not installed!")
     print("\nInstall with:")
-    print("  pip install wehoop")
+    print("  pip install sportsdataverse")
     print("\nExiting...")
     sys.exit(1)
 
