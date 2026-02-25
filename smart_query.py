@@ -1,8 +1,5 @@
 """
-WAIMS - Smart Data Query Interface
-Natural language-style queries WITHOUT AI - uses pattern matching and rules
-
-Perfect for demos - no API keys needed, instant responses, $0 cost
+WAIMS - Player Readiness Watchlist
 
 User can type questions like:
 - "poor sleep"
@@ -534,8 +531,8 @@ def generate_response(query_type, params):
 # STREAMLIT UI
 # ==============================================================================
 
-st.title("🔍 WAIMS Smart Query Interface")
-st.markdown("Ask questions about your data - **no AI required, instant answers!**")
+st.title("🔍 WAIMS Readiness Watchlist")
+st.markdown("Get quick, contextual answers to support today’s decisions—who to check in with, what to adjust, and why")
 
 # Sidebar with quick buttons
 with st.sidebar:
@@ -590,7 +587,7 @@ if st.session_state.query:
     query_input = st.session_state.query
     st.session_state.query = ""  # Clear after use
 else:
-    query_input = st.text_input("Ask a question:", placeholder="e.g., 'Who had poor sleep?' or 'Show me high risk players'")
+    query_input = st.text_input("Ask me about your players:", placeholder="e.g., 'Who had poor sleep?' or 'Show me high risk players'")
 
 if query_input:
     st.divider()
@@ -620,5 +617,4 @@ if query_input:
 
 # Footer
 st.divider()
-st.caption("💡 **No AI Required** - Pattern matching + smart queries = instant answers")
 st.caption("🔐 **100% Local** - Your data never leaves your computer")
