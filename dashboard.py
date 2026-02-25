@@ -661,32 +661,35 @@ with tab6:
         
         if st.button("🌙 Poor Sleep", use_container_width=True, key="btn_sleep"):
             st.session_state.query_to_run = "poor sleep"
+            st.rerun()
         
         if st.button("🚨 High Risk", use_container_width=True, key="btn_risk"):
             st.session_state.query_to_run = "high risk"
+            st.rerun()
         
         if st.button("✅ Readiness", use_container_width=True, key="btn_ready"):
             st.session_state.query_to_run = "readiness"
+            st.rerun()
         
         if st.button("📊 Compare Positions", use_container_width=True, key="btn_compare"):
             st.session_state.query_to_run = "compare positions"
+            st.rerun()
         
         st.caption("⚡ Instant • 💰 Free • 🔒 Local")
     
     with col1:
-        # Query input - use value from button clicks
-        default_query = st.session_state.query_to_run if st.session_state.query_to_run else ""
-        
-        user_query = st.text_input(
-            "Ask a question:",
-            value=default_query,
-            placeholder="e.g., 'poor sleep' or 'high risk players'",
-            key="smart_query_input"
-        )
-        
-        # Clear the query_to_run after using it
+        # Check if we have a query from button click
         if st.session_state.query_to_run:
+            user_query = st.session_state.query_to_run
+            # Clear it so it doesn't repeat
             st.session_state.query_to_run = ""
+        else:
+            # Show text input for manual queries
+            user_query = st.text_input(
+                "Ask a question:",
+                placeholder="e.g., 'poor sleep' or 'high risk players'",
+                key="smart_query_input"
+            )
         
         if user_query:
             query_type = parse_query(user_query)
