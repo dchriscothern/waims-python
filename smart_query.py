@@ -1,5 +1,8 @@
 """
-WAIMS - Player Readiness Watchlist
+WAIMS - Smart Data Query Interface
+Natural language-style queries WITHOUT AI - uses pattern matching and rules
+
+Perfect for demos - no API keys needed, instant responses, $0 cost
 
 User can type questions like:
 - "poor sleep"
@@ -531,11 +534,23 @@ def generate_response(query_type, params):
 # STREAMLIT UI
 # ==============================================================================
 
-st.title("🔍 WAIMS Readiness Watchlist")
-st.markdown("Get quick, contextual answers to support today’s decisions—who to check in with, what to adjust, and why")
+st.title("🔍 WAIMS Smart Query Interface")
+st.markdown("Ask questions about your data - **instant answers!**")
 
-# Sidebar with quick buttons
+# Sidebar with How to Use at top, then quick buttons
 with st.sidebar:
+    st.header("💡 How to Use")
+    
+    st.markdown("**Type naturally:**")
+    st.markdown("""
+    - "Who's tired?"
+    - "Show me high risk"
+    - "Guards vs forwards"
+    - "ATH_001 trends"
+    """)
+    
+    st.divider()
+    
     st.header("⚡ Quick Queries")
     
     if st.button("🌙 Poor Sleep", use_container_width=True):
@@ -561,33 +576,21 @@ with st.sidebar:
     
     st.divider()
     
-    st.header("💡 How to Use")
-    st.markdown("""
-    **Type naturally:**
-    - "Who's tired?"
-    - "Show me high risk"
-    - "Guards vs forwards"
-    - "ATH_001 trends"
-    
-    **Or click quick buttons** →
-    
-    **Features:**
-    - ⚡ Instant responses
-    - 💰 $0 cost (no AI API)
-    - 🔒 All local (no cloud)
-    - 📊 Auto-generated charts
-    """)
+    st.caption("⚡ Instant responses")
+    st.caption("💰 $0 cost")
+    st.caption("🔒 100% local")
 
 # Initialize session state
 if 'query' not in st.session_state:
     st.session_state.query = ""
 
-# Handle query from sidebar buttons
+# Always show text input
+query_input = st.text_input("Ask a question:", placeholder="e.g., 'Who had poor sleep?' or 'Show me high risk players'")
+
+# Check if button was clicked (overrides text input)
 if st.session_state.query:
     query_input = st.session_state.query
     st.session_state.query = ""  # Clear after use
-else:
-    query_input = st.text_input("Ask me about your players:", placeholder="e.g., 'Who had poor sleep?' or 'Show me high risk players'")
 
 if query_input:
     st.divider()

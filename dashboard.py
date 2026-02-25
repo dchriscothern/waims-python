@@ -678,18 +678,17 @@ with tab6:
         st.caption("⚡ Instant • 💰 Free • 🔒 Local")
     
     with col1:
-        # Check if we have a query from button click
+        # Always show text input
+        user_query = st.text_input(
+            "Ask a question:",
+            placeholder="e.g., 'poor sleep' or 'high risk players'",
+            key="smart_query_input"
+        )
+        
+        # Check if we have a query from button click (overrides text input)
         if st.session_state.query_to_run:
             user_query = st.session_state.query_to_run
-            # Clear it so it doesn't repeat
-            st.session_state.query_to_run = ""
-        else:
-            # Show text input for manual queries
-            user_query = st.text_input(
-                "Ask a question:",
-                placeholder="e.g., 'poor sleep' or 'high risk players'",
-                key="smart_query_input"
-            )
+            st.session_state.query_to_run = ""  # Clear it after using
         
         if user_query:
             query_type = parse_query(user_query)
