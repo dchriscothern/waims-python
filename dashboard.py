@@ -643,16 +643,50 @@ with tab6:
     st.header("🔍 Smart Query Interface")
     st.markdown("Ask questions about your data - **instant answers!**")
     
+    # Initialize session state for query
+    if 'query_to_run' not in st.session_state:
+        st.session_state.query_to_run = ""
+    
     # Two-column layout
     col1, col2 = st.columns([2, 1])
     
+    with col2:
+        st.subheader("💡 How to Use")
+        st.markdown("**Type naturally:**")
+        st.markdown("• 'poor sleep'\n• 'high risk'\n• 'readiness'\n• 'compare positions'")
+        
+        st.divider()
+        
+        st.subheader("⚡ Quick Buttons")
+        
+        if st.button("🌙 Poor Sleep", use_container_width=True, key="btn_sleep"):
+            st.session_state.query_to_run = "poor sleep"
+        
+        if st.button("🚨 High Risk", use_container_width=True, key="btn_risk"):
+            st.session_state.query_to_run = "high risk"
+        
+        if st.button("✅ Readiness", use_container_width=True, key="btn_ready"):
+            st.session_state.query_to_run = "readiness"
+        
+        if st.button("📊 Compare Positions", use_container_width=True, key="btn_compare"):
+            st.session_state.query_to_run = "compare positions"
+        
+        st.caption("⚡ Instant • 💰 Free • 🔒 Local")
+    
     with col1:
-        # Query input
+        # Query input - use value from button clicks
+        default_query = st.session_state.query_to_run if st.session_state.query_to_run else ""
+        
         user_query = st.text_input(
             "Ask a question:",
+            value=default_query,
             placeholder="e.g., 'poor sleep' or 'high risk players'",
             key="smart_query_input"
         )
+        
+        # Clear the query_to_run after using it
+        if st.session_state.query_to_run:
+            st.session_state.query_to_run = ""
         
         if user_query:
             query_type = parse_query(user_query)
@@ -669,33 +703,6 @@ with tab6:
                     file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
-    
-    with col2:
-        st.subheader("💡 How to Use")
-        st.markdown("**Type naturally:**")
-        st.markdown("• 'poor sleep'\n• 'high risk'\n• 'readiness'\n• 'compare positions'")
-        
-        st.divider()
-        
-        st.subheader("⚡ Quick Buttons")
-        
-        if st.button("🌙 Poor Sleep", use_container_width=True, key="btn_sleep"):
-            st.session_state.smart_query_input = "poor sleep"
-            st.rerun()
-        
-        if st.button("🚨 High Risk", use_container_width=True, key="btn_risk"):
-            st.session_state.smart_query_input = "high risk"
-            st.rerun()
-        
-        if st.button("✅ Readiness", use_container_width=True, key="btn_ready"):
-            st.session_state.smart_query_input = "readiness"
-            st.rerun()
-        
-        if st.button("📊 Compare Positions", use_container_width=True, key="btn_compare"):
-            st.session_state.smart_query_input = "compare positions"
-            st.rerun()
-        
-        st.caption("⚡ Instant • 💰 Free • 🔒 Local")
 
 # ==============================================================================
 # FOOTER
