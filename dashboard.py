@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 # ==============================================================================
 
 st.set_page_config(
-    page_title="WAIMS - Athlete Monitoring",
+    page_title="WAIMS Readiness Watchlist",
     page_icon="🏀",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -218,7 +218,6 @@ def generate_smart_response(query_type):
 # ==============================================================================
 
 st.sidebar.title("🏀 Roster & Dates")
-st.sidebar.markdown("**Athlete Monitoring System**")
 st.sidebar.markdown("---")
 
 st.sidebar.markdown(
@@ -278,8 +277,8 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📈 Trends", 
     "💪 Force Plate", 
     "🚨 Injuries", 
-    "🤖 ML Predictions",
-    "🔍 Smart Query"
+    "🤖 Forecast",
+    "🔍 Ask the Watchlist"
 ])
 
 # ==============================================================================
