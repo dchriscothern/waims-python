@@ -221,6 +221,15 @@ st.sidebar.title("🏀 Roster & Dates")
 st.sidebar.markdown("**Athlete Monitoring System**")
 st.sidebar.markdown("---")
 
+st.sidebar.markdown(
+    """
+**How to use**
+1. Pick a **date range**
+2. Select **players** (or leave as **All**)
+3. The Watchlist updates automatically
+"""
+)
+
 # Date range filter
 if len(wellness) > 0:
     min_date = wellness['date'].min().date()
