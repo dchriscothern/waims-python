@@ -265,7 +265,7 @@ st.sidebar.info("""
 # ==============================================================================
 
 # Title
-st.title("🏀 WAIMS Athlete Monitoring Dashboard")
+st.title("🏀 WAIMS READINESS WATCHLIST")
 st.markdown(f"**Date:** {end_date.strftime('%B %d, %Y')}")
 
 # ==============================================================================
@@ -275,8 +275,8 @@ st.markdown(f"**Date:** {end_date.strftime('%B %d, %Y')}")
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Today's Readiness", 
     "📈 Trends", 
-    "💪 Force Plate", 
-    "🚨 Injuries", 
+    "💪 Jump Testing", 
+    "🚨 Availability & Injuries", 
     "🤖 Forecast",
     "🔍 Ask the Watchlist"
 ])
