@@ -1,5 +1,5 @@
 """
-WAIMS Python - Interactive Dashboard
+WAIMS Readiness Watchlist
 Streamlit web application for athlete monitoring data visualization
 
 Usage:
@@ -217,9 +217,13 @@ def generate_smart_response(query_type):
 # SIDEBAR
 # ==============================================================================
 
-st.sidebar.title("🏀 WAIMS Dashboard")
+st.sidebar.title("🏀 Roster & Dates")
 st.sidebar.markdown("**Athlete Monitoring System**")
-st.sidebar.markdown("---")
+st.sidebar.markdown("Start with All players + last 7 days
+
+Narrow to a position group or individual player if you need detail
+
+Use this to compare today vs. recent trends")
 
 # Date range filter
 if len(wellness) > 0:
@@ -523,11 +527,11 @@ with tab4:
         st.success("✅ No injuries recorded")
 
 # ==============================================================================
-# TAB 5: ML PREDICTIONS
+# TAB 5: FORECAST
 # ==============================================================================
 
 with tab5:
-    st.header("🤖 Machine Learning Predictions")
+    st.header("🤖 Readiness Forecasts")
     
     st.info("""
     **Injury Risk Predictor** - RandomForest model trained on historical patterns
@@ -640,8 +644,8 @@ with tab5:
 # ==============================================================================
 
 with tab6:
-    st.header("🔍 Smart Query Interface")
-    st.markdown("Ask questions about your data - **instant answers!**")
+    st.header("🔍 Ask the Watchlist")
+    st.markdown("Ask questions about your players - **instant answers!**")
     
     # Initialize session state for query
     if 'query_to_run' not in st.session_state:
