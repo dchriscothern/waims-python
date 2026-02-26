@@ -218,8 +218,6 @@ def generate_smart_response(query_type):
 # ==============================================================================
 
 st.sidebar.title("🏀 Roster & Dates")
-st.sidebar.markdown("---")
-
 st.sidebar.markdown(
     """
 **How to use**
