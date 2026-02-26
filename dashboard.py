@@ -637,6 +637,7 @@ with tab5:
                 "3. Refresh this page"
             )
             st.code("python train_models.py", language="bash")
+
 # ==============================================================================
 # TAB 6: Ask the Watchlist
 # ==============================================================================
@@ -649,59 +650,63 @@ with tab6:
     if 'query_to_run' not in st.session_state:
         st.session_state.query_to_run = ""
     
-   # Two-column layout
-col1, col2 = st.columns([2, 1])
+    # Two-column layout
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown(
+            """
+**💡 How to use**
+Type naturally, for example:
+- `poor sleep`
+- `high risk`
+- `readiness`
+- `compare positions`
+"""
+        )
 
-with col1:
-    # How to Use (right under title + intro, before search)
-    st.markdown(
-        """
-    )
+        user_query = st.text_input(
+            "Ask a question",
+            placeholder="e.g., 'poor sleep' or 'high risk players'",
+            key="smart_query_input",
+            label_visibility="collapsed"
+        )
+        
+        # Check if we have a query from button click (overrides text input)
+        if st.session_state.query_to_run:
+            user_query = st.session_state.query_to_run
+            st.session_state.query_to_run = ""  # Clear it after using
+        
+        if user_query:
+            query_type = parse_query(user_query)
+            st.info(f"🔍 **Understood as:** {query_type.replace('_', ' ').title()}")
+            
+            response, data = generate_smart_response(query_type)
+            st.markdown(response)
+            
+            if data is not None and len(data) > 0:
+                csv = data.to_csv(index=False)
+                st.download_button(
+                    "📥 Download Results",
+                    data=csv,
+                    file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
 
-    # Search bar
-    user_query = st.text_input(
-        "Ask a question",
-        placeholder="e.g., 'poor sleep' or 'high risk players'",
-        key="smart_query_input",
-        label_visibility="collapsed"  # optional: hides label but keeps spacing clean
-    )
+    with col2:
+        st.markdown("### ⚡ Quick Buttons")
 
-    # button-triggered query override
-    if st.session_state.query_to_run:
-        user_query = st.session_state.query_to_run
-        st.session_state.query_to_run = ""
+        if st.button("🌙 Poor Sleep", use_container_width=True):
+            st.session_state.query_to_run = "poor sleep"
+            st.rerun()
 
-    # Results (keep in col1 if you want)
-    if user_query:
-        query_type = parse_query(user_query)
-        st.info(f"🔍 **Understood as:** {query_type.replace('_', ' ').title()}")
-        response, data = generate_smart_response(query_type)
-        st.markdown(response)
+        if st.button("🚨 High Risk", use_container_width=True):
+            st.session_state.query_to_run = "high risk"
+            st.rerun()
 
-        if data is not None and len(data) > 0:
-            csv = data.to_csv(index=False)
-            st.download_button(
-                "📥 Download Results",
-                data=csv,
-                file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
-
-with col2:
-    # Quick Buttons (move to top of c2 so they sit level with intro text)
-    st.markdown("### ⚡ Quick Buttons")
-
-    if st.button("🌙 Poor Sleep", use_container_width=True):
-        st.session_state.query_to_run = "poor sleep"
-        st.rerun()
-
-    if st.button("🚨 High Risk", use_container_width=True):
-        st.session_state.query_to_run = "high risk"
-        st.rerun()
-
-    if st.button("✅ Readiness", use_container_width=True):
-        st.session_state.query_to_run = "readiness"
-        st.rerun()
+        if st.button("✅ Readiness", use_container_width=True):
+            st.session_state.query_to_run = "readiness"
+            st.rerun()
 
 # ==============================================================================
 # FOOTER
