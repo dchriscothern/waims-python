@@ -537,9 +537,6 @@ with tab4:
 with tab5:
     st.header("🤖 Readiness Forecasts")
     
-    st.info("""
-    **Injury Risk Predictor** - RandomForest model trained on historical patterns
-    
     Uses features: sleep, soreness, stress, training load, ACWR, force plate metrics
     """)
     
@@ -642,6 +639,9 @@ with tab5:
         """)
         
         st.code("python train_models.py", language="bash")
+
+st.info("""
+    **Injury Risk Predictor** - RandomForest model trained on historical patterns
 
 # ==============================================================================
 # TAB 6: SMART QUERY
