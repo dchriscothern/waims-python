@@ -677,12 +677,10 @@ with tab6:
             st.session_state.query_to_run = "compare positions"
             st.rerun()
         
-        st.caption("⚡ Instant • 💰 Free • 🔒 Local")
     
     with col1:
         # Always show text input
         user_query = st.text_input(
-            "Ask a question:",
             placeholder="e.g., 'poor sleep' or 'high risk players'",
             key="smart_query_input"
         )
