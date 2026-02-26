@@ -652,7 +652,7 @@ with tab6:
     # Two-column layout
     col1, col2 = st.columns([2, 1])
     
-    with col2:
+    with col1:
         st.subheader("💡 How to Use")
         st.markdown("**Type naturally:**")
         st.markdown("• 'poor sleep'\n• 'high risk'\n• 'readiness'\n• 'compare positions'")
