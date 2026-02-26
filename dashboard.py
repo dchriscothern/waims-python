@@ -218,10 +218,10 @@ def generate_smart_response(query_type):
 # ==============================================================================
 
 st.sidebar.title("🏀 Roster & Dates")
-st.sidebar.markdown("**Athlete Monitoring System**")
-st.sidebar.markdown("Start with All players + last 7 days
+st.sidebar.markdown("**Start with All players + last 7 days
 Narrow to a position group or individual player if you need detail
-Use this to compare today vs. recent trends")
+Use this to compare today vs. recent trends**")
+st.sidebar.markdown("---")
 
 # Date range filter
 if len(wellness) > 0:
