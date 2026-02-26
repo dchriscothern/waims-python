@@ -681,6 +681,7 @@ with tab6:
     with col1:
         # Always show text input
         user_query = st.text_input(
+            "---",
             placeholder="e.g., 'poor sleep' or 'high risk players'",
             key="smart_query_input"
         )
