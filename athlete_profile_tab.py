@@ -1,46 +1,50 @@
 """
 Athlete Profile Tab - Individual athlete dashboards with radar charts
-Add this as Tab 7 to your dashboard.py
 """
+
+import os
+from datetime import datetime, timedelta
 
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from datetime import datetime, timedelta
 
-
-import os
-import streamlit as st
+# ==============================================================================
+# PHOTO HELPERS (ADD THIS ONCE, TOP OF FILE)
+# ==============================================================================
 
 PHOTOS_DIR = "assets/photos"
 
-def _find_local_photo(ath_id: str):
+def _find_local_photo(ath_key: str):
     for ext in (".jpg", ".jpeg", ".png"):
-        p = os.path.join(PHOTOS_DIR, f"{ath_id}{ext}")
+        p = os.path.join(PHOTOS_DIR, f"{ath_key}{ext}")
         if os.path.exists(p):
             return p
     return None
 
-def athlete_photo_block(selected_athlete: str):
-    """Display athlete photo with upload option. Uses filename convention ath_001(.jpg/.png)."""
+def athlete_photo_block(ath_key: str):
+    """
+    Display athlete photo with upload option.
+    Expects filename convention like: assets/photos/ath_001.jpg (or .png/.jpeg)
+    """
     os.makedirs(PHOTOS_DIR, exist_ok=True)
 
-    ath_id = str(selected_athlete).lower()  # ath_001 convention
+    ath_key = str(ath_key).lower()  # enforce ath_001 convention
 
     if "athlete_photo_paths" not in st.session_state:
         st.session_state.athlete_photo_paths = {}
 
-    local_photo = st.session_state.athlete_photo_paths.get(ath_id) or _find_local_photo(ath_id)
+    local_photo = st.session_state.athlete_photo_paths.get(ath_key) or _find_local_photo(ath_key)
 
     # Display: local photo -> placeholder
     if local_photo and os.path.exists(local_photo):
-        st.image(local_photo, use_container_width=True, caption=ath_id)
+        st.image(local_photo, use_container_width=True, caption=ath_key)
     else:
         st.image(
-            "https://via.placeholder.com/200x250/2E86AB/FFFFFF?text=" + ath_id.replace("_", "+"),
+            "https://via.placeholder.com/200x250/2E86AB/FFFFFF?text=" + ath_key.replace("_", "+"),
             use_container_width=True,
-            caption=ath_id
+            caption=ath_key
         )
 
     # Upload under the image
@@ -48,7 +52,7 @@ def athlete_photo_block(selected_athlete: str):
         uploaded = st.file_uploader(
             "Choose a JPG/PNG",
             type=["jpg", "jpeg", "png"],
-            key=f"photo_uploader_{ath_id}"
+            key=f"photo_uploader_{ath_key}"
         )
 
         if uploaded is not None:
@@ -56,33 +60,26 @@ def athlete_photo_block(selected_athlete: str):
             if ext not in [".jpg", ".jpeg", ".png"]:
                 ext = ".jpg"
 
-            save_path = os.path.join(PHOTOS_DIR, f"{ath_id}{ext}")
+            save_path = os.path.join(PHOTOS_DIR, f"{ath_key}{ext}")
             with open(save_path, "wb") as f:
                 f.write(uploaded.getbuffer())
 
-            st.session_state.athlete_photo_paths[ath_id] = save_path
+            st.session_state.athlete_photo_paths[ath_key] = save_path
             st.success("Photo updated.")
             st.rerun()
 
+# ==============================================================================
+# EXISTING CODE (UNCHANGED)
+# ==============================================================================
 
 def create_radar_chart(athlete_data, athlete_name):
     """
     Create radar chart for athlete's multi-dimensional assessment
-    
-    Categories:
-    - Sleep Quality (0-100)
-    - Physical Readiness (0-100) - inverse of soreness
-    - Mental Wellness (0-100) - mood
-    - Training Load Balance (0-100) - ACWR optimization
-    - Neuromuscular Performance (0-100) - CMJ/RSI
     """
-    
-    # Calculate normalized scores (0-100)
     sleep_score = (athlete_data['sleep_hours'] / 8) * 100
     physical_score = ((10 - athlete_data['soreness']) / 10) * 100
     mental_score = (athlete_data['mood'] / 10) * 100
-    
-    # ACWR score (optimal = 100, decreases as you move away from 0.8-1.3)
+
     acwr = athlete_data.get('acwr', 1.0)
     if 0.8 <= acwr <= 1.3:
         load_score = 100
@@ -90,18 +87,16 @@ def create_radar_chart(athlete_data, athlete_name):
         load_score = max(0, 100 - ((0.8 - acwr) * 100))
     else:
         load_score = max(0, 100 - ((acwr - 1.3) * 50))
-    
-    # Neuromuscular score (normalized CMJ)
+
     cmj = athlete_data.get('cmj_height_cm', 30)
-    neuro_score = min(100, (cmj / 40) * 100)  # 40cm = elite
-    
-    categories = ['Sleep\nQuality', 'Physical\nReadiness', 'Mental\nWellness', 
+    neuro_score = min(100, (cmj / 40) * 100)
+
+    categories = ['Sleep\nQuality', 'Physical\nReadiness', 'Mental\nWellness',
                   'Load\nBalance', 'Neuromuscular']
     values = [sleep_score, physical_score, mental_score, load_score, neuro_score]
-    
-    # Create radar chart
+
     fig = go.Figure()
-    
+
     fig.add_trace(go.Scatterpolar(
         r=values,
         theta=categories,
@@ -110,7 +105,7 @@ def create_radar_chart(athlete_data, athlete_name):
         fillcolor='rgba(46, 134, 171, 0.3)',
         line=dict(color='rgb(46, 134, 171)', width=2)
     ))
-    
+
     fig.update_layout(
         polar=dict(
             radialaxis=dict(
@@ -124,28 +119,51 @@ def create_radar_chart(athlete_data, athlete_name):
         title=f"{athlete_name}'s Performance Profile",
         height=400
     )
-    
+
     return fig
 
 def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
     """
     Complete athlete profile tab with photo, radar chart, and metrics
     """
-    
+
     st.header("👤 Athlete Profiles")
     st.markdown("Select an athlete to view their complete performance profile")
-    
-    # Athlete selector
+
+    # Athlete selector (this returns a NAME)
     athlete_names = sorted(players['name'].tolist())
     selected_athlete = st.selectbox("Select Athlete", athlete_names)
-    
+
     if not selected_athlete:
         st.info("Please select an athlete to view their profile")
         return
-    
+
     # Get athlete data
     athlete_info = players[players['name'] == selected_athlete].iloc[0]
     athlete_id = athlete_info['player_id']
+
+    # ==============================================================================
+    # LAYOUT: Photo + Quick Stats  (THIS IS THE KEY INSERT)
+    # ==============================================================================
+
+    # Map player_id -> ath_001 convention for filenames
+    try:
+        # numeric ids like 1,2,3 -> ath_001
+        ath_key = f"ath_{int(athlete_id):03d}"
+    except Exception:
+        # ids like ATH_001 / ath_001 -> ath_001
+        ath_key = str(athlete_id).lower()
+
+    col1, col2, col3 = st.columns([1, 2, 2])
+
+    with col1:
+        st.markdown("### Profile")
+        athlete_photo_block(ath_key)  # <-- This makes photo + uploader appear
+
+        # Keep your existing basic info below
+        st.markdown(f"**Position:** {athlete_info.get('position', '')}")
+        st.markdown(f"**Age:** {athlete_info.get('age', '')}")
+        st.markdown(f"**Injury History:** {athlete_info.get('injury_history_count', 0)} previous")
     
     # Get latest data
     latest_date = wellness['date'].max()
