@@ -26,18 +26,22 @@ def _find_local_photo(ath_key: str):
 def athlete_photo_block(ath_key: str):
     """
     Display athlete photo with upload option.
-    Shows uploaded photo immediately (session_state), and attempts to save to disk.
+    Expects filename convention like: assets/photos/ath_001.jpg (or .png/.jpeg)
+
+    Improvements:
+    - Shows uploaded image immediately (stores bytes in session_state)
+    - Tries to save to disk, but still works if disk write is blocked (e.g., hosted)
     """
     os.makedirs(PHOTOS_DIR, exist_ok=True)
-    ath_key = str(ath_key).lower()
+    ath_key = str(ath_key).lower()  # enforce ath_001 convention
 
-    # session caches
-    if "athlete_photo_bytes" not in st.session_state:
-        st.session_state.athlete_photo_bytes = {}
+    # Session caches
     if "athlete_photo_paths" not in st.session_state:
         st.session_state.athlete_photo_paths = {}
+    if "athlete_photo_bytes" not in st.session_state:
+        st.session_state.athlete_photo_bytes = {}
 
-    # --- DISPLAY (top) ---
+    # Display priority: session bytes -> session path/local file -> placeholder
     if ath_key in st.session_state.athlete_photo_bytes:
         st.image(st.session_state.athlete_photo_bytes[ath_key], use_container_width=True, caption=ath_key)
     else:
@@ -51,8 +55,8 @@ def athlete_photo_block(ath_key: str):
                 caption=ath_key
             )
 
-    # --- UPLOAD (below) ---
-    with st.expander("Upload / update photo", expanded=True):
+    # Upload under the image
+    with st.expander("Upload / update photo"):
         uploaded = st.file_uploader(
             "Choose a JPG/PNG",
             type=["jpg", "jpeg", "png"],
@@ -60,17 +64,11 @@ def athlete_photo_block(ath_key: str):
         )
 
         if uploaded is not None:
-            # Debug + confirm upload happened
-            st.caption(f"Selected: {uploaded.name} ({uploaded.size} bytes)")
-
-            # Read bytes once and store in session so it shows immediately
+            # Store bytes in session so it shows immediately
             img_bytes = uploaded.getvalue()
             st.session_state.athlete_photo_bytes[ath_key] = img_bytes
 
-            # Show immediately (no rerun needed)
-            st.image(img_bytes, use_container_width=True, caption=f"{ath_key} (preview)")
-
-            # Try to persist to disk
+            # Try to persist to disk (may fail on some hosts)
             try:
                 _, ext = os.path.splitext(uploaded.name.lower())
                 if ext not in [".jpg", ".jpeg", ".png"]:
@@ -81,15 +79,11 @@ def athlete_photo_block(ath_key: str):
                     f.write(img_bytes)
 
                 st.session_state.athlete_photo_paths[ath_key] = save_path
-                st.success(f"Saved: {save_path}")
+                st.success("Photo updated and saved.")
             except Exception as e:
-                st.warning(f"Loaded for this session (could not save to disk): {e}")
+                st.warning(f"Photo loaded for this session (could not save to disk): {e}")
 
-        # Optional: clear for testing
-        if st.button("Clear photo (this session)", key=f"clear_photo_{ath_key}"):
-            st.session_state.athlete_photo_bytes.pop(ath_key, None)
-            st.session_state.athlete_photo_paths.pop(ath_key, None)
-            st.success("Cleared. Re-select/upload to test again.")
+           
 
 # ==============================================================================
 # EXISTING CODE
