@@ -174,7 +174,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
         
         st.markdown(
             f"""
-            <div style="background-color: {status_bg}; padding: 20px; border-radius: 10px; text-align: center;">
+            <div style="background-color: {status_bg}; padding: 10px; border-radius: 10px; text-align: center;">
                 <h1 style="margin: 0;">{status_color}</h1>
                 <h2 style="margin: 10px 0;">{status_text}</h2>
                 <h3 style="margin: 0;">Readiness: {readiness:.0f}/100</h3>

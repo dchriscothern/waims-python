@@ -40,21 +40,23 @@ def load_data():
     training_load = pd.read_sql_query("SELECT * FROM training_load", conn)
     force_plate = pd.read_sql_query("SELECT * FROM force_plate", conn)
     injuries = pd.read_sql_query("SELECT * FROM injuries", conn)
+    acwr = pd.read_sql_query("SELECT * FROM acwr", conn)  # ← ADD THIS LINE
     
     # Convert dates
     wellness['date'] = pd.to_datetime(wellness['date'])
     training_load['date'] = pd.to_datetime(training_load['date'])
     force_plate['date'] = pd.to_datetime(force_plate['date'])
+    acwr['date'] = pd.to_datetime(acwr['date'])  # ← ADD THIS LINE
     if len(injuries) > 0:
         injuries['injury_date'] = pd.to_datetime(injuries['injury_date'])
     
     conn.close()
     
-    return players, wellness, training_load, force_plate, injuries
+    return players, wellness, training_load, force_plate, injuries, acwr  # ← ADD acwr HERE
 
 # Load data
 try:
-    players, wellness, training_load, force_plate, injuries = load_data()
+    players, wellness, training_load, force_plate, injuries, acwr = load_data()
 except Exception as e:
     st.error(f"Error loading database: {e}")
     st.info("Make sure waims_demo.db is in the current directory")
