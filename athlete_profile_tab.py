@@ -14,6 +14,15 @@ import plotly.express as px
 # PHOTO HELPERS
 # ==============================================================================
 
+PHOTOS_DIR = "assets/photos"
+
+def _find_local_photo(ath_key: str):
+    for ext in (".jpg", ".jpeg", ".png"):
+        p = os.path.join(PHOTOS_DIR, f"{ath_key}{ext}")
+        if os.path.exists(p):
+            return p
+    return None
+
 def athlete_photo_block(ath_key: str):
     """
     Display athlete photo with upload option.
@@ -21,7 +30,7 @@ def athlete_photo_block(ath_key: str):
     """
     os.makedirs(PHOTOS_DIR, exist_ok=True)
 
-    ath_key = str(ath_key).lower()  # enforce ath_001 convention
+    ath_key = str(ath_key).lower()
 
     if "athlete_photo_paths" not in st.session_state:
         st.session_state.athlete_photo_paths = {}
@@ -38,38 +47,37 @@ def athlete_photo_block(ath_key: str):
             caption=ath_key
         )
 
-    # Upload under the image
-with st.expander("Upload / update photo"):
-    uploaded = st.file_uploader(
-        "Choose a JPG/PNG",
-        type=["jpg", "jpeg", "png"],
-        key=f"photo_uploader_{ath_key}"
-    )
+    # Upload under the image (MUST be indented inside this function)
+    with st.expander("Upload / update photo"):
+        uploaded = st.file_uploader(
+            "Choose a JPG/PNG",
+            type=["jpg", "jpeg", "png"],
+            key=f"photo_uploader_{ath_key}"
+        )
 
-    processed_key = f"photo_processed_{ath_key}"
+        processed_key = f"photo_processed_{ath_key}"
 
-    if uploaded is None:
-        # Reset guard when nothing selected
-        st.session_state[processed_key] = False
-    else:
-        # Only process once per selection (prevents infinite rerun loop)
-        if not st.session_state.get(processed_key, False):
-            _, ext = os.path.splitext(uploaded.name.lower())
-            if ext not in [".jpg", ".jpeg", ".png"]:
-                ext = ".jpg"
+        if uploaded is None:
+            st.session_state[processed_key] = False
+        else:
+            # process only once per selection (prevents loops)
+            if not st.session_state.get(processed_key, False):
+                _, ext = os.path.splitext(uploaded.name.lower())
+                if ext not in [".jpg", ".jpeg", ".png"]:
+                    ext = ".jpg"
 
-            save_path = os.path.join(PHOTOS_DIR, f"{ath_key}{ext}")
-            with open(save_path, "wb") as f:
-                f.write(uploaded.getbuffer())
+                save_path = os.path.join(PHOTOS_DIR, f"{ath_key}{ext}")
+                with open(save_path, "wb") as f:
+                    f.write(uploaded.getbuffer())
 
-            st.session_state.athlete_photo_paths[ath_key] = save_path
-            st.session_state[processed_key] = True
-            st.success("Photo updated.")
+                st.session_state.athlete_photo_paths[ath_key] = save_path
+                st.session_state[processed_key] = True
+                st.success("Photo updated.")
 
-        # Show the saved photo immediately
-        saved = st.session_state.athlete_photo_paths.get(ath_key)
-        if saved and os.path.exists(saved):
-            st.image(saved, use_container_width=True, caption=ath_key)
+            # show saved photo immediately
+            saved = st.session_state.athlete_photo_paths.get(ath_key)
+            if saved and os.path.exists(saved):
+                st.image(saved, use_container_width=True, caption=ath_key)
 
 # ==============================================================================
 # EXISTING CODE
