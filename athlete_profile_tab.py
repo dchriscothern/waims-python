@@ -39,14 +39,21 @@ def athlete_photo_block(ath_key: str):
         )
 
     # Upload under the image
-    with st.expander("Upload / update photo"):
-        uploaded = st.file_uploader(
-            "Choose a JPG/PNG",
-            type=["jpg", "jpeg", "png"],
-            key=f"photo_uploader_{ath_key}"
-        )
+with st.expander("Upload / update photo"):
+    uploaded = st.file_uploader(
+        "Choose a JPG/PNG",
+        type=["jpg", "jpeg", "png"],
+        key=f"photo_uploader_{ath_key}"
+    )
 
-        if uploaded is not None:
+    processed_key = f"photo_processed_{ath_key}"
+
+    if uploaded is None:
+        # Reset guard when nothing selected
+        st.session_state[processed_key] = False
+    else:
+        # Only process once per selection (prevents infinite rerun loop)
+        if not st.session_state.get(processed_key, False):
             _, ext = os.path.splitext(uploaded.name.lower())
             if ext not in [".jpg", ".jpeg", ".png"]:
                 ext = ".jpg"
@@ -56,8 +63,13 @@ def athlete_photo_block(ath_key: str):
                 f.write(uploaded.getbuffer())
 
             st.session_state.athlete_photo_paths[ath_key] = save_path
+            st.session_state[processed_key] = True
             st.success("Photo updated.")
-        
+
+        # Show the saved photo immediately
+        saved = st.session_state.athlete_photo_paths.get(ath_key)
+        if saved and os.path.exists(saved):
+            st.image(saved, use_container_width=True, caption=ath_key)
 
 # ==============================================================================
 # EXISTING CODE
