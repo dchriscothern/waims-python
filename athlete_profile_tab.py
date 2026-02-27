@@ -47,7 +47,7 @@ def athlete_photo_block(ath_key: str):
             caption=ath_key
         )
 
-    # Upload under the image (MUST be indented inside this function)
+    # Upload under the image (guarded)
     with st.expander("Upload / update photo"):
         uploaded = st.file_uploader(
             "Choose a JPG/PNG",
@@ -133,7 +133,7 @@ def create_radar_chart(athlete_data, athlete_name):
 
     return fig
 
-def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
+def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None):
     """
     Complete athlete profile tab with photo, radar chart, and metrics
     """
@@ -206,14 +206,10 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
     else:
         latest_cmj = None
         latest_rsi = None
-        
-    # Basic info
-    st.markdown(f"**Position:** {athlete_info['position']}")
-    st.markdown(f"**Age:** {athlete_info['age']}")
-    st.markdown(f"**Injury History:** {athlete_info['injury_history_count']} previous")
+
     with col2:
         st.markdown("### Today's Status")
-        
+
         # Calculate readiness score
         readiness = (
             (latest_wellness['sleep_hours'] / 8) * 30 +
@@ -221,7 +217,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
             ((10 - latest_wellness['stress']) / 10) * 25 +
             (latest_wellness['mood'] / 10) * 20
         )
-        
+
         # Status color
         if readiness >= 80:
             status_color = "🟢"
@@ -235,7 +231,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
             status_color = "🔴"
             status_text = "At Risk"
             status_bg = "#f8d7da"
-        
+
         st.markdown(
             f"""
             <div style="background-color: {status_bg}; padding: 10px; border-radius: 8px; text-align: center;">
@@ -246,29 +242,65 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
             """,
             unsafe_allow_html=True
         )
-        
+
+        # ------------------------------------------------------------------
+        # Training Plan Integration (added)
+        # ------------------------------------------------------------------
+        if readiness < 60:
+            st.warning("Recommend: 50% volume reduction")
+        elif readiness < 80:
+            st.info("Recommend: Monitor closely, normal training")
+        else:
+            st.success("Recommend: Full training cleared")
+
         st.markdown("---")
-        
+
+        # ------------------------------------------------------------------
+        # Comparison View (added): athlete vs team avg OR another athlete
+        # ------------------------------------------------------------------
+        athlete_sleep = float(latest_wellness["sleep_hours"])
+
+        compare_options = ["Team average"] + [n for n in players["name"].tolist() if n != selected_athlete]
+        compare_to = st.selectbox("Compare sleep vs", compare_options, index=0, key=f"sleep_compare_{athlete_id}")
+
+        if compare_to == "Team average":
+            baseline_sleep = float(wellness[wellness["date"] == latest_date]["sleep_hours"].mean())
+            baseline_label = "team"
+        else:
+            comp_id = players.loc[players["name"] == compare_to, "player_id"].iloc[0]
+            comp_row = wellness[(wellness["player_id"] == comp_id) & (wellness["date"] == latest_date)]
+            if len(comp_row) > 0:
+                baseline_sleep = float(comp_row.iloc[0]["sleep_hours"])
+                baseline_label = compare_to
+            else:
+                baseline_sleep = float(wellness[wellness["date"] == latest_date]["sleep_hours"].mean())
+                baseline_label = "team"
+
+        delta_sleep = athlete_sleep - baseline_sleep
+
         # Key metrics in compact cards
         metric_col1, metric_col2 = st.columns(2)
-        
+
         with metric_col1:
-            st.metric("💤 Sleep", f"{latest_wellness['sleep_hours']:.1f} hrs",
-                     delta=f"Target: 8.0 hrs",
-                     delta_color="inverse" if latest_wellness['sleep_hours'] < 7 else "normal")
+            st.metric(
+                "💤 Sleep",
+                f"{athlete_sleep:.1f} hrs",
+                delta=f"{delta_sleep:+.1f} vs {baseline_label}",
+                delta_color="inverse" if delta_sleep < 0 else "normal"
+            )
             st.metric("😫 Soreness", f"{latest_wellness['soreness']:.0f}/10",
                      delta=f"Threshold: 7",
                      delta_color="inverse" if latest_wellness['soreness'] > 7 else "normal")
-        
+
         with metric_col2:
             st.metric("😊 Mood", f"{latest_wellness['mood']:.0f}/10")
             st.metric("😰 Stress", f"{latest_wellness['stress']:.0f}/10",
                      delta=f"Threshold: 7",
                      delta_color="inverse" if latest_wellness['stress'] > 7 else "normal")
-    
+
     with col3:
         st.markdown("### Performance Profile")
-        
+
         # Prepare data for radar chart
         radar_data = {
             'sleep_hours': latest_wellness['sleep_hours'],
@@ -278,20 +310,20 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
             'acwr': latest_acwr,
             'cmj_height_cm': latest_cmj if latest_cmj else 30
         }
-        
+
         # Create and display radar chart
         fig = create_radar_chart(radar_data, selected_athlete)
         st.plotly_chart(fig, use_container_width=True)
-    
+
     # ==================================================================
     # WORKLOAD SECTION
     # ==================================================================
-    
+
     st.markdown("---")
     st.markdown("### 📊 Workload Management")
-    
+
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         # ACWR status
         if latest_acwr > 1.5:
@@ -306,7 +338,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
         else:
             acwr_status = "🟢 Optimal"
             acwr_color = "#d4edda"
-        
+
         st.markdown(
             f"""
             <div style="background-color: {acwr_color}; padding: 15px; border-radius: 8px;">
@@ -317,21 +349,21 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
             """,
             unsafe_allow_html=True
         )
-    
+
     with col2:
         # Recent training load
         recent_load = training_load[
             (training_load['player_id'] == athlete_id) &
             (training_load['date'] == latest_date)
         ]
-        
+
         if len(recent_load) > 0:
             load = recent_load.iloc[0]['total_daily_load']
             st.metric("Total Daily Load", f"{load:.0f} AU",
                      help="Arbitrary Units based on duration × RPE")
         else:
             st.metric("Total Daily Load", "N/A")
-    
+
     with col3:
         # Neuromuscular readiness
         if latest_cmj and latest_rsi:
@@ -341,14 +373,14 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
                      delta_color="normal" if latest_rsi >= 0.35 else "inverse")
         else:
             st.info("No recent force plate data")
-    
+
     # ==================================================================
     # TRENDS SECTION
     # ==================================================================
-    
+
     st.markdown("---")
     st.markdown("### 📈 7-Day Trends")
-    
+
     # Get last 7 days of data
     week_ago = latest_date - timedelta(days=7)
     weekly_wellness = wellness[
@@ -356,10 +388,10 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
         (wellness['date'] >= week_ago) &
         (wellness['date'] <= latest_date)
     ].sort_values('date')
-    
+
     if len(weekly_wellness) > 0:
         tab1, tab2, tab3 = st.tabs(["Sleep & Recovery", "Wellness", "Load"])
-        
+
         with tab1:
             fig = go.Figure()
             fig.add_trace(go.Scatter(
@@ -369,9 +401,9 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
                 name='Sleep Hours',
                 line=dict(color='#2E86AB', width=3)
             ))
-            fig.add_hline(y=7, line_dash="dash", line_color="orange", 
+            fig.add_hline(y=7, line_dash="dash", line_color="orange",
                          annotation_text="7 hrs (minimum)")
-            fig.add_hline(y=8, line_dash="dash", line_color="green", 
+            fig.add_hline(y=8, line_dash="dash", line_color="green",
                          annotation_text="8 hrs (target)")
             fig.update_layout(
                 title=f"{selected_athlete} - Sleep Pattern",
@@ -380,7 +412,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
                 height=300
             )
             st.plotly_chart(fig, use_container_width=True)
-            
+
             # Soreness
             fig2 = go.Figure()
             fig2.add_trace(go.Scatter(
@@ -401,7 +433,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
                 height=300
             )
             st.plotly_chart(fig2, use_container_width=True)
-        
+
         with tab2:
             # Mood and stress
             fig = go.Figure()
@@ -426,7 +458,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
                 height=400
             )
             st.plotly_chart(fig, use_container_width=True)
-        
+
         with tab3:
             # ACWR trend
             weekly_acwr = acwr[
@@ -434,7 +466,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
                 (acwr['date'] >= week_ago) &
                 (acwr['date'] <= latest_date)
             ].sort_values('date')
-            
+
             if len(weekly_acwr) > 0:
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
@@ -459,70 +491,115 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
                 st.info("No ACWR data for this period")
     else:
         st.warning("Insufficient data for 7-day trends")
-    
+
+    # ==================================================================
+    # INJURY TIMELINE (added)
+    # ==================================================================
+
+    st.markdown("---")
+    st.markdown("### 🗓 Injury Timeline")
+
+    if injuries is None or len(injuries) == 0:
+        st.info("No injury data available.")
+    else:
+        athlete_injuries = injuries[injuries["player_id"] == athlete_id].copy()
+
+        if len(athlete_injuries) == 0:
+            st.success("✅ No injuries recorded for this athlete.")
+        else:
+            if "injury_date" in athlete_injuries.columns:
+                athlete_injuries["injury_date"] = pd.to_datetime(athlete_injuries["injury_date"])
+            else:
+                st.warning("Injury table is missing 'injury_date'.")
+                athlete_injuries = pd.DataFrame()
+
+            if len(athlete_injuries) > 0:
+                if "return_date" not in athlete_injuries.columns:
+                    if "days_missed" in athlete_injuries.columns:
+                        athlete_injuries["return_date"] = athlete_injuries["injury_date"] + pd.to_timedelta(
+                            athlete_injuries["days_missed"].fillna(0).astype(int), unit="D"
+                        )
+                    else:
+                        athlete_injuries["return_date"] = athlete_injuries["injury_date"]
+
+                athlete_injuries["return_date"] = pd.to_datetime(athlete_injuries["return_date"])
+
+                if "injury_type" in athlete_injuries.columns:
+                    fig = px.timeline(
+                        athlete_injuries,
+                        x_start="injury_date",
+                        x_end="return_date",
+                        y="injury_type"
+                    )
+                    fig.update_yaxes(autorange="reversed")
+                    fig.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10))
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Injury table is missing 'injury_type'.")
+
     # ==================================================================
     # ALERTS & RECOMMENDATIONS
     # ==================================================================
-    
+
     st.markdown("---")
     st.markdown("### ⚠️ Alerts & Recommendations")
-    
+
     alerts = []
     recommendations = []
-    
+
     # Check for risk factors
     if latest_wellness['sleep_hours'] < 6.5:
         alerts.append("🌙 **Poor Sleep** - Below injury risk threshold (6.5 hrs)")
         recommendations.append("Consult with Player around sleep")
-    
+
     if latest_wellness['soreness'] > 7:
         alerts.append("😫 **High Soreness** - Elevated muscle fatigue")
         recommendations.append("Focus on recovery modalities (massage, cold therapy)")
-    
+
     if latest_wellness['stress'] > 7:
         alerts.append("😰 **High Stress** - Elevated psychological load")
         recommendations.append("Consider mental health check-in or stress management")
-    
+
     if latest_acwr > 1.5:
         alerts.append("📊 **High ACWR** - Spike in training load")
         recommendations.append("Reduce training volume or intensity by 20-30%")
     elif latest_acwr < 0.8:
         alerts.append("📊 **Low ACWR** - Possible detraining")
         recommendations.append("Gradually increase training load if cleared medically")
-    
+
     if latest_rsi and latest_rsi < 0.30:
         alerts.append("💪 **Low Neuromuscular Performance** - CMJ/RSI below baseline")
         recommendations.append("Check for fatigue, consider additional recovery time")
-    
+
     if athlete_info['injury_history_count'] > 2:
         alerts.append(f"🏥 **Injury History** - {athlete_info['injury_history_count']} previous injuries")
         recommendations.append("Monitor closely for re-injury risk factors")
-    
+
     # Display alerts
     if alerts:
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.markdown("**Current Alerts:**")
             for alert in alerts:
                 st.warning(alert)
-        
+
         with col2:
             st.markdown("**Recommendations:**")
             for rec in recommendations:
                 st.info(f"💡 {rec}")
     else:
         st.success("✅ No current alerts - athlete is in good standing!")
-    
+
     # Research references
     with st.expander("📚 Research References"):
         st.markdown("""
         **Thresholds used in this profile:**
-        
+
         - **Sleep:** <6.5 hours = 1.7x injury risk (Milewski et al. 2014)
         - **ACWR:** >1.5 = 2.4x injury risk (Gabbett 2016)
         - **Soreness:** >7 requires monitoring (Hulin et al. 2016)
         - **RSI-Modified:** <0.30 indicates reduced neuromuscular function
-        
+
         All metrics are based on peer-reviewed sports science research.
         """)
