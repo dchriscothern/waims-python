@@ -135,13 +135,62 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
     with col1:
         st.markdown("### Profile")
         
-        # Placeholder photo (you can replace with actual image URLs later)
-        st.image(
-            "https://via.placeholder.com/200x250/2E86AB/FFFFFF?text=" + selected_athlete.replace("_", "+"),
-            use_container_width=True,
-            caption=selected_athlete
-        )
-        
+import os
+import streamlit as st
+
+photos_dir = "assets/photos"
+os.makedirs(photos_dir, exist_ok=True)
+
+# Normalize to your filename convention: ath_001
+ath_id = str(selected_athlete).lower()
+
+# Find an existing local photo with any common extension
+def find_local_photo(ath_id: str) -> str | None:
+    for ext in (".jpg", ".jpeg", ".png"):
+        p = os.path.join(photos_dir, f"{ath_id}{ext}")
+        if os.path.exists(p):
+            return p
+    return None
+
+# Session cache for immediate display
+if "athlete_photo_paths" not in st.session_state:
+    st.session_state.athlete_photo_paths = {}
+
+# 1) Display: session override -> local file -> placeholder
+local_photo = st.session_state.athlete_photo_paths.get(ath_id) or find_local_photo(ath_id)
+
+if local_photo and os.path.exists(local_photo):
+    st.image(local_photo, use_container_width=True, caption=ath_id)
+else:
+    st.image(
+        "https://via.placeholder.com/200x250/2E86AB/FFFFFF?text=" + ath_id.replace("_", "+"),
+        use_container_width=True,
+        caption=ath_id
+    )
+
+# 2) Upload right under the image
+with st.expander("Upload / update photo"):
+    uploaded = st.file_uploader(
+        "Choose a JPG/PNG",
+        type=["jpg", "jpeg", "png"],
+        key=f"photo_uploader_{ath_id}"
+    )
+
+    if uploaded is not None:
+        # Save using the uploaded file extension (no fake .jpg)
+        _, ext = os.path.splitext(uploaded.name.lower())
+        if ext not in [".jpg", ".jpeg", ".png"]:
+            ext = ".jpg"
+
+        save_path = os.path.join(photos_dir, f"{ath_id}{ext}")
+        with open(save_path, "wb") as f:
+            f.write(uploaded.getbuffer())
+
+        # Store path for immediate display
+        st.session_state.athlete_photo_paths[ath_id] = save_path
+
+        st.success(f"Photo saved: {save_path}")
+        st.rerun()    
         # Basic info
         st.markdown(f"**Position:** {athlete_info['position']}")
         st.markdown(f"**Age:** {athlete_info['age']}")
@@ -409,7 +458,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
     # Check for risk factors
     if latest_wellness['sleep_hours'] < 6.5:
         alerts.append("🌙 **Poor Sleep** - Below injury risk threshold (6.5 hrs)")
-        recommendations.append("Consider rest day or modified training")
+        recommendations.append("Consult with Player around sleep")
     
     if latest_wellness['soreness'] > 7:
         alerts.append("😫 **High Soreness** - Elevated muscle fatigue")
