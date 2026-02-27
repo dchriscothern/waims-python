@@ -9,6 +9,62 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
 
+
+import os
+import streamlit as st
+
+PHOTOS_DIR = "assets/photos"
+
+def _find_local_photo(ath_id: str):
+    for ext in (".jpg", ".jpeg", ".png"):
+        p = os.path.join(PHOTOS_DIR, f"{ath_id}{ext}")
+        if os.path.exists(p):
+            return p
+    return None
+
+def athlete_photo_block(selected_athlete: str):
+    """Display athlete photo with upload option. Uses filename convention ath_001(.jpg/.png)."""
+    os.makedirs(PHOTOS_DIR, exist_ok=True)
+
+    ath_id = str(selected_athlete).lower()  # ath_001 convention
+
+    if "athlete_photo_paths" not in st.session_state:
+        st.session_state.athlete_photo_paths = {}
+
+    local_photo = st.session_state.athlete_photo_paths.get(ath_id) or _find_local_photo(ath_id)
+
+    # Display: local photo -> placeholder
+    if local_photo and os.path.exists(local_photo):
+        st.image(local_photo, use_container_width=True, caption=ath_id)
+    else:
+        st.image(
+            "https://via.placeholder.com/200x250/2E86AB/FFFFFF?text=" + ath_id.replace("_", "+"),
+            use_container_width=True,
+            caption=ath_id
+        )
+
+    # Upload under the image
+    with st.expander("Upload / update photo"):
+        uploaded = st.file_uploader(
+            "Choose a JPG/PNG",
+            type=["jpg", "jpeg", "png"],
+            key=f"photo_uploader_{ath_id}"
+        )
+
+        if uploaded is not None:
+            _, ext = os.path.splitext(uploaded.name.lower())
+            if ext not in [".jpg", ".jpeg", ".png"]:
+                ext = ".jpg"
+
+            save_path = os.path.join(PHOTOS_DIR, f"{ath_id}{ext}")
+            with open(save_path, "wb") as f:
+                f.write(uploaded.getbuffer())
+
+            st.session_state.athlete_photo_paths[ath_id] = save_path
+            st.success("Photo updated.")
+            st.rerun()
+
+
 def create_radar_chart(athlete_data, athlete_name):
     """
     Create radar chart for athlete's multi-dimensional assessment
@@ -127,75 +183,20 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
         latest_rsi = None
     
     # ==================================================================
-    # LAYOUT: Photo + Quick Stats
-    # ==================================================================
-    
-    col1, col2, col3 = st.columns([1, 2, 2])
-    
-    with col1:
-        st.markdown("### Profile")
-        
-import os
-import streamlit as st
+# LAYOUT: Photo + Quick Stats
+# ==================================================================
 
-photos_dir = "assets/photos"
-os.makedirs(photos_dir, exist_ok=True)
+col1, col2, col3 = st.columns([1, 2, 2])
 
-# Normalize to your filename convention: ath_001
-ath_id = str(selected_athlete).lower()
+with col1:
+    st.markdown("### Profile")
 
-# Find an existing local photo with any common extension
-def find_local_photo(ath_id: str) -> str | None:
-    for ext in (".jpg", ".jpeg", ".png"):
-        p = os.path.join(photos_dir, f"{ath_id}{ext}")
-        if os.path.exists(p):
-            return p
-    return None
+    athlete_photo_block(selected_athlete)   # <-- this replaces the entire old block
 
-# Session cache for immediate display
-if "athlete_photo_paths" not in st.session_state:
-    st.session_state.athlete_photo_paths = {}
-
-# 1) Display: session override -> local file -> placeholder
-local_photo = st.session_state.athlete_photo_paths.get(ath_id) or find_local_photo(ath_id)
-
-if local_photo and os.path.exists(local_photo):
-    st.image(local_photo, use_container_width=True, caption=ath_id)
-else:
-    st.image(
-        "https://via.placeholder.com/200x250/2E86AB/FFFFFF?text=" + ath_id.replace("_", "+"),
-        use_container_width=True,
-        caption=ath_id
-    )
-
-# 2) Upload right under the image
-with st.expander("Upload / update photo"):
-    uploaded = st.file_uploader(
-        "Choose a JPG/PNG",
-        type=["jpg", "jpeg", "png"],
-        key=f"photo_uploader_{ath_id}"
-    )
-
-    if uploaded is not None:
-        # Save using the uploaded file extension (no fake .jpg)
-        _, ext = os.path.splitext(uploaded.name.lower())
-        if ext not in [".jpg", ".jpeg", ".png"]:
-            ext = ".jpg"
-
-        save_path = os.path.join(photos_dir, f"{ath_id}{ext}")
-        with open(save_path, "wb") as f:
-            f.write(uploaded.getbuffer())
-
-        # Store path for immediate display
-        st.session_state.athlete_photo_paths[ath_id] = save_path
-
-        st.success(f"Photo saved: {save_path}")
-        st.rerun()    
-        # Basic info
-        st.markdown(f"**Position:** {athlete_info['position']}")
-        st.markdown(f"**Age:** {athlete_info['age']}")
-        st.markdown(f"**Injury History:** {athlete_info['injury_history_count']} previous")
-    
+    # Basic info
+    st.markdown(f"**Position:** {athlete_info['position']}")
+    st.markdown(f"**Age:** {athlete_info['age']}")
+    st.markdown(f"**Injury History:** {athlete_info['injury_history_count']} previous")
     with col2:
         st.markdown("### Today's Status")
         
