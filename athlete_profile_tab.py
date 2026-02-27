@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 # ==============================================================================
-# PHOTO HELPERS (ADD THIS ONCE, TOP OF FILE)
+# PHOTO HELPERS
 # ==============================================================================
 
 PHOTOS_DIR = "assets/photos"
@@ -69,7 +69,7 @@ def athlete_photo_block(ath_key: str):
             st.rerun()
 
 # ==============================================================================
-# EXISTING CODE (UNCHANGED)
+# EXISTING CODE
 # ==============================================================================
 
 def create_radar_chart(athlete_data, athlete_name):
@@ -142,55 +142,51 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
     athlete_info = players[players['name'] == selected_athlete].iloc[0]
     athlete_id = athlete_info['player_id']
 
-    # ==============================================================================
-    # LAYOUT: Photo + Quick Stats  (THIS IS THE KEY INSERT)
-    # ==============================================================================
-
     # Map player_id -> ath_001 convention for filenames
     try:
-        # numeric ids like 1,2,3 -> ath_001
         ath_key = f"ath_{int(athlete_id):03d}"
     except Exception:
-        # ids like ATH_001 / ath_001 -> ath_001
         ath_key = str(athlete_id).lower()
 
+    # ==================================================================
+    # LAYOUT: Photo + Quick Stats  (INSIDE THE FUNCTION)
+    # ==================================================================
     col1, col2, col3 = st.columns([1, 2, 2])
 
     with col1:
         st.markdown("### Profile")
-        athlete_photo_block(ath_key)  # <-- This makes photo + uploader appear
+        athlete_photo_block(ath_key)  # ✅ correct: uses ath_001 key, runs at runtime
 
-        # Keep your existing basic info below
         st.markdown(f"**Position:** {athlete_info.get('position', '')}")
         st.markdown(f"**Age:** {athlete_info.get('age', '')}")
         st.markdown(f"**Injury History:** {athlete_info.get('injury_history_count', 0)} previous")
-    
+
     # Get latest data
     latest_date = wellness['date'].max()
     latest_wellness = wellness[
-        (wellness['player_id'] == athlete_id) & 
+        (wellness['player_id'] == athlete_id) &
         (wellness['date'] == latest_date)
     ]
-    
+
     if len(latest_wellness) == 0:
         st.warning(f"No recent data for {selected_athlete}")
         return
-    
+
     latest_wellness = latest_wellness.iloc[0]
-    
+
     # Get ACWR data
     latest_acwr = acwr[
-        (acwr['player_id'] == athlete_id) & 
+        (acwr['player_id'] == athlete_id) &
         (acwr['date'] == latest_date)
     ]
     if len(latest_acwr) > 0:
         latest_acwr = latest_acwr.iloc[0]['acwr']
     else:
         latest_acwr = 1.0
-    
+
     # Get force plate data
     latest_force = force_plate[
-        (force_plate['player_id'] == athlete_id) & 
+        (force_plate['player_id'] == athlete_id) &
         (force_plate['date'] == latest_date)
     ]
     if len(latest_force) > 0:
@@ -199,18 +195,6 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
     else:
         latest_cmj = None
         latest_rsi = None
-    
-    # ==================================================================
-# LAYOUT: Photo + Quick Stats
-# ==================================================================
-
-col1, col2, col3 = st.columns([1, 2, 2])
-
-with col1:
-    st.markdown("### Profile")
-
-    athlete_photo_block(selected_athlete)   # <-- this replaces the entire old block
-
     # Basic info
     st.markdown(f"**Position:** {athlete_info['position']}")
     st.markdown(f"**Age:** {athlete_info['age']}")
