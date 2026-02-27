@@ -12,6 +12,7 @@ import sqlite3
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 
 # ==============================================================================
 # PAGE CONFIG
@@ -270,8 +271,9 @@ st.markdown(f"**Date:** {end_date.strftime('%B %d, %Y')}")
 # TABS - NOW WITH TAB 6!
 # ==============================================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📊 Today's Readiness", 
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "📊 Today's Readiness",
+    "👤 Athlete Profiles",
     "📈 Trends", 
     "💪 Jump Testing", 
     "🚨 Availability & Injuries", 
@@ -343,10 +345,14 @@ with tab1:
         st.info("No data available for selected date")
 
 # ==============================================================================
-# TAB 2: TRENDS
+# TAB 2: Player profile
 # ==============================================================================
 
 with tab2:
+    athlete_profile_tab(wellness, training_load, acwr, force_plate, players)
+    
+    
+with tab3:
     st.header("Wellness Trends")
     
     if selected_players:
@@ -418,10 +424,10 @@ with tab2:
         st.info("Please select at least one player from the sidebar")
 
 # ==============================================================================
-# TAB 3: FORCE PLATE
+# TAB 4: FORCE PLATE
 # ==============================================================================
 
-with tab3:
+with tab4:
     st.header("Force Plate Testing")
     
     if selected_players and len(force_plate) > 0:
@@ -475,10 +481,10 @@ with tab3:
         st.info("No force plate data available or no players selected")
 
 # ==============================================================================
-# TAB 4: INJURIES
+# TAB 5: INJURIES
 # ==============================================================================
 
-with tab4:
+with tab5:
     st.header("Injury Tracking")
     
     if len(injuries) > 0:
@@ -529,10 +535,10 @@ with tab4:
         st.success("✅ No injuries recorded")
 
 # ==============================================================================
-# TAB 5: FORECAST
+# TAB 6: FORECAST
 # ==============================================================================
 
-with tab5:
+with tab6:
     st.header("🔮 Readiness Forecasts")
     st.caption("Quick look at who may need attention soon, based on recent trends.")
 
@@ -639,10 +645,10 @@ with tab5:
             st.code("python train_models.py", language="bash")
 
 # ==============================================================================
-# TAB 6: Ask the Watchlist
+# TAB 7: Ask the Watchlist
 # ==============================================================================
 
-with tab6:
+with tab7:
     st.header("🔍 Ask the Watchlist")
     st.markdown("Ask questions about your players - **instant answers!**")
     
