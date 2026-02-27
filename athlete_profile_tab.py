@@ -27,25 +27,33 @@ def athlete_photo_block(ath_key: str):
     """
     Display athlete photo with upload option.
     Expects filename convention like: assets/photos/ath_001.jpg (or .png/.jpeg)
+
+    Improvements:
+    - Shows uploaded image immediately (stores bytes in session_state)
+    - Tries to save to disk, but still works if disk write is blocked (e.g., hosted)
     """
     os.makedirs(PHOTOS_DIR, exist_ok=True)
-
     ath_key = str(ath_key).lower()  # enforce ath_001 convention
 
+    # Session caches
     if "athlete_photo_paths" not in st.session_state:
         st.session_state.athlete_photo_paths = {}
+    if "athlete_photo_bytes" not in st.session_state:
+        st.session_state.athlete_photo_bytes = {}
 
-    local_photo = st.session_state.athlete_photo_paths.get(ath_key) or _find_local_photo(ath_key)
-
-    # Display: local photo -> placeholder
-    if local_photo and os.path.exists(local_photo):
-        st.image(local_photo, use_container_width=True, caption=ath_key)
+    # Display priority: session bytes -> session path/local file -> placeholder
+    if ath_key in st.session_state.athlete_photo_bytes:
+        st.image(st.session_state.athlete_photo_bytes[ath_key], use_container_width=True, caption=ath_key)
     else:
-        st.image(
-            "https://via.placeholder.com/200x250/2E86AB/FFFFFF?text=" + ath_key.replace("_", "+"),
-            use_container_width=True,
-            caption=ath_key
-        )
+        local_photo = st.session_state.athlete_photo_paths.get(ath_key) or _find_local_photo(ath_key)
+        if local_photo and os.path.exists(local_photo):
+            st.image(local_photo, use_container_width=True, caption=ath_key)
+        else:
+            st.image(
+                "https://via.placeholder.com/200x250/2E86AB/FFFFFF?text=" + ath_key.replace("_", "+"),
+                use_container_width=True,
+                caption=ath_key
+            )
 
     # Upload under the image
     with st.expander("Upload / update photo"):
@@ -56,16 +64,25 @@ def athlete_photo_block(ath_key: str):
         )
 
         if uploaded is not None:
-            _, ext = os.path.splitext(uploaded.name.lower())
-            if ext not in [".jpg", ".jpeg", ".png"]:
-                ext = ".jpg"
+            # Store bytes in session so it shows immediately
+            img_bytes = uploaded.getvalue()
+            st.session_state.athlete_photo_bytes[ath_key] = img_bytes
 
-            save_path = os.path.join(PHOTOS_DIR, f"{ath_key}{ext}")
-            with open(save_path, "wb") as f:
-                f.write(uploaded.getbuffer())
+            # Try to persist to disk (may fail on some hosts)
+            try:
+                _, ext = os.path.splitext(uploaded.name.lower())
+                if ext not in [".jpg", ".jpeg", ".png"]:
+                    ext = ".jpg"
 
-            st.session_state.athlete_photo_paths[ath_key] = save_path
-            st.success("Photo updated.")
+                save_path = os.path.join(PHOTOS_DIR, f"{ath_key}{ext}")
+                with open(save_path, "wb") as f:
+                    f.write(img_bytes)
+
+                st.session_state.athlete_photo_paths[ath_key] = save_path
+                st.success("Photo updated and saved.")
+            except Exception as e:
+                st.warning(f"Photo loaded for this session (could not save to disk): {e}")
+
             st.rerun()
 
 # ==============================================================================
@@ -155,7 +172,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
 
     with col1:
         st.markdown("### Profile")
-        athlete_photo_block(ath_key)  # ✅ correct: uses ath_001 key, runs at runtime
+        athlete_photo_block(ath_key)
 
         st.markdown(f"**Position:** {athlete_info.get('position', '')}")
         st.markdown(f"**Age:** {athlete_info.get('age', '')}")
@@ -195,6 +212,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players):
     else:
         latest_cmj = None
         latest_rsi = None
+        
     # Basic info
     st.markdown(f"**Position:** {athlete_info['position']}")
     st.markdown(f"**Age:** {athlete_info['age']}")
