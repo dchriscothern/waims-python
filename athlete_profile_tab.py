@@ -153,11 +153,13 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     athlete_info = players[players['name'] == selected_athlete].iloc[0]
     athlete_id = athlete_info['player_id']
 
-    # Map player_id -> ath_001 convention for filenames
-    try:
-        ath_key = f"ath_{int(athlete_id):03d}"
-    except Exception:
-        ath_key = str(athlete_id).lower()
+   # Make a reliable ath_key (ath_001 convention) even if player_id is "1", 1.0, "001", etc.
+pid_num = pd.to_numeric(athlete_id, errors="coerce")
+if pd.notnull(pid_num):
+    ath_key = f"ath_{int(pid_num):03d}"
+else:
+    # fallback: use the raw id string (still unique if ids are unique)
+    ath_key = str(athlete_id).strip().lower()
 
     # ==================================================================
     # LAYOUT: Photo + Quick Stats  (INSIDE THE FUNCTION)
