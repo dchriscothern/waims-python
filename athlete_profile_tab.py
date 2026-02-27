@@ -57,7 +57,7 @@ def athlete_photo_block(ath_key: str):
 
             st.session_state.athlete_photo_paths[ath_key] = save_path
             st.success("Photo updated.")
-            st.rerun()
+        
 
 # ==============================================================================
 # EXISTING CODE
