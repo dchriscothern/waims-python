@@ -351,7 +351,7 @@ with tab1:
 # ==============================================================================
 
 with tab2:
-    athlete_profile_tab(wellness, training_load, acwr, force_plate, players)
+    athlete_profile_tab(wellness, training_load, acwr, force_plate, players,injuries)
     
     
 with tab3:
