@@ -20,11 +20,21 @@ from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 
 st.set_page_config(
     page_title="WAIMS Readiness Watchlist",
-    page_icon=LOGO_URL,   # uses the same logo
+    page_icon=Image.open(LOGO_PATH),
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+import os
+from PIL import Image
+import streamlit as st
+
+LOGO_PATH = os.path.join("assets", "branding", "waims_run_man_logo.png")
+
+if os.path.exists(LOGO_PATH):
+    st.sidebar.image(Image.open(LOGO_PATH), width=120)  # adjust 90–150
+else:
+    st.sidebar.warning(f"Logo not found: {LOGO_PATH}")
 # ==============================================================================
 # LOAD DATA
 # ==============================================================================
