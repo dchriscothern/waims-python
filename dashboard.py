@@ -25,29 +25,27 @@ from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 from pathlib import Path
 import streamlit as st
 
-# Resolve logo path relative to THIS file (works locally + Streamlit Cloud)
 HERE = Path(__file__).resolve().parent
-LOGO_PATH = HERE / "assets" / "branding" / "waims_run_man_logo.png"
+LOGO1 = HERE / "assets" / "branding" / "waims_run_man_logo.png"
+LOGO2 = HERE.parent / "assets" / "branding" / "waims_run_man_logo.png"
 
-# If dashboard.py is in a subfolder, try one level up
-if not LOGO_PATH.exists():
-    LOGO_PATH = HERE.parent / "assets" / "branding" / "waims_run_man_logo.png"
+st.sidebar.caption(f"__file__: {Path(__file__).resolve()}")
+st.sidebar.caption(f"CWD: {Path.cwd()}")
+st.sidebar.caption(f"LOGO1: {LOGO1} exists={LOGO1.exists()}")
+st.sidebar.caption(f"LOGO2: {LOGO2} exists={LOGO2.exists()}")
 
-# --- DEBUG (shows in sidebar so we stop guessing) ---
-st.sidebar.caption(f"Logo path: {LOGO_PATH}")
-st.sidebar.caption(f"Exists: {LOGO_PATH.exists()}")
+# Show listing if folder exists
+for d in [LOGO1.parent, LOGO2.parent]:
+    if d.exists():
+        st.sidebar.caption(f"Files in {d}:")
+        st.sidebar.write([p.name for p in d.glob("*")])
 
-# List files if folder exists
-branding_dir = LOGO_PATH.parent
-if branding_dir.exists():
-    st.sidebar.caption("Branding files:")
-    st.sidebar.write([p.name for p in branding_dir.glob("*")])
-
-# --- Render logo (no PIL needed) ---
-if LOGO_PATH.exists():
-    st.sidebar.image(str(LOGO_PATH), width=120)
+# Render whichever exists
+logo_path = LOGO1 if LOGO1.exists() else (LOGO2 if LOGO2.exists() else None)
+if logo_path:
+    st.sidebar.image(str(logo_path), width=120)
 else:
-    st.sidebar.error("Logo not found in runtime environment.")
+    st.sidebar.error("Logo not found in runtime.")
 
 st.sidebar.markdown("---")
 
