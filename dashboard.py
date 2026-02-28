@@ -25,16 +25,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-import os
-from PIL import Image
+from pathlib import Path
 import streamlit as st
 
-LOGO_PATH = os.path.join("assets", "branding", "waims_run_man_logo.png")
+def find_repo_root(start: Path) -> Path:
+    # Walk up until we find an "assets" folder
+    for p in [start] + list(start.parents):
+        if (p / "assets").exists():
+            return p
+    return start
 
-if os.path.exists(LOGO_PATH):
-    st.sidebar.image(Image.open(LOGO_PATH), width=120)  # try 100–150
+ROOT = find_repo_root(Path(__file__).resolve().parent)
+LOGO_PATH = ROOT / "assets" / "branding" / "waims_run_man_logo.png"
+
+# --- Sidebar logo (small) ---
+if LOGO_PATH.exists():
+    st.sidebar.image(str(LOGO_PATH), width=120)  # try 90–160
 else:
-    st.sidebar.warning(f"Logo not found: {LOGO_PATH}")
+    st.sidebar.error("Logo not found.")
+    st.sidebar.write("Expected:", str(LOGO_PATH))
+    st.sidebar.write("CWD:", str(Path.cwd()))
+    branding_dir = ROOT / "assets" / "branding"
+    st.sidebar.write("Branding dir exists:", branding_dir.exists())
+    if branding_dir.exists():
+        st.sidebar.write("Branding files:", [p.name for p in branding_dir.iterdir()])
 
 st.sidebar.markdown("---")
 
