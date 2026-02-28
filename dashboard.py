@@ -18,18 +18,14 @@ from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 # PAGE CONFIG
 # ==============================================================================
 
-st.set_page_config(
-    page_title="WAIMS Readiness Watchlist",
-    page_icon=Image.open(LOGO_PATH),
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# ==============================================================================
+# PAGE CONFIG + BRANDING (MUST COME BEFORE ANY OTHER st.* CALLS)
+# ==============================================================================
 
 from pathlib import Path
-import streamlit as st
+from PIL import Image
 
 def find_repo_root(start: Path) -> Path:
-    # Walk up until we find an "assets" folder
     for p in [start] + list(start.parents):
         if (p / "assets").exists():
             return p
@@ -38,17 +34,19 @@ def find_repo_root(start: Path) -> Path:
 ROOT = find_repo_root(Path(__file__).resolve().parent)
 LOGO_PATH = ROOT / "assets" / "branding" / "waims_run_man_logo.png"
 
-# --- Sidebar logo (small) ---
+# Page config must be first Streamlit call
+st.set_page_config(
+    page_title="WAIMS Readiness Watchlist",
+    page_icon=Image.open(LOGO_PATH) if LOGO_PATH.exists() else "🏀",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Sidebar logo (small)
 if LOGO_PATH.exists():
-    st.sidebar.image(str(LOGO_PATH), width=120)  # try 90–160
+    st.sidebar.image(str(LOGO_PATH), width=120)  # adjust 90–160
 else:
-    st.sidebar.error("Logo not found.")
-    st.sidebar.write("Expected:", str(LOGO_PATH))
-    st.sidebar.write("CWD:", str(Path.cwd()))
-    branding_dir = ROOT / "assets" / "branding"
-    st.sidebar.write("Branding dir exists:", branding_dir.exists())
-    if branding_dir.exists():
-        st.sidebar.write("Branding files:", [p.name for p in branding_dir.iterdir()])
+    st.sidebar.warning(f"Logo not found: {LOGO_PATH}")
 
 st.sidebar.markdown("---")
 
