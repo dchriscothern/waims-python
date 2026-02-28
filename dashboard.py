@@ -32,9 +32,13 @@ import streamlit as st
 LOGO_PATH = os.path.join("assets", "branding", "waims_run_man_logo.png")
 
 if os.path.exists(LOGO_PATH):
-    st.sidebar.image(Image.open(LOGO_PATH), width=120)  # adjust 90–150
+    st.sidebar.image(Image.open(LOGO_PATH), width=120)  # try 100–150
 else:
     st.sidebar.warning(f"Logo not found: {LOGO_PATH}")
+
+st.sidebar.markdown("---")
+
+
 # ==============================================================================
 # LOAD DATA
 # ==============================================================================
