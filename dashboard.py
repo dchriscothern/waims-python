@@ -23,21 +23,38 @@ from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 # ==============================================================================
 
 from pathlib import Path
-from PIL import Image
+import streamlit as st
 
-def find_repo_root(start: Path) -> Path:
-    for p in [start] + list(start.parents):
-        if (p / "assets").exists():
-            return p
-    return start
+# Resolve logo path relative to THIS file (works locally + Streamlit Cloud)
+HERE = Path(__file__).resolve().parent
+LOGO_PATH = HERE / "assets" / "branding" / "waims_run_man_logo.png"
 
-ROOT = find_repo_root(Path(__file__).resolve().parent)
-LOGO_PATH = ROOT / "assets" / "branding" / "waims_run_man_logo.png"
+# If dashboard.py is in a subfolder, try one level up
+if not LOGO_PATH.exists():
+    LOGO_PATH = HERE.parent / "assets" / "branding" / "waims_run_man_logo.png"
+
+# --- DEBUG (shows in sidebar so we stop guessing) ---
+st.sidebar.caption(f"Logo path: {LOGO_PATH}")
+st.sidebar.caption(f"Exists: {LOGO_PATH.exists()}")
+
+# List files if folder exists
+branding_dir = LOGO_PATH.parent
+if branding_dir.exists():
+    st.sidebar.caption("Branding files:")
+    st.sidebar.write([p.name for p in branding_dir.glob("*")])
+
+# --- Render logo (no PIL needed) ---
+if LOGO_PATH.exists():
+    st.sidebar.image(str(LOGO_PATH), width=120)
+else:
+    st.sidebar.error("Logo not found in runtime environment.")
+
+st.sidebar.markdown("---")
 
 # Page config must be first Streamlit call
 st.set_page_config(
     page_title="WAIMS Readiness Watchlist",
-    page_icon=Image.open(LOGO_PATH) if LOGO_PATH.exists() else "🏀",
+    page_icon="🏀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
