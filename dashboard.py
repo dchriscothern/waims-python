@@ -34,13 +34,11 @@ st.sidebar.caption(f"CWD: {Path.cwd()}")
 st.sidebar.caption(f"LOGO1: {LOGO1} exists={LOGO1.exists()}")
 st.sidebar.caption(f"LOGO2: {LOGO2} exists={LOGO2.exists()}")
 
-# Show listing if folder exists
 for d in [LOGO1.parent, LOGO2.parent]:
     if d.exists():
         st.sidebar.caption(f"Files in {d}:")
-        st.sidebar.write([p.name for p in d.glob("*")])
+        st.sidebar.write([p.name for p in d.glob('*')])
 
-# Render whichever exists
 logo_path = LOGO1 if LOGO1.exists() else (LOGO2 if LOGO2.exists() else None)
 if logo_path:
     st.sidebar.image(str(logo_path), width=120)
