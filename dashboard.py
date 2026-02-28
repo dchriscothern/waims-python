@@ -20,7 +20,7 @@ from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 
 st.set_page_config(
     page_title="WAIMS Readiness Watchlist",
-    page_icon="🏀",
+    page_icon=LOGO_URL,   # uses the same logo
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -220,6 +220,10 @@ def generate_smart_response(query_type):
 # SIDEBAR
 # ==============================================================================
 
+LOGO_URL = "https://raw.githubusercontent.com/dchriscothern/waims-python/main/assets/branding/waims_run_man_logo.png"
+st.sidebar.image(LOGO_URL, width=160)
+
+st.sidebar.title("🏀 Roster & Dates")
 st.sidebar.title("🏀 Roster & Dates")
 st.sidebar.markdown(
     """
