@@ -80,7 +80,7 @@ def athlete_photo_block(ath_key: str):
                 st.image(saved, use_container_width=True, caption=ath_key)
 
 # ==============================================================================
-# EXISTING CODE
+# RADAR CHART
 # ==============================================================================
 
 def create_radar_chart(athlete_data, athlete_name):
@@ -133,6 +133,10 @@ def create_radar_chart(athlete_data, athlete_name):
 
     return fig
 
+# ==============================================================================
+# MAIN ATHLETE PROFILE TAB
+# ==============================================================================
+
 def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None):
     """
     Complete athlete profile tab with photo, radar chart, and metrics
@@ -141,7 +145,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     st.header("👤 Athlete Profiles")
     st.markdown("Select an athlete to view their complete performance profile")
 
-    # Athlete selector (this returns a NAME)
+    # Athlete selector
     athlete_names = sorted(players['name'].tolist())
     selected_athlete = st.selectbox("Select Athlete", athlete_names)
 
@@ -153,26 +157,13 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     athlete_info = players[players['name'] == selected_athlete].iloc[0]
     athlete_id = athlete_info['player_id']
 
-   # Make a reliable ath_key (ath_001 convention) even if player_id is "1", 1.0, "001", etc.
-pid_num = pd.to_numeric(athlete_id, errors="coerce")
-if pd.notnull(pid_num):
-    ath_key = f"ath_{int(pid_num):03d}"
-else:
-    # fallback: use the raw id string (still unique if ids are unique)
-    ath_key = str(athlete_id).strip().lower()
-
-    # ==================================================================
-    # LAYOUT: Photo + Quick Stats  (INSIDE THE FUNCTION)
-    # ==================================================================
-    col1, col2, col3 = st.columns([1, 2, 2])
-
-    with col1:
-        st.markdown("### Profile")
-        athlete_photo_block(ath_key)
-
-        st.markdown(f"**Position:** {athlete_info.get('position', '')}")
-        st.markdown(f"**Age:** {athlete_info.get('age', '')}")
-        st.markdown(f"**Injury History:** {athlete_info.get('injury_history_count', 0)} previous")
+    # Make a reliable ath_key (FIXED INDENTATION)
+    pid_num = pd.to_numeric(athlete_id, errors="coerce")
+    if pd.notnull(pid_num):
+        ath_key = f"ath_{int(pid_num):03d}"
+    else:
+        # fallback: use the raw id string
+        ath_key = str(athlete_id).strip().lower()
 
     # Get latest data
     latest_date = wellness['date'].max()
@@ -188,12 +179,12 @@ else:
     latest_wellness = latest_wellness.iloc[0]
 
     # Get ACWR data
-    latest_acwr = acwr[
+    latest_acwr_data = acwr[
         (acwr['player_id'] == athlete_id) &
         (acwr['date'] == latest_date)
     ]
-    if len(latest_acwr) > 0:
-        latest_acwr = latest_acwr.iloc[0]['acwr']
+    if len(latest_acwr_data) > 0:
+        latest_acwr = latest_acwr_data.iloc[0]['acwr']
     else:
         latest_acwr = 1.0
 
@@ -208,6 +199,20 @@ else:
     else:
         latest_cmj = None
         latest_rsi = None
+
+    # ==================================================================
+    # LAYOUT: Photo + Quick Stats
+    # ==================================================================
+    
+    col1, col2, col3 = st.columns([1, 2, 2])
+
+    with col1:
+        st.markdown("### Profile")
+        athlete_photo_block(ath_key)
+
+        st.markdown(f"**Position:** {athlete_info.get('position', '')}")
+        st.markdown(f"**Age:** {athlete_info.get('age', '')}")
+        st.markdown(f"**Injury History:** {athlete_info.get('injury_history_count', 0)} previous")
 
     with col2:
         st.markdown("### Today's Status")
@@ -245,9 +250,7 @@ else:
             unsafe_allow_html=True
         )
 
-        # ------------------------------------------------------------------
-        # Training Plan Integration (added)
-        # ------------------------------------------------------------------
+        # Training Plan Integration
         if readiness < 60:
             st.warning("Recommend: 50% volume reduction")
         elif readiness < 80:
@@ -257,9 +260,7 @@ else:
 
         st.markdown("---")
 
-        # ------------------------------------------------------------------
-        # Comparison View (added): athlete vs team avg OR another athlete
-        # ------------------------------------------------------------------
+        # Comparison View: athlete vs team avg OR another athlete
         athlete_sleep = float(latest_wellness["sleep_hours"])
 
         compare_options = ["Team average"] + [n for n in players["name"].tolist() if n != selected_athlete]
@@ -316,6 +317,60 @@ else:
         # Create and display radar chart
         fig = create_radar_chart(radar_data, selected_athlete)
         st.plotly_chart(fig, use_container_width=True)
+
+    # ==================================================================
+    # ALERTS & RECOMMENDATIONS (MOVED BEFORE WORKLOAD)
+    # ==================================================================
+
+    st.markdown("---")
+    st.markdown("### ⚠️ Alerts & Recommendations")
+
+    alerts = []
+    recommendations = []
+
+    # Check for risk factors
+    if latest_wellness['sleep_hours'] < 6.5:
+        alerts.append("🌙 **Poor Sleep** - Below injury risk threshold (6.5 hrs)")
+        recommendations.append("Consult with player around sleep hygiene")
+
+    if latest_wellness['soreness'] > 7:
+        alerts.append("😫 **High Soreness** - Elevated muscle fatigue")
+        recommendations.append("Focus on recovery modalities (massage, cold therapy)")
+
+    if latest_wellness['stress'] > 7:
+        alerts.append("😰 **High Stress** - Elevated psychological load")
+        recommendations.append("Consider mental health check-in or stress management")
+
+    if latest_acwr > 1.5:
+        alerts.append("📊 **High ACWR** - Spike in training load")
+        recommendations.append("Reduce training volume or intensity by 20-30%")
+    elif latest_acwr < 0.8:
+        alerts.append("📊 **Low ACWR** - Possible detraining")
+        recommendations.append("Gradually increase training load if cleared medically")
+
+    if latest_rsi and latest_rsi < 0.30:
+        alerts.append("💪 **Low Neuromuscular Performance** - CMJ/RSI below baseline")
+        recommendations.append("Check for fatigue, consider additional recovery time")
+
+    if athlete_info['injury_history_count'] > 2:
+        alerts.append(f"🏥 **Injury History** - {athlete_info['injury_history_count']} previous injuries")
+        recommendations.append("Monitor closely for re-injury risk factors")
+
+    # Display alerts
+    if alerts:
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**Current Alerts:**")
+            for alert in alerts:
+                st.warning(alert)
+
+        with col2:
+            st.markdown("**Recommendations:**")
+            for rec in recommendations:
+                st.info(f"💡 {rec}")
+    else:
+        st.success("✅ No current alerts - athlete is in good standing!")
 
     # ==================================================================
     # WORKLOAD SECTION
@@ -495,7 +550,7 @@ else:
         st.warning("Insufficient data for 7-day trends")
 
     # ==================================================================
-    # INJURY TIMELINE (added)
+    # INJURY TIMELINE
     # ==================================================================
 
     st.markdown("---")
@@ -538,60 +593,6 @@ else:
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.warning("Injury table is missing 'injury_type'.")
-
-    # ==================================================================
-    # ALERTS & RECOMMENDATIONS
-    # ==================================================================
-
-    st.markdown("---")
-    st.markdown("### ⚠️ Alerts & Recommendations")
-
-    alerts = []
-    recommendations = []
-
-    # Check for risk factors
-    if latest_wellness['sleep_hours'] < 6.5:
-        alerts.append("🌙 **Poor Sleep** - Below injury risk threshold (6.5 hrs)")
-        recommendations.append("Consult with Player around sleep")
-
-    if latest_wellness['soreness'] > 7:
-        alerts.append("😫 **High Soreness** - Elevated muscle fatigue")
-        recommendations.append("Focus on recovery modalities (massage, cold therapy)")
-
-    if latest_wellness['stress'] > 7:
-        alerts.append("😰 **High Stress** - Elevated psychological load")
-        recommendations.append("Consider mental health check-in or stress management")
-
-    if latest_acwr > 1.5:
-        alerts.append("📊 **High ACWR** - Spike in training load")
-        recommendations.append("Reduce training volume or intensity by 20-30%")
-    elif latest_acwr < 0.8:
-        alerts.append("📊 **Low ACWR** - Possible detraining")
-        recommendations.append("Gradually increase training load if cleared medically")
-
-    if latest_rsi and latest_rsi < 0.30:
-        alerts.append("💪 **Low Neuromuscular Performance** - CMJ/RSI below baseline")
-        recommendations.append("Check for fatigue, consider additional recovery time")
-
-    if athlete_info['injury_history_count'] > 2:
-        alerts.append(f"🏥 **Injury History** - {athlete_info['injury_history_count']} previous injuries")
-        recommendations.append("Monitor closely for re-injury risk factors")
-
-    # Display alerts
-    if alerts:
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("**Current Alerts:**")
-            for alert in alerts:
-                st.warning(alert)
-
-        with col2:
-            st.markdown("**Recommendations:**")
-            for rec in recommendations:
-                st.info(f"💡 {rec}")
-    else:
-        st.success("✅ No current alerts - athlete is in good standing!")
 
     # Research references
     with st.expander("📚 Research References"):
