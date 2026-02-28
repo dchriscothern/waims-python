@@ -38,16 +38,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==============================================================================
-# SIDEBAR LOGO (small)
-# ==============================================================================
-if LOGO_PATH.exists():
-    st.sidebar.image(str(LOGO_PATH), width=120)
-else:
-    st.sidebar.warning(f"Logo not found: {LOGO_PATH}")
-
-st.sidebar.markdown("---")
-
 
 
 # ==============================================================================
@@ -249,6 +239,10 @@ def generate_smart_response(query_type):
 # SIDEBAR
 # ==============================================================================
 
+# ==============================================================================
+# SIDEBAR
+# ==============================================================================
+
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -257,9 +251,10 @@ if not LOGO_PATH.exists():
     LOGO_PATH = HERE.parent / "assets" / "branding" / "waims_run_man_logo.png"
 
 if LOGO_PATH.exists():
-    st.sidebar.image(str(LOGO_PATH), width=100)  # smaller: 100–140
-else:
-    st.sidebar.warning(f"Logo not found: {LOGO_PATH}")
+    st.sidebar.image(str(LOGO_PATH), width=60)  # smaller than 100 (try 70–90)
+# else: keep silent (no warning) if you prefer
+# else:
+#     st.sidebar.warning(f"Logo not found: {LOGO_PATH}")
 
 st.sidebar.title("🏀 Roster & Dates")
 
