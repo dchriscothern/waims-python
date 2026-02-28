@@ -23,45 +23,31 @@ from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 # ==============================================================================
 
 from pathlib import Path
-import streamlit as st
 
+# --- resolve logo relative to this file (works local + deployed) ---
 HERE = Path(__file__).resolve().parent
-LOGO1 = HERE / "assets" / "branding" / "waims_run_man_logo.png"
-LOGO2 = HERE.parent / "assets" / "branding" / "waims_run_man_logo.png"
+LOGO_PATH = HERE / "assets" / "branding" / "waims_run_man_logo.png"
 
-st.sidebar.caption(f"__file__: {Path(__file__).resolve()}")
-st.sidebar.caption(f"CWD: {Path.cwd()}")
-st.sidebar.caption(f"LOGO1: {LOGO1} exists={LOGO1.exists()}")
-st.sidebar.caption(f"LOGO2: {LOGO2} exists={LOGO2.exists()}")
-
-for d in [LOGO1.parent, LOGO2.parent]:
-    if d.exists():
-        st.sidebar.caption(f"Files in {d}:")
-        st.sidebar.write([p.name for p in d.glob('*')])
-
-logo_path = LOGO1 if LOGO1.exists() else (LOGO2 if LOGO2.exists() else None)
-if logo_path:
-    st.sidebar.image(str(logo_path), width=120)
-else:
-    st.sidebar.error("Logo not found in runtime.")
-
-st.sidebar.markdown("---")
-
-# Page config must be first Streamlit call
+# ==============================================================================
+# PAGE CONFIG (must be first st.* call)
+# ==============================================================================
 st.set_page_config(
     page_title="WAIMS Readiness Watchlist",
-    page_icon="🏀",
+    page_icon=str(LOGO_PATH) if LOGO_PATH.exists() else "🏀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Sidebar logo (small)
+# ==============================================================================
+# SIDEBAR LOGO (small)
+# ==============================================================================
 if LOGO_PATH.exists():
-    st.sidebar.image(str(LOGO_PATH), width=120)  # adjust 90–160
+    st.sidebar.image(str(LOGO_PATH), width=120)
 else:
     st.sidebar.warning(f"Logo not found: {LOGO_PATH}")
 
 st.sidebar.markdown("---")
+
 
 
 # ==============================================================================
@@ -259,11 +245,24 @@ def generate_smart_response(query_type):
 # SIDEBAR
 # ==============================================================================
 
-LOGO_URL = "https://raw.githubusercontent.com/dchriscothern/waims-python/main/assets/branding/waims_run_man_logo.png"
-st.sidebar.image(LOGO_URL, width=160)
+# ==============================================================================
+# SIDEBAR
+# ==============================================================================
+
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+LOGO_PATH = HERE / "assets" / "branding" / "waims_run_man_logo.png"
+if not LOGO_PATH.exists():
+    LOGO_PATH = HERE.parent / "assets" / "branding" / "waims_run_man_logo.png"
+
+if LOGO_PATH.exists():
+    st.sidebar.image(str(LOGO_PATH), width=100)  # smaller: 100–140
+else:
+    st.sidebar.warning(f"Logo not found: {LOGO_PATH}")
 
 st.sidebar.title("🏀 Roster & Dates")
-st.sidebar.title("🏀 Roster & Dates")
+
 st.sidebar.markdown(
     """
 **How to use**
