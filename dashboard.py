@@ -7,6 +7,7 @@ Usage:
 """
 
 import sqlite3
+import re
 import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -72,6 +73,11 @@ except Exception as e:
 # ENHANCED TAB 1: Battery Indicators
 # ==============================================================================
 
+def _html_oneliner(s: str) -> str:
+    """Collapse whitespace so Streamlit doesn't interpret indented HTML as a Markdown code block."""
+    return re.sub(r"\s+", " ", s).strip()
+
+
 def create_mini_battery(value, show_label=True):
     """Create a compact battery indicator (HTML)"""
     if value >= 80:
@@ -91,50 +97,42 @@ def create_mini_battery(value, show_label=True):
 
     if show_label:
         html = f"""
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <div style="background: linear-gradient(to right, {bg_color} 0%, #f3f4f6 100%);
-                        height: 20px; width: 100px; border-radius: 10px; overflow: hidden;
-                        position: relative; border: 1px solid {color}40;">
-                <div style="background: linear-gradient(135deg, {color} 0%, {color}dd 100%);
-                            height: 100%; width: {battery_width}%; border-radius: 10px;
-                            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
-                </div>
-            </div>
-            <span style="font-size: 14px; font-weight: 700; min-width: 35px; color: {color};">{value:.0f}%</span>
-            <span style="font-size: 16px;">{emoji}</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="background:linear-gradient(to right,{bg_color} 0%,#f3f4f6 100%);
+                      height:20px;width:100px;border-radius:10px;overflow:hidden;
+                      position:relative;border:1px solid {color}40;">
+            <div style="background:linear-gradient(135deg,{color} 0%,{color}dd 100%);
+                        height:100%;width:{battery_width}%;border-radius:10px;
+                        box-shadow:inset 0 1px 3px rgba(0,0,0,0.1);"></div>
+          </div>
+          <span style="font-size:14px;font-weight:700;min-width:35px;color:{color};">{value:.0f}%</span>
+          <span style="font-size:16px;">{emoji}</span>
         </div>
         """
     else:
         html = f"""
-        <div style="display: inline-flex; align-items: center; gap: 4px;">
-            <div style="background: {bg_color}; height: 16px; width: 70px; border-radius: 8px;
-                        overflow: hidden; border: 1px solid {color}60;">
-                <div style="background: linear-gradient(135deg, {color} 0%, {color}dd 100%);
-                            height: 100%; width: {battery_width}%; border-radius: 8px;"></div>
-            </div>
-            <span style="font-size: 12px; font-weight: 700; color: {color};">{value:.0f}</span>
+        <div style="display:inline-flex;align-items:center;gap:4px;">
+          <div style="background:{bg_color};height:16px;width:70px;border-radius:8px;
+                      overflow:hidden;border:1px solid {color}60;">
+            <div style="background:linear-gradient(135deg,{color} 0%,{color}dd 100%);
+                        height:100%;width:{battery_width}%;border-radius:8px;"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:{color};">{value:.0f}</span>
         </div>
         """
-    return html
+    return _html_oneliner(html)
 
 
 def create_summary_card(label, count, color, icon):
     html = f"""
-    <div style="background: linear-gradient(135deg, {color}15 0%, {color}05 100%);
-                border-left: 4px solid {color};
-                padding: 20px;
-                border-radius: 10px;
-                text-align: center;">
-        <div style="font-size: 48px; margin-bottom: 8px;">{icon}</div>
-        <div style="font-size: 36px; font-weight: 700; color: {color}; margin-bottom: 4px;">
-            {count}
-        </div>
-        <div style="font-size: 14px; color: #6b7280; font-weight: 600;">
-            {label}
-        </div>
+    <div style="background:linear-gradient(135deg,{color}15 0%,{color}05 100%);
+                border-left:4px solid {color};padding:20px;border-radius:10px;text-align:center;">
+      <div style="font-size:48px;margin-bottom:8px;">{icon}</div>
+      <div style="font-size:36px;font-weight:700;color:{color};margin-bottom:4px;">{count}</div>
+      <div style="font-size:14px;color:#6b7280;font-weight:600;">{label}</div>
     </div>
     """
-    return html
+    return _html_oneliner(html)
 
 
 def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
@@ -143,7 +141,6 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
 
     today_wellness = wellness_df[wellness_df["date"] == pd.to_datetime(end_date)].copy()
 
-    # robust merge for position
     cols = ["player_id", "name"] + (["position"] if "position" in players_df.columns else [])
     today_wellness = today_wellness.merge(players_df[cols], on="player_id", how="left")
     if "position" not in today_wellness.columns:
@@ -209,31 +206,22 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
     )
 
     if view_mode == "Compact (Battery View)":
-        # ---- FIX #1: dedent the style so it doesn't render as code ----
         st.markdown(
             textwrap.dedent(
                 """
                 <style>
-                .player-row {
-                    display: flex;
-                    align-items: center;
-                    padding: 12px;
-                    margin: 8px 0;
-                    background: white;
-                    border-radius: 8px;
-                    border: 1px solid #e5e7eb;
-                    transition: box-shadow 0.2s;
-                }
-                .player-row:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-                .player-name { font-size: 16px; font-weight: 600; min-width: 120px; }
-                .player-position { font-size: 12px; color: #6b7280; min-width: 40px; }
-                .player-status { font-size: 14px; font-weight: 600; min-width: 90px; }
-                .battery-container { display: flex; gap: 12px; flex: 1; }
-                .battery-item { flex: 1; text-align: center; }
-                .battery-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+                .player-row{display:flex;align-items:center;padding:12px;margin:8px 0;background:#fff;
+                            border-radius:8px;border:1px solid #e5e7eb;transition:box-shadow .2s;}
+                .player-row:hover{box-shadow:0 4px 6px rgba(0,0,0,.1);}
+                .player-name{font-size:16px;font-weight:600;min-width:120px;}
+                .player-position{font-size:12px;color:#6b7280;min-width:40px;}
+                .player-status{font-size:14px;font-weight:600;min-width:90px;}
+                .battery-container{display:flex;gap:12px;flex:1;}
+                .battery-item{flex:1;text-align:center;}
+                .battery-label{font-size:11px;color:#6b7280;margin-bottom:4px;}
                 </style>
                 """
-            ),
+            ).strip(),
             unsafe_allow_html=True,
         )
 
@@ -245,49 +233,42 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
             else:
                 status_bg = "#fee2e2"
 
-            # ---- FIX #2: dedent + strip so HTML renders (not code block) ----
-            row_html = textwrap.dedent(
-                f"""
-                <div class="player-row">
-                    <div style="display: flex; align-items: center; gap: 12px; min-width: 280px;">
-                        <span class="player-name">{player['name']}</span>
-                        <span class="player-position">{player['position']}</span>
-                        <span class="player-status" style="background-color: {status_bg};
-                              padding: 4px 12px; border-radius: 12px;">
-                            {player['status']}
-                        </span>
-                    </div>
+            row_html = f"""
+            <div class="player-row">
+              <div style="display:flex;align-items:center;gap:12px;min-width:280px;">
+                <span class="player-name">{player['name']}</span>
+                <span class="player-position">{player['position']}</span>
+                <span class="player-status" style="background-color:{status_bg};padding:4px 12px;border-radius:12px;">
+                  {player['status']}
+                </span>
+              </div>
 
-                    <div class="battery-container">
-                        <div class="battery-item">
-                            <div class="battery-label">💤 Sleep</div>
-                            {create_mini_battery(player['sleep_pct'], show_label=False).strip()}
-                        </div>
-                        <div class="battery-item">
-                            <div class="battery-label">💪 Physical</div>
-                            {create_mini_battery(player['physical_pct'], show_label=False).strip()}
-                        </div>
-                        <div class="battery-item">
-                            <div class="battery-label">😊 Mental</div>
-                            {create_mini_battery(player['mental_pct'], show_label=False).strip()}
-                        </div>
-                        <div class="battery-item">
-                            <div class="battery-label">😌 Stress</div>
-                            {create_mini_battery(player['stress_pct'], show_label=False).strip()}
-                        </div>
-                    </div>
-
-                    <div style="min-width: 120px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: 700; color: {player['status_color']};">
-                            {player['readiness_score']:.0f}
-                        </div>
-                        <div style="font-size: 11px; color: #6b7280;">Overall Score</div>
-                    </div>
+              <div class="battery-container">
+                <div class="battery-item">
+                  <div class="battery-label">💤 Sleep</div>
+                  {create_mini_battery(player['sleep_pct'], show_label=False)}
                 </div>
-                """
-            ).strip()
+                <div class="battery-item">
+                  <div class="battery-label">💪 Physical</div>
+                  {create_mini_battery(player['physical_pct'], show_label=False)}
+                </div>
+                <div class="battery-item">
+                  <div class="battery-label">😊 Mental</div>
+                  {create_mini_battery(player['mental_pct'], show_label=False)}
+                </div>
+                <div class="battery-item">
+                  <div class="battery-label">😌 Stress</div>
+                  {create_mini_battery(player['stress_pct'], show_label=False)}
+                </div>
+              </div>
 
-            st.markdown(row_html, unsafe_allow_html=True)
+              <div style="min-width:120px;text-align:center;">
+                <div style="font-size:24px;font-weight:700;color:{player['status_color']};">{player['readiness_score']:.0f}</div>
+                <div style="font-size:11px;color:#6b7280;">Overall Score</div>
+              </div>
+            </div>
+            """
+            st.markdown(_html_oneliner(row_html), unsafe_allow_html=True)
 
     else:
         for _, player in today_wellness.iterrows():
@@ -305,28 +286,16 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
 
                 with colA:
                     st.markdown("**Key Metrics (Battery View)**")
-                    st.markdown(
-                        f"**💤 Sleep Quality:** {create_mini_battery(player['sleep_pct'])}",
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(f"**💤 Sleep Quality:** {create_mini_battery(player['sleep_pct'])}", unsafe_allow_html=True)
                     st.caption(f"{player['sleep_hours']:.1f} hours")
 
-                    st.markdown(
-                        f"**💪 Physical Readiness:** {create_mini_battery(player['physical_pct'])}",
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(f"**💪 Physical Readiness:** {create_mini_battery(player['physical_pct'])}", unsafe_allow_html=True)
                     st.caption(f"Soreness: {player['soreness']:.0f}/10")
 
-                    st.markdown(
-                        f"**😊 Mental Wellness:** {create_mini_battery(player['mental_pct'])}",
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(f"**😊 Mental Wellness:** {create_mini_battery(player['mental_pct'])}", unsafe_allow_html=True)
                     st.caption(f"Mood: {player['mood']:.0f}/10")
 
-                    st.markdown(
-                        f"**😌 Stress Management:** {create_mini_battery(player['stress_pct'])}",
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(f"**😌 Stress Management:** {create_mini_battery(player['stress_pct'])}", unsafe_allow_html=True)
                     st.caption(f"Stress: {player['stress']:.0f}/10")
 
                 with colB:
