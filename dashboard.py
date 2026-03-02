@@ -77,6 +77,393 @@ except Exception as e:
     st.info("Make sure waims_demo.db is in the current directory")
     st.stop()
 
+"""
+Enhanced Tab 1: Today's Readiness with Battery Indicators
+Optimized for quick coach scanning
+"""
+
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+
+def create_mini_battery(value, show_label=True):
+    """
+    Create a compact battery indicator for table display
+    Returns HTML with colored battery bar
+    """
+    # Determine color based on value
+    if value >= 80:
+        color = "#10b981"  # Green
+        bg_color = "#d1fae5"  # Light green background
+        emoji = "🟢"
+    elif value >= 60:
+        color = "#f59e0b"  # Yellow/Orange
+        bg_color = "#fef3c7"  # Light yellow background
+        emoji = "🟡"
+    else:
+        color = "#ef4444"  # Red
+        bg_color = "#fee2e2"  # Light red background
+        emoji = "🔴"
+    
+    battery_width = int(value)
+    
+    if show_label:
+        html = f"""
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="background: linear-gradient(to right, {bg_color} 0%, #f3f4f6 100%);
+                        height: 20px; 
+                        width: 100px; 
+                        border-radius: 10px; 
+                        overflow: hidden; 
+                        position: relative;
+                        border: 1px solid {color}40;">
+                <div style="background: linear-gradient(135deg, {color} 0%, {color}dd 100%); 
+                            height: 100%; 
+                            width: {battery_width}%; 
+                            border-radius: 10px;
+                            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+                </div>
+            </div>
+            <span style="font-size: 14px; font-weight: 700; min-width: 35px; color: {color};">{value:.0f}%</span>
+            <span style="font-size: 16px;">{emoji}</span>
+        </div>
+        """
+    else:
+        html = f"""
+        <div style="display: inline-flex; align-items: center; gap: 4px;">
+            <div style="background: {bg_color}; 
+                        height: 16px; 
+                        width: 70px; 
+                        border-radius: 8px; 
+                        overflow: hidden;
+                        border: 1px solid {color}60;">
+                <div style="background: linear-gradient(135deg, {color} 0%, {color}dd 100%); 
+                            height: 100%; 
+                            width: {battery_width}%;
+                            border-radius: 8px;"></div>
+            </div>
+            <span style="font-size: 12px; font-weight: 700; color: {color};">{value:.0f}</span>
+        </div>
+        """
+    
+    return html
+
+def create_summary_card(label, count, color, icon):
+    """Create a summary metric card"""
+    html = f"""
+    <div style="background: linear-gradient(135deg, {color}15 0%, {color}05 100%);
+                border-left: 4px solid {color};
+                padding: 20px;
+                border-radius: 10px;
+                text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 8px;">{icon}</div>
+        <div style="font-size: 36px; font-weight: 700; color: {color}; margin-bottom: 4px;">
+            {count}
+        </div>
+        <div style="font-size: 14px; color: #6b7280; font-weight: 600;">
+            {label}
+        </div>
+    </div>
+    """
+    return html
+
+def enhanced_todays_readiness_tab(wellness, players, end_date):
+    """
+    Enhanced Tab 1: Today's Readiness with battery indicators
+    Optimized for quick coach scanning
+    """
+    
+    st.header("Today's Readiness Status")
+    st.caption(f"📅 {end_date.strftime('%B %d, %Y')}")
+    
+    # Get today's data
+    today_wellness = wellness[wellness['date'] == pd.to_datetime(end_date)]
+    today_wellness = today_wellness.merge(players[['player_id', 'name', 'position']], on='player_id')
+    
+    if len(today_wellness) == 0:
+        st.info("No data available for selected date")
+        return
+    
+    # Calculate readiness scores
+    today_wellness['readiness_score'] = (
+        (today_wellness['sleep_hours'] / 8) * 30 +
+        ((10 - today_wellness['soreness']) / 10) * 25 +
+        ((10 - today_wellness['stress']) / 10) * 25 +
+        (today_wellness['mood'] / 10) * 20
+    )
+    
+    # Add status
+    def get_status(score):
+        if score >= 80:
+            return "🟢 Ready", "green"
+        elif score >= 60:
+            return "🟡 Monitor", "orange"
+        else:
+            return "🔴 At Risk", "red"
+    
+    today_wellness['status'], today_wellness['status_color'] = zip(*today_wellness['readiness_score'].apply(get_status))
+    
+    # Calculate component scores (0-100)
+    today_wellness['sleep_pct'] = (today_wellness['sleep_hours'] / 8 * 100).clip(0, 100)
+    today_wellness['physical_pct'] = ((10 - today_wellness['soreness']) / 10 * 100)
+    today_wellness['mental_pct'] = (today_wellness['mood'] / 10 * 100)
+    today_wellness['stress_pct'] = ((10 - today_wellness['stress']) / 10 * 100)
+    
+    # Sort by readiness score (worst first - coaches need to see problems first)
+    today_wellness = today_wellness.sort_values('readiness_score')
+    
+    # ==================================================================
+    # SUMMARY METRICS (TOP)
+    # ==================================================================
+    
+    green_count = len(today_wellness[today_wellness['readiness_score'] >= 80])
+    yellow_count = len(today_wellness[(today_wellness['readiness_score'] >= 60) & 
+                                      (today_wellness['readiness_score'] < 80)])
+    red_count = len(today_wellness[today_wellness['readiness_score'] < 60])
+    avg_sleep = today_wellness['sleep_hours'].mean()
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(create_summary_card("Ready", green_count, "#10b981", "🟢"), 
+                   unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(create_summary_card("Monitor", yellow_count, "#f59e0b", "🟡"), 
+                   unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(create_summary_card("At Risk", red_count, "#ef4444", "🔴"), 
+                   unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(create_summary_card("Avg Sleep", f"{avg_sleep:.1f}h", "#3b82f6", "😴"), 
+                   unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ==================================================================
+    # PLAYER LIST (BATTERY VIEW)
+    # ==================================================================
+    
+    st.subheader("Player Details")
+    
+    # View toggle
+    view_mode = st.radio(
+        "View mode:",
+        ["Compact (Battery View)", "Detailed (Full Metrics)"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    
+    if view_mode == "Compact (Battery View)":
+        # ==================================================================
+        # COMPACT BATTERY VIEW (BEST FOR QUICK SCANNING)
+        # ==================================================================
+        
+        st.markdown("""
+        <style>
+        .player-row {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            transition: box-shadow 0.2s;
+        }
+        .player-row:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .player-name {
+            font-size: 16px;
+            font-weight: 600;
+            min-width: 120px;
+        }
+        .player-position {
+            font-size: 12px;
+            color: #6b7280;
+            min-width: 40px;
+        }
+        .player-status {
+            font-size: 14px;
+            font-weight: 600;
+            min-width: 90px;
+        }
+        .battery-container {
+            display: flex;
+            gap: 12px;
+            flex: 1;
+        }
+        .battery-item {
+            flex: 1;
+            text-align: center;
+        }
+        .battery-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        for idx, player in today_wellness.iterrows():
+            # Determine background color for status
+            if player['readiness_score'] >= 80:
+                status_bg = "#d1fae5"
+            elif player['readiness_score'] >= 60:
+                status_bg = "#fef3c7"
+            else:
+                status_bg = "#fee2e2"
+            
+            # Create row HTML
+            row_html = f"""
+            <div class="player-row">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 280px;">
+                    <span class="player-name">{player['name']}</span>
+                    <span class="player-position">{player['position']}</span>
+                    <span class="player-status" style="background-color: {status_bg}; 
+                          padding: 4px 12px; border-radius: 12px;">
+                        {player['status']}
+                    </span>
+                </div>
+                
+                <div class="battery-container">
+                    <div class="battery-item">
+                        <div class="battery-label">💤 Sleep</div>
+                        {create_mini_battery(player['sleep_pct'], show_label=False)}
+                    </div>
+                    <div class="battery-item">
+                        <div class="battery-label">💪 Physical</div>
+                        {create_mini_battery(player['physical_pct'], show_label=False)}
+                    </div>
+                    <div class="battery-item">
+                        <div class="battery-label">😊 Mental</div>
+                        {create_mini_battery(player['mental_pct'], show_label=False)}
+                    </div>
+                    <div class="battery-item">
+                        <div class="battery-label">😌 Stress</div>
+                        {create_mini_battery(player['stress_pct'], show_label=False)}
+                    </div>
+                </div>
+                
+                <div style="min-width: 120px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: {player['status_color']};">
+                        {player['readiness_score']:.0f}
+                    </div>
+                    <div style="font-size: 11px; color: #6b7280;">Overall Score</div>
+                </div>
+            </div>
+            """
+            
+            st.markdown(row_html, unsafe_allow_html=True)
+    
+    else:
+        # ==================================================================
+        # DETAILED VIEW (EXPANDABLE CARDS)
+        # ==================================================================
+        
+        for idx, player in today_wellness.iterrows():
+            # Status color for expander
+            if player['readiness_score'] >= 80:
+                emoji = "🟢"
+            elif player['readiness_score'] >= 60:
+                emoji = "🟡"
+            else:
+                emoji = "🔴"
+            
+            with st.expander(f"{emoji} **{player['name']}** ({player['position']}) - Score: {player['readiness_score']:.0f}/100"):
+                
+                # Summary row
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.markdown("**Key Metrics (Battery View)**")
+                    
+                    st.markdown(f"**💤 Sleep Quality:** {create_mini_battery(player['sleep_pct'])}", 
+                               unsafe_allow_html=True)
+                    st.caption(f"{player['sleep_hours']:.1f} hours")
+                    
+                    st.markdown(f"**💪 Physical Readiness:** {create_mini_battery(player['physical_pct'])}", 
+                               unsafe_allow_html=True)
+                    st.caption(f"Soreness: {player['soreness']:.0f}/10")
+                    
+                    st.markdown(f"**😊 Mental Wellness:** {create_mini_battery(player['mental_pct'])}", 
+                               unsafe_allow_html=True)
+                    st.caption(f"Mood: {player['mood']:.0f}/10")
+                    
+                    st.markdown(f"**😌 Stress Management:** {create_mini_battery(player['stress_pct'])}", 
+                               unsafe_allow_html=True)
+                    st.caption(f"Stress: {player['stress']:.0f}/10")
+                
+                with col2:
+                    st.markdown("**Raw Values**")
+                    st.metric("Sleep", f"{player['sleep_hours']:.1f} hrs")
+                    st.metric("Soreness", f"{player['soreness']:.0f}/10")
+                    st.metric("Stress", f"{player['stress']:.0f}/10")
+                    st.metric("Mood", f"{player['mood']:.0f}/10")
+                    st.metric("Sleep Quality", f"{player['sleep_quality']:.0f}/10")
+                
+                # Flags
+                st.markdown("---")
+                flags = []
+                if player['sleep_hours'] < 6.5:
+                    flags.append("⚠️ **Poor Sleep** (<6.5 hrs)")
+                if player['soreness'] >= 7:
+                    flags.append("⚠️ **High Soreness** (≥7)")
+                if player['stress'] >= 7:
+                    flags.append("⚠️ **High Stress** (≥7)")
+                
+                if flags:
+                    st.markdown("**⚠️ Alerts:**")
+                    for flag in flags:
+                        st.warning(flag)
+                else:
+                    st.success("✅ No alerts - athlete is in good standing")
+    
+    # ==================================================================
+    # QUICK ACTIONS
+    # ==================================================================
+    
+    st.markdown("---")
+    st.markdown("### 🎯 Quick Actions")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("📧 Email At-Risk Players", use_container_width=True):
+            at_risk = today_wellness[today_wellness['readiness_score'] < 60]['name'].tolist()
+            if at_risk:
+                st.info(f"Would email: {', '.join(at_risk)}")
+            else:
+                st.success("No at-risk players today!")
+    
+    with col2:
+        if st.button("📊 Export Today's Report", use_container_width=True):
+            csv = today_wellness[['name', 'position', 'readiness_score', 'status', 
+                                 'sleep_hours', 'soreness', 'stress', 'mood']].to_csv(index=False)
+            st.download_button(
+                "📥 Download CSV",
+                data=csv,
+                file_name=f"readiness_{end_date.strftime('%Y%m%d')}.csv",
+                mime="text/csv"
+            )
+    
+    with col3:
+        if st.button("🔔 Create Training Alert", use_container_width=True):
+            st.info("Training modifications recommended for " + 
+                   str(red_count + yellow_count) + " players")
+
+# ==============================================================================
+# USAGE IN DASHBOARD.PY
+# ==============================================================================
+
+# In your dashboard.py Tab 1, replace the existing content with:
+#
+# with tab1:
+#     enhanced_todays_readiness_tab(wellness, players, end_date)
+
 # ==============================================================================
 # HELPER FUNCTIONS
 # ==============================================================================
@@ -325,7 +712,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 # ==============================================================================
 
 with tab1:
-    st.header("Today's Readiness Status")
+    enhanced_todays_readiness_tab(wellness, players, end_date)
     
     # Get today's data
     today_wellness = wellness[wellness['date'] == pd.to_datetime(end_date)]
