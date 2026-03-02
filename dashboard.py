@@ -7,6 +7,7 @@ Usage:
 """
 
 import sqlite3
+import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -58,6 +59,7 @@ def load_data():
 
     conn.close()
     return players, wellness, training_load, force_plate, injuries, acwr
+
 
 try:
     players, wellness, training_load, force_plate, injuries, acwr = load_data()
@@ -115,6 +117,7 @@ def create_mini_battery(value, show_label=True):
         """
     return html
 
+
 def create_summary_card(label, count, color, icon):
     html = f"""
     <div style="background: linear-gradient(135deg, {color}15 0%, {color}05 100%);
@@ -132,6 +135,7 @@ def create_summary_card(label, count, color, icon):
     </div>
     """
     return html
+
 
 def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
     st.header("Today's Readiness Status")
@@ -205,28 +209,31 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
     )
 
     if view_mode == "Compact (Battery View)":
+        # ---- FIX #1: dedent the style so it doesn't render as code ----
         st.markdown(
-            """
-        <style>
-        .player-row {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            margin: 8px 0;
-            background: white;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-            transition: box-shadow 0.2s;
-        }
-        .player-row:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .player-name { font-size: 16px; font-weight: 600; min-width: 120px; }
-        .player-position { font-size: 12px; color: #6b7280; min-width: 40px; }
-        .player-status { font-size: 14px; font-weight: 600; min-width: 90px; }
-        .battery-container { display: flex; gap: 12px; flex: 1; }
-        .battery-item { flex: 1; text-align: center; }
-        .battery-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
-        </style>
-        """,
+            textwrap.dedent(
+                """
+                <style>
+                .player-row {
+                    display: flex;
+                    align-items: center;
+                    padding: 12px;
+                    margin: 8px 0;
+                    background: white;
+                    border-radius: 8px;
+                    border: 1px solid #e5e7eb;
+                    transition: box-shadow 0.2s;
+                }
+                .player-row:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+                .player-name { font-size: 16px; font-weight: 600; min-width: 120px; }
+                .player-position { font-size: 12px; color: #6b7280; min-width: 40px; }
+                .player-status { font-size: 14px; font-weight: 600; min-width: 90px; }
+                .battery-container { display: flex; gap: 12px; flex: 1; }
+                .battery-item { flex: 1; text-align: center; }
+                .battery-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+                </style>
+                """
+            ),
             unsafe_allow_html=True,
         )
 
@@ -238,44 +245,48 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
             else:
                 status_bg = "#fee2e2"
 
-            row_html = f"""
-            <div class="player-row">
-                <div style="display: flex; align-items: center; gap: 12px; min-width: 280px;">
-                    <span class="player-name">{player['name']}</span>
-                    <span class="player-position">{player['position']}</span>
-                    <span class="player-status" style="background-color: {status_bg};
-                          padding: 4px 12px; border-radius: 12px;">
-                        {player['status']}
-                    </span>
-                </div>
+            # ---- FIX #2: dedent + strip so HTML renders (not code block) ----
+            row_html = textwrap.dedent(
+                f"""
+                <div class="player-row">
+                    <div style="display: flex; align-items: center; gap: 12px; min-width: 280px;">
+                        <span class="player-name">{player['name']}</span>
+                        <span class="player-position">{player['position']}</span>
+                        <span class="player-status" style="background-color: {status_bg};
+                              padding: 4px 12px; border-radius: 12px;">
+                            {player['status']}
+                        </span>
+                    </div>
 
-                <div class="battery-container">
-                    <div class="battery-item">
-                        <div class="battery-label">💤 Sleep</div>
-                        {create_mini_battery(player['sleep_pct'], show_label=False)}
+                    <div class="battery-container">
+                        <div class="battery-item">
+                            <div class="battery-label">💤 Sleep</div>
+                            {create_mini_battery(player['sleep_pct'], show_label=False).strip()}
+                        </div>
+                        <div class="battery-item">
+                            <div class="battery-label">💪 Physical</div>
+                            {create_mini_battery(player['physical_pct'], show_label=False).strip()}
+                        </div>
+                        <div class="battery-item">
+                            <div class="battery-label">😊 Mental</div>
+                            {create_mini_battery(player['mental_pct'], show_label=False).strip()}
+                        </div>
+                        <div class="battery-item">
+                            <div class="battery-label">😌 Stress</div>
+                            {create_mini_battery(player['stress_pct'], show_label=False).strip()}
+                        </div>
                     </div>
-                    <div class="battery-item">
-                        <div class="battery-label">💪 Physical</div>
-                        {create_mini_battery(player['physical_pct'], show_label=False)}
-                    </div>
-                    <div class="battery-item">
-                        <div class="battery-label">😊 Mental</div>
-                        {create_mini_battery(player['mental_pct'], show_label=False)}
-                    </div>
-                    <div class="battery-item">
-                        <div class="battery-label">😌 Stress</div>
-                        {create_mini_battery(player['stress_pct'], show_label=False)}
-                    </div>
-                </div>
 
-                <div style="min-width: 120px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700; color: {player['status_color']};">
-                        {player['readiness_score']:.0f}
+                    <div style="min-width: 120px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 700; color: {player['status_color']};">
+                            {player['readiness_score']:.0f}
+                        </div>
+                        <div style="font-size: 11px; color: #6b7280;">Overall Score</div>
                     </div>
-                    <div style="font-size: 11px; color: #6b7280;">Overall Score</div>
                 </div>
-            </div>
-            """
+                """
+            ).strip()
+
             st.markdown(row_html, unsafe_allow_html=True)
 
     else:
