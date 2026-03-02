@@ -125,7 +125,6 @@ def create_battery_indicator(value, label):
     
     return html
 
-
 def create_metric_card(label, value, status, icon="📊"):
     """
     Create a colored metric card with icon
@@ -167,82 +166,6 @@ def create_metric_card(label, value, status, icon="📊"):
     """
     
     return html
-
-def pill_meter(value, title, max_val=10, higher_is_better=False):
-    """
-    Compact horizontal pill bar with zones + value.
-    - soreness/stress: higher_is_better=False (low is good)
-    - mood: higher_is_better=True (high is good)
-    """
-    # safe clamp
-    try:
-        v = float(value)
-    except Exception:
-        v = 0.0
-    v = max(0.0, min(float(max_val), v))
-
-    # zones on 0..max_val
-    z2 = max_val * 0.30  # ~3
-    z3 = max_val * 0.70  # ~7
-
-    # palette
-    GREEN = "#16a34a"
-    AMBER = "#f59e0b"
-    RED   = "#ef4444"
-
-    # choose color by direction
-    if higher_is_better:
-        # high = good
-        if v >= z3:
-            bar = GREEN
-            badge = "✅"
-        elif v >= z2:
-            bar = AMBER
-            badge = "⚠️"
-        else:
-            bar = RED
-            badge = "🚨"
-        # zone colors (left->right)
-        zone1, zone2c, zone3c = "rgba(239,68,68,0.18)", "rgba(245,158,11,0.20)", "rgba(22,163,74,0.18)"
-    else:
-        # low = good
-        if v <= z2:
-            bar = GREEN
-            badge = "✅"
-        elif v <= z3:
-            bar = AMBER
-            badge = "⚠️"
-        else:
-            bar = RED
-            badge = "🚨"
-        zone1, zone2c, zone3c = "rgba(22,163,74,0.18)", "rgba(245,158,11,0.20)", "rgba(239,68,68,0.18)"
-
-    pct = int(round((v / max_val) * 100))
-
-    html = f"""
-    <div style="background:#ffffff;border:1px solid rgba(0,0,0,0.08);border-radius:12px;padding:12px 14px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div style="font-size:13px;font-weight:700;color:#111827;">{title}</div>
-        <div style="font-size:12px;color:#374151;">{badge} <b>{v:.1f}</b> / {max_val:g}</div>
-      </div>
-
-      <div style="height:14px;border-radius:999px;overflow:hidden;display:flex;background:#f3f4f6;">
-        <div style="flex:30;background:{zone1};"></div>
-        <div style="flex:40;background:{zone2c};"></div>
-        <div style="flex:30;background:{zone3c};"></div>
-      </div>
-
-      <div style="margin-top:-14px;height:14px;border-radius:999px;overflow:hidden;">
-        <div style="height:14px;width:{pct}%;background:{bar};border-radius:999px;"></div>
-      </div>
-
-      <div style="margin-top:8px;font-size:11px;color:#6b7280;display:flex;justify-content:space-between;">
-        <span>Low</span><span>Mid</span><span>High</span>
-      </div>
-    </div>
-    """
-    return html
-
 
 def create_speedometer(value, title, max_val=10, higher_is_better=False):
     """
@@ -640,28 +563,22 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     # SPEEDOMETER GAUGES
     # ==================================================================
 
-st.markdown("---")
-st.markdown("### 🎯 Wellness Indicators")
+    st.markdown("---")
+    st.markdown("### 🎯 Wellness Indicators")
 
-c1, c2, c3 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-with c1:
-    st.markdown(
-        pill_meter(latest_wellness["soreness"], "Soreness Level", max_val=10, higher_is_better=False),
-        unsafe_allow_html=True
-    )
+    with col1:
+        fig = create_speedometer(latest_wellness['soreness'], "Soreness Level", 10)
+        st.plotly_chart(fig, use_container_width=True, key=f"speed_sore_{athlete_id}")
 
-with c2:
-    st.markdown(
-        pill_meter(latest_wellness["stress"], "Stress Level", max_val=10, higher_is_better=False),
-        unsafe_allow_html=True
-    )
+    with col2:
+        fig = create_speedometer(latest_wellness['stress'], "Stress Level", 10)
+        st.plotly_chart(fig, use_container_width=True, key=f"speed_stress_{athlete_id}")
 
-with c3:
-    st.markdown(
-        pill_meter(latest_wellness["mood"], "Mood Score", max_val=10, higher_is_better=True),
-        unsafe_allow_html=True
-    )
+    with col3:
+        fig = create_speedometer(latest_wellness['mood'], "Mood Score", 10)
+        st.plotly_chart(fig, use_container_width=True, key=f"speed_mood_{athlete_id}")
 
     # ==================================================================
     # 7-DAY TRENDS
