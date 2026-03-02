@@ -15,61 +15,93 @@ import plotly.express as px
 # VISUAL GAUGE HELPERS
 # ==============================================================================
 
-def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[40, 70]):
+def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[60, 80]):
     """
-    Create a gauge chart similar to Apollo.io style
+    Cleaner Whistle/Apollo-style gauge:
+    - Subtle colored zones
+    - NO big filled wedge
+    - Uses a colored "needle" (threshold line) at the current value
+    - Shows score as /100 (not %)
+    """
+    try:
+        v = float(value)
+    except Exception:
+        v = 0.0
+    v = max(float(min_val), min(float(max_val), v))
 
-    Args:
-        value: Current value (0-100)
-        title: Chart title
-        min_val: Minimum value
-        max_val: Maximum value
-        thresholds: [yellow_start, green_start] for color zones
-    """
-    # Determine color based on value
-    if value >= thresholds[1]:
-        color = "#10b981"  # Green
-    elif value >= thresholds[0]:
-        color = "#f59e0b"  # Yellow/Orange
+    yellow_start, green_start = thresholds[0], thresholds[1]
+
+    # Modern palette
+    GREEN = "#16a34a"
+    AMBER = "#f59e0b"
+    RED   = "#ef4444"
+
+    RED_BG   = "rgba(239,68,68,0.16)"
+    AMBER_BG = "rgba(245,158,11,0.18)"
+    GREEN_BG = "rgba(22,163,74,0.16)"
+
+    # Needle color by status
+    if v >= green_start:
+        needle = GREEN
+    elif v >= yellow_start:
+        needle = AMBER
     else:
-        color = "#ef4444"  # Red
+        needle = RED
 
     fig = go.Figure(
         go.Indicator(
             mode="gauge+number",
-            value=float(value),
+            value=v,
             title={"text": title, "font": {"size": 14}},
-            domain={"x": [0, 1], "y": [0, 1]},
-            number={"suffix": "%", "font": {"size": 20}},
+            number={
+                "font": {"size": 26, "color": "#111827"},
+                "valueformat": ".0f",
+                "suffix": "/100",
+            },
             gauge={
-                "axis": {"range": [min_val, max_val], "tickwidth": 1, "tickcolor": "gray"},
-                "bar": {"color": color, "thickness": 0.75},
+                # Make it look like a speedometer (semi-circle)
+                "axis": {
+                    "range": [min_val, max_val],
+                    "tickmode": "array",
+                    "tickvals": [0, 50, 100],
+                    "ticktext": ["0", "50", "100"],
+                    "tickwidth": 1,
+                    "tickcolor": "rgba(0,0,0,0.35)",
+                    "tickfont": {"size": 10},
+                },
+
+                # IMPORTANT: hide the big filled wedge
+                "bar": {"color": "rgba(0,0,0,0)", "thickness": 0.01},
+
                 "bgcolor": "white",
-                "borderwidth": 2,
-                "bordercolor": "lightgray",
+                "borderwidth": 1,
+                "bordercolor": "rgba(0,0,0,0.10)",
+
+                # Subtle zone fills
                 "steps": [
-                    {"range": [0, thresholds[0]], "color": "#fee2e2"},  # Light red
-                    {"range": [thresholds[0], thresholds[1]], "color": "#fef3c7"},  # Light yellow
-                    {"range": [thresholds[1], 100], "color": "#d1fae5"},  # Light green
+                    {"range": [min_val, yellow_start], "color": RED_BG},
+                    {"range": [yellow_start, green_start], "color": AMBER_BG},
+                    {"range": [green_start, max_val], "color": GREEN_BG},
                 ],
+
+                # Needle at the current value (clean + colored)
                 "threshold": {
-                    "line": {"color": "black", "width": 2},
-                    "thickness": 0.75,
-                    "value": thresholds[1],
+                    "line": {"color": needle, "width": 5},
+                    "thickness": 0.85,
+                    "value": v,
                 },
             },
         )
     )
 
     fig.update_layout(
-        height=180,
-        margin=dict(l=10, r=10, t=40, b=10),
+        height=190,
+        margin=dict(l=10, r=10, t=45, b=10),
         paper_bgcolor="white",
         font={"family": "Arial"},
     )
 
     return fig
-
 
 def pill_meter(value, title, max_val=10, good_max=3, warn_max=7, invert=True, suffix=""):
     """
