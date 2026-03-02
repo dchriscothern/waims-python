@@ -17,77 +17,65 @@ import plotly.express as px
 
 def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[60, 80]):
     """
-    Cleaner Whistle/Apollo-style gauge:
-    - Subtle colored zones
-    - NO big filled wedge
-    - Uses a colored "needle" (threshold line) at the current value
-    - Shows score as /100 (not %)
+    Cleaner, higher-contrast half-gauge (Whistle/Apollo vibe)
+    - thresholds = [yellow_start, green_start] on 0..100
     """
+
+    # Clamp value safely
     try:
         v = float(value)
     except Exception:
         v = 0.0
     v = max(float(min_val), min(float(max_val), v))
 
-    yellow_start, green_start = thresholds[0], thresholds[1]
+    y_start, g_start = thresholds  # e.g., 60, 80
 
-    # Modern palette
-    GREEN = "#16a34a"
-    AMBER = "#f59e0b"
-    RED   = "#ef4444"
+    # More saturated zone fills (not pastel)
+    Z_RED   = "rgba(239, 68, 68, 0.45)"   # red-500 @ 45%
+    Z_AMBER = "rgba(245, 158, 11, 0.45)"  # amber-500 @ 45%
+    Z_GREEN = "rgba(16, 185, 129, 0.45)"  # emerald-500 @ 45%
 
-    RED_BG   = "rgba(239,68,68,0.16)"
-    AMBER_BG = "rgba(245,158,11,0.18)"
-    GREEN_BG = "rgba(22,163,74,0.16)"
-
-    # Needle color by status
-    if v >= green_start:
-        needle = GREEN
-    elif v >= yellow_start:
-        needle = AMBER
+    # Bar/needle color by status
+    if v >= g_start:
+        status_color = "#10b981"  # emerald
+    elif v >= y_start:
+        status_color = "#f59e0b"  # amber
     else:
-        needle = RED
+        status_color = "#ef4444"  # red
 
     fig = go.Figure(
         go.Indicator(
             mode="gauge+number",
             value=v,
             title={"text": title, "font": {"size": 14}},
-            number={
-                "font": {"size": 26, "color": "#111827"},
-                "valueformat": ".0f",
-                "suffix": "/100",
-            },
+            number={"suffix": "%", "font": {"size": 26, "color": "#111827"}},
             gauge={
-                # Make it look like a speedometer (semi-circle)
+                "shape": "angular",
                 "axis": {
                     "range": [min_val, max_val],
-                    "tickmode": "array",
-                    "tickvals": [0, 50, 100],
-                    "ticktext": ["0", "50", "100"],
+                    "tickvals": [min_val, (min_val + max_val) / 2, max_val],
                     "tickwidth": 1,
-                    "tickcolor": "rgba(0,0,0,0.35)",
-                    "tickfont": {"size": 10},
+                    "tickcolor": "rgba(17, 24, 39, 0.35)",
+                    "tickfont": {"size": 10, "color": "rgba(17, 24, 39, 0.65)"},
                 },
 
-                # IMPORTANT: hide the big filled wedge
-                "bar": {"color": "rgba(0,0,0,0)", "thickness": 0.01},
+                # slimmer fill (more like a “track” than a fat wedge)
+                "bar": {"color": status_color, "thickness": 0.28},
 
                 "bgcolor": "white",
-                "borderwidth": 1,
-                "bordercolor": "rgba(0,0,0,0.10)",
+                "borderwidth": 0,
 
-                # Subtle zone fills
+                # higher-contrast segments
                 "steps": [
-                    {"range": [min_val, yellow_start], "color": RED_BG},
-                    {"range": [yellow_start, green_start], "color": AMBER_BG},
-                    {"range": [green_start, max_val], "color": GREEN_BG},
+                    {"range": [min_val, y_start], "color": Z_RED},
+                    {"range": [y_start, g_start], "color": Z_AMBER},
+                    {"range": [g_start, max_val], "color": Z_GREEN},
                 ],
 
-                # Needle at the current value (clean + colored)
+                # “needle” at the current value (same color as status)
                 "threshold": {
-                    "line": {"color": needle, "width": 5},
-                    "thickness": 0.85,
+                    "line": {"color": status_color, "width": 6},
+                    "thickness": 0.95,
                     "value": v,
                 },
             },
@@ -96,7 +84,7 @@ def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[60, 80]
 
     fig.update_layout(
         height=190,
-        margin=dict(l=10, r=10, t=45, b=10),
+        margin=dict(l=10, r=10, t=44, b=0),
         paper_bgcolor="white",
         font={"family": "Arial"},
     )
