@@ -167,45 +167,103 @@ def create_metric_card(label, value, status, icon="📊"):
     
     return html
 
-def create_speedometer(value, title, max_val=10):
+def create_speedometer(value, title, max_val=10, higher_is_better=False):
     """
-    Create a half-circle speedometer gauge
+    Half-circle speedometer gauge with improved colors + correct direction.
+    - For soreness/stress: lower_is_better => higher_is_better=False (default)
+    - For mood: higher_is_better=True
     """
-    
-    # Determine color
-    if value <= 3:
-        color = "#10b981"  # Green (low is good for soreness/stress)
-    elif value <= 7:
-        color = "#f59e0b"  # Yellow
+
+    # Clamp value safely
+    try:
+        v = float(value)
+    except Exception:
+        v = 0.0
+    v = max(0.0, min(float(max_val), v))
+
+    # Define zones on 0..max_val (default 10)
+    # You can tweak these if you want (e.g., 0-2-5-10)
+    z1 = 0
+    z2 = max_val * 0.30   # ~3 on 10-pt scale
+    z3 = max_val * 0.70   # ~7 on 10-pt scale
+    z4 = max_val
+
+    # Colors (modern, readable)
+    GREEN = "#16a34a"
+    AMBER = "#f59e0b"
+    RED   = "#ef4444"
+
+    # Soft zone fills
+    GREEN_BG = "rgba(22,163,74,0.18)"
+    AMBER_BG = "rgba(245,158,11,0.20)"
+    RED_BG   = "rgba(239,68,68,0.18)"
+
+    # Pick bar color by direction
+    if higher_is_better:
+        # high = good
+        if v >= z3:
+            bar_color = GREEN
+        elif v >= z2:
+            bar_color = AMBER
+        else:
+            bar_color = RED
+        steps = [
+            {"range": [z1, z2], "color": RED_BG},
+            {"range": [z2, z3], "color": AMBER_BG},
+            {"range": [z3, z4], "color": GREEN_BG},
+        ]
+        # optional "target" marker at good zone start
+        threshold_value = z3
     else:
-        color = "#ef4444"  # Red
-    
-    fig = go.Figure(go.Indicator(
-        mode = "gauge+number",
-        value = value,
-        domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': title, 'font': {'size': 13}},
-        number = {'font': {'size': 18}},
-        gauge = {
-            'axis': {'range': [None, max_val], 'tickwidth': 1},
-            'bar': {'color': color, 'thickness': 0.6},
-            'bgcolor': "white",
-            'borderwidth': 2,
-            'bordercolor': "lightgray",
-            'steps' : [
-                {'range': [0, 3], 'color': "#d1fae5"},
-                {'range': [3, 7], 'color': "#fef3c7"},
-                {'range': [7, 10], 'color': "#fee2e2"}
-            ]
-        }
-    ))
-    
-    fig.update_layout(
-        height=150,
-        margin=dict(l=10, r=10, t=30, b=10),
-        paper_bgcolor="white"
+        # low = good
+        if v <= z2:
+            bar_color = GREEN
+        elif v <= z3:
+            bar_color = AMBER
+        else:
+            bar_color = RED
+        steps = [
+            {"range": [z1, z2], "color": GREEN_BG},
+            {"range": [z2, z3], "color": AMBER_BG},
+            {"range": [z3, z4], "color": RED_BG},
+        ]
+        threshold_value = z2
+
+    fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=v,
+            number={"font": {"size": 22}},
+            title={"text": title, "font": {"size": 13}},
+            gauge={
+                "shape": "angular",  # keeps it speedometer-like
+                "axis": {
+                    "range": [0, max_val],
+                    "tickwidth": 1,
+                    "tickcolor": "rgba(0,0,0,0.35)",
+                    "tickfont": {"size": 10},
+                },
+                "bar": {"color": bar_color, "thickness": 0.70},
+                "bgcolor": "white",
+                "borderwidth": 1,
+                "bordercolor": "rgba(0,0,0,0.10)",
+                "steps": steps,
+                "threshold": {
+                    "line": {"color": "rgba(0,0,0,0.55)", "width": 3},
+                    "thickness": 0.75,
+                    "value": threshold_value,
+                },
+            },
+        )
     )
-    
+
+    fig.update_layout(
+        height=170,
+        margin=dict(l=8, r=8, t=34, b=8),
+        paper_bgcolor="white",
+        font={"family": "Arial"},
+    )
+
     return fig
 
 # ==============================================================================
@@ -519,7 +577,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         st.plotly_chart(fig, use_container_width=True, key=f"speed_stress_{athlete_id}")
 
     with col3:
-        fig = create_speedometer(latest_wellness['mood'], "Mood Score", 10)
+        fig = create_speedometer(latest_wellness['mood'], "Mood Score", 10, higher_is_better=True)
         st.plotly_chart(fig, use_container_width=True, key=f"speed_mood_{athlete_id}")
 
     # ==================================================================
