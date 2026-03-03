@@ -197,6 +197,7 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
         st.markdown(create_summary_card("At Risk",   red_count,           "#ef4444", "🔴"), unsafe_allow_html=True)
     with c4:
         st.markdown(create_summary_card("Avg Sleep", f"{avg_sleep:.1f}h", "#3b82f6", sleep_icon), unsafe_allow_html=True)
+   
     st.markdown("---")
     st.subheader("Player Details")
 
