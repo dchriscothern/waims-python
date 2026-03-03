@@ -179,18 +179,24 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
         ]
     )
     red_count = len(today_wellness[today_wellness["readiness_score"] < 60])
-    avg_sleep = today_wellness["sleep_hours"].mean()
+    
+    # Determine sleep icon colour based on avg sleep
+    if avg_sleep >= 8:
+        sleep_icon = "🟢"
+    elif avg_sleep >= 7:
+        sleep_icon = "🟡"
+    else:
+        sleep_icon = "🔴"
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(create_summary_card("Ready", green_count, "#10b981", "🟢"), unsafe_allow_html=True)
+        st.markdown(create_summary_card("Ready",     green_count,         "#10b981", "🟢"), unsafe_allow_html=True)
     with c2:
-        st.markdown(create_summary_card("Monitor", yellow_count, "#f59e0b", "🟡"), unsafe_allow_html=True)
+        st.markdown(create_summary_card("Monitor",   yellow_count,        "#f59e0b", "🟡"), unsafe_allow_html=True)
     with c3:
-        st.markdown(create_summary_card("At Risk", red_count, "#ef4444", "🔴"), unsafe_allow_html=True)
+        st.markdown(create_summary_card("At Risk",   red_count,           "#ef4444", "🔴"), unsafe_allow_html=True)
     with c4:
-        st.markdown(create_summary_card("Avg Sleep", f"{avg_sleep:.1f}h", "#3b82f6", "😴"), unsafe_allow_html=True)
-
+        st.markdown(create_summary_card("Avg Sleep", f"{avg_sleep:.1f}h", "#3b82f6", sleep_icon), unsafe_allow_html=True)
     st.markdown("---")
     st.subheader("Player Details")
 
