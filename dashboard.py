@@ -818,21 +818,17 @@ with tab5:
 # ==============================================================================
 
 with tab6:
-    st.header("🔮 Readiness Forecasts")
-    st.caption("Quick look at who may need attention soon, based on recent trends.")
-
-    import os
-    import pickle
-
-    model_path = "models/injury_risk_model.pkl"
-    model_exists = os.path.exists(model_path)
+    st.header("Readiness Forecasts")
+    st.caption("Flags players showing unusual deviation from their personal baseline.")
 
     if len(wellness) > 0 and len(training_load) > 0:
-        st.subheader("Today’s Watchouts")
+        st.subheader("Today's Watchouts")
 
-        recent_data = wellness[wellness["date"] == wellness["date"].max()].copy()
+        latest_date = wellness["date"].max()
+
+        recent_data = wellness[wellness["date"] == latest_date].copy()
         recent_data = recent_data.merge(
-            training_load[training_load["date"] == training_load["date"].max()],
+            training_load[training_load["date"] == latest_date],
             on=["player_id", "date"],
             how="left",
         )
@@ -843,15 +839,84 @@ with tab6:
         )
 
         if len(recent_data) > 0:
-            recent_data["risk_score"] = (
-                (1 - recent_data["sleep_hours"] / 8) * 30
-                + (recent_data["soreness"] / 10) * 30
-                + (recent_data["stress"] / 10) * 20
-                + (recent_data["injury_history_count"].fillna(0) / 5) * 20
-            ).round(0)
+
+            def compute_zscore_risk(row):
+                player_id = row["player_id"]
+                history = wellness[
+                    (wellness["player_id"] == player_id) &
+                    (wellness["date"] < latest_date)
+                ].tail(30)
+
+                flags      = 0
+                flag_notes = []
+
+                if len(history) < 7:
+                    # Fallback: absolute scoring
+                    score = (
+                        (1 - row["sleep_hours"] / 8) * 30
+                        + (row["soreness"] / 10) * 30
+                        + (row["stress"] / 10) * 20
+                        + (row.get("injury_history_count", 0) or 0) / 5 * 20
+                    )
+                    return round(score, 0), ["Insufficient history — absolute thresholds used"]
+
+                # --- Sleep (lower is worse) ---
+                sleep_mean = history["sleep_hours"].mean()
+                sleep_std  = max(history["sleep_hours"].std(), 0.3)
+                sleep_z    = (row["sleep_hours"] - sleep_mean) / sleep_std
+                if row["sleep_hours"] < 6.5:
+                    flags += 2
+                    flag_notes.append(f"Sleep {row['sleep_hours']:.1f} hrs — below safety floor")
+                elif sleep_z < -1.5:
+                    flags += 1
+                    flag_notes.append(f"Sleep {row['sleep_hours']:.1f} hrs — {abs(sleep_z):.1f}σ below her norm")
+
+                # --- Soreness (higher is worse) ---
+                sor_mean = history["soreness"].mean()
+                sor_std  = max(history["soreness"].std(), 0.5)
+                sor_z    = (row["soreness"] - sor_mean) / sor_std
+                if row["soreness"] > 7:
+                    flags += 2
+                    flag_notes.append(f"Soreness {row['soreness']:.0f}/10 — above safety ceiling")
+                elif sor_z > 1.5:
+                    flags += 1
+                    flag_notes.append(f"Soreness {row['soreness']:.0f}/10 — {sor_z:.1f}σ above her norm")
+
+                # --- Stress (higher is worse) ---
+                str_mean = history["stress"].mean()
+                str_std  = max(history["stress"].std(), 0.5)
+                str_z    = (row["stress"] - str_mean) / str_std
+                if row["stress"] > 7:
+                    flags += 2
+                    flag_notes.append(f"Stress {row['stress']:.0f}/10 — above safety ceiling")
+                elif str_z > 1.5:
+                    flags += 1
+                    flag_notes.append(f"Stress {row['stress']:.0f}/10 — {str_z:.1f}σ above her norm")
+
+                # --- Mood (lower is worse) ---
+                mood_mean = history["mood"].mean()
+                mood_std  = max(history["mood"].std(), 0.5)
+                mood_z    = (row["mood"] - mood_mean) / mood_std
+                if mood_z < -1.5:
+                    flags += 1
+                    flag_notes.append(f"Mood {row['mood']:.0f}/10 — {abs(mood_z):.1f}σ below her norm")
+
+                # --- Injury history modifier ---
+                inj = row.get("injury_history_count", 0) or 0
+                if inj > 2:
+                    flags += 1
+                    flag_notes.append(f"Injury history: {int(inj)} previous")
+
+                # Scale flags to 0–100 risk score for sorting
+                risk_score = min(100, flags * 20)
+                return risk_score, flag_notes if flag_notes else ["No individual red flags — trend-based watchout"]
+
+            results = recent_data.apply(compute_zscore_risk, axis=1)
+            recent_data["risk_score"] = results.apply(lambda x: x[0])
+            recent_data["flag_notes"] = results.apply(lambda x: x[1])
 
             recent_data["risk_level"] = recent_data["risk_score"].apply(
-                lambda x: "🔴 High" if x > 60 else ("🟡 Moderate" if x > 40 else "🟢 Low")
+                lambda x: "🔴 High" if x >= 60 else ("🟡 Moderate" if x >= 20 else "🟢 Low")
             )
 
             recent_data = recent_data.sort_values("risk_score", ascending=False)
@@ -859,61 +924,51 @@ with tab6:
             st.markdown("**Athletes to check in with:**")
             for _, player in recent_data.head(5).iterrows():
                 with st.expander(
-                    f"{player['risk_level']}  **{player['name']}**  (Score: {player['risk_score']:.0f}/100)"
+                    f"{player['risk_level']}  **{player['name']}**  (Risk Score: {player['risk_score']:.0f}/100)"
                 ):
                     c1, c2, c3 = st.columns(3)
-                    c1.metric("Sleep", f"{player['sleep_hours']:.1f} hrs")
-                    c2.metric("Soreness", f"{player['soreness']}/10")
-                    c3.metric("Stress", f"{player['stress']}/10")
+                    c1.metric("Sleep",    f"{player['sleep_hours']:.1f} hrs")
+                    c2.metric("Soreness", f"{player['soreness']:.0f}/10")
+                    c3.metric("Stress",   f"{player['stress']:.0f}/10")
 
-                    st.markdown("**Why they’re here:**")
-                    factors = []
-                    if player["sleep_hours"] < 7:
-                        factors.append("Low sleep")
-                    if player["soreness"] >= 6:
-                        factors.append("High soreness")
-                    if player.get("injury_history_count", 0) > 2:
-                        factors.append("Higher injury history")
+                    st.markdown("**Why she's here:**")
+                    for note in player["flag_notes"]:
+                        st.write(f"• {note}")
 
-                    if factors:
-                        st.write("• " + "\n• ".join(factors))
-                    else:
-                        st.write("Trend-based watchout (no single red flag).")
         else:
             st.info("No data available for the most recent day.")
     else:
         st.info("Add wellness + training load data to show forecast watchouts.")
 
     st.markdown("---")
+    st.caption(
+        "Risk scoring: hard safety floors (sleep <6.5 hrs, soreness/stress >7) always flag. "
+        "Personal deviations >1.5σ from 30-day baseline add additional flags. "
+        "Players with <7 days history fall back to absolute thresholds."
+    )
 
     with st.expander("Model details (staff)"):
+        import os, pickle
+        model_path   = "models/injury_risk_model.pkl"
+        model_exists = os.path.exists(model_path)
         if model_exists:
-            st.success("✓ Forecast model available")
+            st.success("Forecast model available")
             try:
                 with open(model_path, "rb") as f:
-                    model = pickle.load(f)
-
+                    pickle.load(f)
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Algorithm", "RandomForest")
-                c2.metric("Status", "Ready")
+                c2.metric("Status",    "Ready")
                 c3.metric("Model file", "injury_risk_model.pkl")
-
                 st.info(
-                    "**Readiness Watchouts Model**  \n"
-                    "Trained on historical patterns to flag potential watchouts.  \n\n"
-                    "Uses features: sleep, soreness, stress, training load, ACWR, force plate metrics."
+                    "Uses features: sleep, soreness, stress, training load, ACWR, force plate metrics. "
+                    "Z-score deviations from personal baseline are the primary signal."
                 )
             except Exception as e:
                 st.error(f"Error loading model: {e}")
-                st.info("Run: python train_models.py to train the model")
         else:
-            st.warning("⚠️ Forecast model not yet trained")
-            st.markdown(
-                "**To train the model:**\n"
-                "1. Open terminal in the waims-python folder  \n"
-                "2. Run: `python train_models.py`  \n"
-                "3. Refresh this page"
-            )
+            st.warning("Forecast model not yet trained")
+            st.markdown("Run: `python train_models.py` then refresh.")
             st.code("python train_models.py", language="bash")
 
 # ==============================================================================
