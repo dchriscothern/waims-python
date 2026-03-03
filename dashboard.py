@@ -140,6 +140,63 @@ def get_status_color(score):
     else:
         return "🔴", "red"
 
+
+# ==============================================================================
+# GPS HELPER — z-score flag for a single metric
+# ==============================================================================
+
+def _gps_zscore_flag(player_id, col, today_val, training_load_df, ref_date):
+    """Returns (emoji, z_score_or_None) based on personal baseline."""
+    hist = training_load_df[
+        (training_load_df["player_id"] == player_id) &
+        (training_load_df["date"] < ref_date) &
+        (training_load_df[col] > 0)
+    ].tail(30)[col]
+    if len(hist) < 5:
+        return "🟡", None
+    z = (today_val - hist.mean()) / max(hist.std(), 0.1)
+    if z <= -2.0:
+        return "🔴", z
+    elif z <= -1.0:
+        return "🟡", z
+    else:
+        return "🟢", z
+
+
+def get_gps_row(player_id, training_load_df, ref_date):
+    """Return today's GPS row for a player as a dict, or None."""
+    row = training_load_df[
+        (training_load_df["player_id"] == player_id) &
+        (training_load_df["date"] == pd.to_datetime(ref_date))
+    ]
+    return row.iloc[0].to_dict() if len(row) > 0 else None
+
+
+def build_gps_flag_notes(player_id, gps_row, training_load_df, ref_date):
+    """
+    Returns a list of flag strings for load/accel/decel deviations.
+    Uses z-scores vs personal 30-day baseline.
+    """
+    if gps_row is None:
+        return []
+    notes = []
+    checks = [
+        ("player_load",  "Player Load",  "low"),
+        ("accel_count",  "Accel Count",  "low"),
+        ("decel_count",  "Decel Count",  "low"),
+    ]
+    for col, label, direction in checks:
+        val = gps_row.get(col)
+        if val is None:
+            continue
+        emoji, z = _gps_zscore_flag(player_id, col, val, training_load_df, ref_date)
+        if emoji == "🔴" and z is not None:
+            notes.append(f"{label} {val:.0f} — {abs(z):.1f}σ below baseline (high fatigue signal)")
+        elif emoji == "🟡" and z is not None:
+            notes.append(f"{label} {val:.0f} — {abs(z):.1f}σ below baseline")
+    return notes
+
+
 # ==============================================================================
 # SHARED Z-SCORE CLASSIFIER  (wellness + CMJ/RSI)
 # ==============================================================================
@@ -235,7 +292,7 @@ def classify_player_full(player_id, today_wellness_row, today_fp_row, wellness_d
 # TAB 1: TODAY'S READINESS
 # ==============================================================================
 
-def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
+def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_df, end_date):
     st.header("Today's Readiness Status")
     st.caption(f"📅 {end_date.strftime('%B %d, %Y')}")
 
@@ -249,8 +306,15 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
         st.info("No data available for selected date")
         return
 
-    latest_fp = fp_df[fp_df["date"] == pd.to_datetime(end_date)]
-    ref_date  = pd.to_datetime(end_date)
+    latest_fp  = fp_df[fp_df["date"] == pd.to_datetime(end_date)]
+    ref_date   = pd.to_datetime(end_date)
+
+    # GPS coverage check
+    has_gps = "player_load" in training_load_df.columns
+    gps_coverage = 0
+    if has_gps:
+        today_gps = training_load_df[training_load_df["date"] == ref_date]
+        gps_coverage = len(today_gps["player_id"].unique())
 
     def get_fp_row(pid):
         row = latest_fp[latest_fp["player_id"] == pid]
@@ -282,7 +346,10 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
     with c4:
         st.markdown(create_summary_card("Avg Sleep", f"{avg_sleep:.1f}h", "#3b82f6", sleep_icon), unsafe_allow_html=True)
 
-    st.caption(f"Force plate data for {fp_coverage}/{len(today_wellness)} athletes today. CMJ/RSI deviations weighted higher than subjective wellness.")
+    coverage_parts = [f"Force plate: {fp_coverage}/{len(today_wellness)} athletes"]
+    if has_gps:
+        coverage_parts.append(f"GPS/Kinexon: {gps_coverage}/{len(today_wellness)} athletes")
+    st.caption(" · ".join(coverage_parts) + ". CMJ/RSI deviations weighted higher than subjective wellness.")
     st.markdown("---")
 
     today_wellness["readiness_score"] = (
@@ -335,10 +402,33 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
                 unsafe_allow_html=True,
             )
             for _, player in today_wellness.iterrows():
-                bg     = "#d1fae5" if player["readiness_score"] >= 80 else ("#fef3c7" if player["readiness_score"] >= 60 else "#fee2e2")
-                fp_row = get_fp_row(player["player_id"])
-                cmj_str = f"{fp_row['cmj_height_cm']:.1f} cm" if fp_row else "—"
-                rsi_str = f"{fp_row['rsi_modified']:.2f}"     if fp_row else "—"
+                bg      = "#d1fae5" if player["readiness_score"] >= 80 else ("#fef3c7" if player["readiness_score"] >= 60 else "#fee2e2")
+                fp_row  = get_fp_row(player["player_id"])
+                gps_row = get_gps_row(player["player_id"], training_load_df, ref_date) if has_gps else None
+
+                cmj_str   = f"{fp_row['cmj_height_cm']:.1f} cm"  if fp_row  else "—"
+                rsi_str   = f"{fp_row['rsi_modified']:.2f}"       if fp_row  else "—"
+
+                # GPS z-score flags for compact badge
+                if gps_row and has_gps:
+                    load_emoji, _ = _gps_zscore_flag(player["player_id"], "player_load", gps_row.get("player_load", 0), training_load_df, ref_date)
+                    accel_emoji, _= _gps_zscore_flag(player["player_id"], "accel_count", gps_row.get("accel_count", 0), training_load_df, ref_date)
+                    decel_emoji, _= _gps_zscore_flag(player["player_id"], "decel_count", gps_row.get("decel_count", 0), training_load_df, ref_date)
+                    load_str  = f"{load_emoji} {gps_row.get('player_load', 0):.0f}"
+                    accel_str = f"{accel_emoji} {gps_row.get('accel_count', 0):.0f}"
+                    decel_str = f"{decel_emoji} {gps_row.get('decel_count', 0):.0f}"
+                else:
+                    load_str = accel_str = decel_str = "—"
+
+                gps_cells = (
+                    f'<div class="battery-item"><div class="battery-label">Load</div>'
+                    f'<span style="font-size:12px;font-weight:700;">{load_str}</span></div>'
+                    f'<div class="battery-item"><div class="battery-label">Accels</div>'
+                    f'<span style="font-size:12px;font-weight:700;">{accel_str}</span></div>'
+                    f'<div class="battery-item"><div class="battery-label">Decels</div>'
+                    f'<span style="font-size:12px;font-weight:700;">{decel_str}</span></div>'
+                ) if has_gps else ""
+
                 row_html = (
                     f'<div class="player-row">'
                     f'<div style="display:flex;align-items:center;gap:12px;min-width:280px;">'
@@ -353,19 +443,24 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
                     f'<div class="battery-item"><div class="battery-label">Stress</div>{create_mini_battery(player["stress_pct"], show_label=False)}</div>'
                     f'<div class="battery-item"><div class="battery-label">CMJ</div><span style="font-size:12px;font-weight:700;">{cmj_str}</span></div>'
                     f'<div class="battery-item"><div class="battery-label">RSI</div><span style="font-size:12px;font-weight:700;">{rsi_str}</span></div>'
+                    f'{gps_cells}'
                     f'</div>'
                     f'</div>'
                 )
                 st.markdown(_html_oneliner(row_html), unsafe_allow_html=True)
 
     else:
+        # ── Detailed view ────────────────────────────────────────────
         for _, player in today_wellness.iterrows():
-            emoji  = "🟢" if player["readiness_score"] >= 80 else ("🟡" if player["readiness_score"] >= 60 else "🔴")
-            fp_row = get_fp_row(player["player_id"])
+            emoji   = "🟢" if player["readiness_score"] >= 80 else ("🟡" if player["readiness_score"] >= 60 else "🔴")
+            fp_row  = get_fp_row(player["player_id"])
+            gps_row = get_gps_row(player["player_id"], training_load_df, ref_date) if has_gps else None
+
             with st.expander(f"{emoji} **{player['name']}** ({player['position']}) — Score: {player['readiness_score']:.0f}/100"):
-                colA, colB = st.columns([2, 1])
+                colA, colB, colC = st.columns([2, 1, 1])
+
                 with colA:
-                    st.markdown("**Key Metrics**")
+                    st.markdown("**Wellness Metrics**")
                     st.markdown(f"**Sleep:** {create_mini_battery(player['sleep_pct'])}", unsafe_allow_html=True)
                     st.caption(f"{player['sleep_hours']:.1f} hours")
                     st.markdown(f"**Physical:** {create_mini_battery(player['physical_pct'])}", unsafe_allow_html=True)
@@ -374,21 +469,57 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
                     st.caption(f"Mood: {player['mood']:.0f}/10")
                     st.markdown(f"**Stress:** {create_mini_battery(player['stress_pct'])}", unsafe_allow_html=True)
                     st.caption(f"Stress: {player['stress']:.0f}/10")
+
                 with colB:
-                    st.markdown("**Raw Values**")
-                    st.metric("Sleep",    f"{player['sleep_hours']:.1f} hrs")
-                    st.metric("Soreness", f"{player['soreness']:.0f}/10")
-                    st.metric("Stress",   f"{player['stress']:.0f}/10")
-                    st.metric("Mood",     f"{player['mood']:.0f}/10")
+                    st.markdown("**Force Plate**")
                     if fp_row:
                         st.metric("CMJ Height",   f"{fp_row['cmj_height_cm']:.1f} cm")
                         st.metric("RSI-Modified", f"{fp_row['rsi_modified']:.2f}")
                     else:
                         st.caption("No force plate data today")
+                    st.markdown("**Raw Wellness**")
+                    st.metric("Sleep",    f"{player['sleep_hours']:.1f} hrs")
+                    st.metric("Soreness", f"{player['soreness']:.0f}/10")
+                    st.metric("Stress",   f"{player['stress']:.0f}/10")
+                    st.metric("Mood",     f"{player['mood']:.0f}/10")
+
+                with colC:
+                    st.markdown("**GPS / Kinexon**")
+                    if gps_row and has_gps:
+                        pl_val    = gps_row.get("player_load", 0)
+                        ac_val    = gps_row.get("accel_count", 0)
+                        dc_val    = gps_row.get("decel_count", 0)
+
+                        pl_emoji, pl_z = _gps_zscore_flag(player["player_id"], "player_load", pl_val, training_load_df, ref_date)
+                        ac_emoji, ac_z = _gps_zscore_flag(player["player_id"], "accel_count", ac_val, training_load_df, ref_date)
+                        dc_emoji, dc_z = _gps_zscore_flag(player["player_id"], "decel_count", dc_val, training_load_df, ref_date)
+
+                        pl_delta = f"{pl_z:+.1f}σ" if pl_z is not None else "—"
+                        ac_delta = f"{ac_z:+.1f}σ" if ac_z is not None else "—"
+                        dc_delta = f"{dc_z:+.1f}σ" if dc_z is not None else "—"
+
+                        st.metric("Player Load",  f"{pl_emoji} {pl_val:.0f}",  delta=pl_delta, delta_color="off")
+                        st.metric("Accel Count",  f"{ac_emoji} {ac_val:.0f}",  delta=ac_delta, delta_color="off")
+                        st.metric("Decel Count",  f"{dc_emoji} {dc_val:.0f}",  delta=dc_delta, delta_color="off")
+
+                        # Yesterday's load session note
+                        if gps_row.get("game_minutes", 0) > 0:
+                            st.caption(f"Game day — {gps_row['game_minutes']:.0f} min played")
+                        elif gps_row.get("practice_minutes", 0) > 0:
+                            st.caption(f"Practice — {gps_row['practice_minutes']:.0f} min @ RPE {gps_row.get('practice_rpe', 0):.1f}")
+                    else:
+                        st.caption("No GPS data today")
+
                 st.markdown("---")
                 st.markdown("**Flags:**")
+                # Wellness + force plate flags
                 for note in player["flag_notes"]:
                     st.write(f"• {note}")
+                # GPS flags (separate, appended)
+                if gps_row and has_gps:
+                    gps_notes = build_gps_flag_notes(player["player_id"], gps_row, training_load_df, ref_date)
+                    for note in gps_notes:
+                        st.write(f"• 📡 {note}")
 
     st.markdown("---")
     st.markdown("### Quick Actions")
@@ -853,7 +984,8 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
 # ==============================================================================
 
 with tab1:
-    enhanced_todays_readiness_tab(wellness, players, force_plate, end_date)
+    # Pass training_load so the tab can render GPS metrics
+    enhanced_todays_readiness_tab(wellness, players, force_plate, training_load, end_date)
 
 # ==============================================================================
 # TAB 2
@@ -1025,12 +1157,13 @@ with tab6:
 
 with tab7:
     st.header("Readiness Forecasts")
-    st.caption("Flags players showing unusual deviation from their personal baseline — wellness + force plate combined.")
+    st.caption("Flags players showing unusual deviation from their personal baseline — wellness + force plate + GPS combined.")
 
     if len(wellness) > 0:
         latest_date = wellness["date"].max()
         ref_date    = pd.to_datetime(latest_date)
         latest_fp   = force_plate[force_plate["date"] == latest_date]
+        has_gps_fc  = "player_load" in training_load.columns
 
         def get_fp_row_fc(pid):
             row = latest_fp[latest_fp["player_id"] == pid]
@@ -1049,6 +1182,15 @@ with tab7:
                     get_fp_row_fc(row["player_id"]),
                     wellness, force_plate, ref_date,
                 )
+
+                # ── GPS flags appended to notes ───────────────────────
+                if has_gps_fc:
+                    gps_row = get_gps_row(row["player_id"], training_load, ref_date)
+                    gps_notes = build_gps_flag_notes(row["player_id"], gps_row, training_load, ref_date)
+                    # Each GPS flag adds 1 to the flag count (lower weight than CMJ)
+                    flags += len(gps_notes)
+                    notes.extend([f"📡 {n}" for n in gps_notes])
+
                 risk_score = min(100, flags * 15)
                 risk_emoji = "🔴 High" if risk_score >= 60 else ("🟡 Moderate" if risk_score >= 20 else "🟢 Low")
                 return pd.Series({"risk_score": risk_score, "flag_notes": notes, "risk_emoji": risk_emoji})
@@ -1056,13 +1198,26 @@ with tab7:
             recent_data[["risk_score", "flag_notes", "risk_emoji"]] = recent_data.apply(full_risk, axis=1)
             recent_data = recent_data.sort_values("risk_score", ascending=False)
 
-            fp_coverage = len(latest_fp["player_id"].unique())
-            st.caption(f"Force plate data for {fp_coverage}/{len(recent_data)} athletes. CMJ/RSI deviations weighted higher than subjective metrics.")
+            fp_coverage  = len(latest_fp["player_id"].unique())
+            gps_cov_str  = ""
+            if has_gps_fc:
+                today_gps_fc = training_load[training_load["date"] == ref_date]
+                gps_cov      = len(today_gps_fc["player_id"].unique())
+                gps_cov_str  = f" · GPS/Kinexon: {gps_cov}/{len(recent_data)} athletes"
+
+            st.caption(
+                f"Force plate: {fp_coverage}/{len(recent_data)} athletes{gps_cov_str}. "
+                "CMJ/RSI deviations weighted higher; GPS load/accel/decel deviations also flagged."
+            )
             st.markdown("**Athletes to check in with:**")
 
             for _, player in recent_data.head(6).iterrows():
-                fp_row = get_fp_row_fc(player["player_id"])
+                fp_row  = get_fp_row_fc(player["player_id"])
+                gps_row = get_gps_row(player["player_id"], training_load, ref_date) if has_gps_fc else None
+
                 with st.expander(f"{player['risk_emoji']}  **{player['name']}**  — Risk Score: {player['risk_score']:.0f}/100"):
+
+                    # Row 1: wellness + force plate
                     c1, c2, c3, c4 = st.columns(4)
                     c1.metric("Sleep",    f"{player['sleep_hours']:.1f} hrs")
                     c2.metric("Soreness", f"{player['soreness']:.0f}/10")
@@ -1074,6 +1229,23 @@ with tab7:
                         cb.metric("Force Plate",  "Available")
                     else:
                         c4.metric("CMJ", "No data")
+
+                    # Row 2: GPS metrics
+                    if gps_row and has_gps_fc:
+                        st.markdown("**GPS / Kinexon**")
+                        g1, g2, g3 = st.columns(3)
+                        pl_val = gps_row.get("player_load", 0)
+                        ac_val = gps_row.get("accel_count", 0)
+                        dc_val = gps_row.get("decel_count", 0)
+
+                        pl_emoji, pl_z = _gps_zscore_flag(player["player_id"], "player_load", pl_val, training_load, ref_date)
+                        ac_emoji, ac_z = _gps_zscore_flag(player["player_id"], "accel_count", ac_val, training_load, ref_date)
+                        dc_emoji, dc_z = _gps_zscore_flag(player["player_id"], "decel_count", dc_val, training_load, ref_date)
+
+                        g1.metric("Player Load", f"{pl_emoji} {pl_val:.0f}", delta=f"{pl_z:+.1f}σ" if pl_z else "—", delta_color="off")
+                        g2.metric("Accel Count", f"{ac_emoji} {ac_val:.0f}", delta=f"{ac_z:+.1f}σ" if ac_z else "—", delta_color="off")
+                        g3.metric("Decel Count", f"{dc_emoji} {dc_val:.0f}", delta=f"{dc_z:+.1f}σ" if dc_z else "—", delta_color="off")
+
                     st.markdown("**Why she's here:**")
                     for note in player["flag_notes"]:
                         st.write(f"• {note}")
@@ -1087,6 +1259,7 @@ with tab7:
         "Risk scoring: hard safety floors (sleep <6.5 hrs, soreness/stress >7) always flag. "
         "Personal deviations >1.5σ from 30-day baseline add flags. "
         "CMJ/RSI drops weighted ×1.5 vs subjective metrics. "
+        "GPS load/accel/decel drops >1σ below personal baseline add flags. "
         "Gathercole et al. (2015) · Milewski et al. (2014) · Gabbett (2016)"
     )
 
@@ -1101,7 +1274,7 @@ with tab7:
                 c1.metric("Algorithm", "RandomForest")
                 c2.metric("Status",    "Ready")
                 c3.metric("Model file","injury_risk_model.pkl")
-                st.info("Features: sleep, soreness, stress, training load, ACWR, CMJ, RSI + z-score deviations from personal baseline.")
+                st.info("Features: sleep, soreness, stress, training load, ACWR, CMJ, RSI, player load, accel/decel + z-score deviations from personal baseline.")
             except Exception as e:
                 st.error(f"Error loading model: {e}")
         else:

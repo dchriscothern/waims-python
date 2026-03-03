@@ -6,6 +6,8 @@ Usage:
     streamlit run dashboard.py
 """
 
+import os
+import pickle
 import sqlite3
 import re
 import textwrap
@@ -48,27 +50,34 @@ st.set_page_config(
 
 @st.cache_data
 def load_data():
-    conn         = sqlite3.connect("waims_demo.db")
-    players      = pd.read_sql_query("SELECT * FROM players",       conn)
-    wellness     = pd.read_sql_query("SELECT * FROM wellness",      conn)
-    training_load= pd.read_sql_query("SELECT * FROM training_load", conn)
-    force_plate  = pd.read_sql_query("SELECT * FROM force_plate",   conn)
-    injuries     = pd.read_sql_query("SELECT * FROM injuries",      conn)
-    acwr         = pd.read_sql_query("SELECT * FROM acwr",          conn)
+    conn          = sqlite3.connect("waims_demo.db")
+    players       = pd.read_sql_query("SELECT * FROM players",        conn)
+    wellness      = pd.read_sql_query("SELECT * FROM wellness",       conn)
+    training_load = pd.read_sql_query("SELECT * FROM training_load",  conn)
+    force_plate   = pd.read_sql_query("SELECT * FROM force_plate",    conn)
+    injuries      = pd.read_sql_query("SELECT * FROM injuries",       conn)
+    acwr          = pd.read_sql_query("SELECT * FROM acwr",           conn)
+    try:
+        availability = pd.read_sql_query("SELECT * FROM availability", conn)
+        availability["date"] = pd.to_datetime(availability["date"])
+    except Exception:
+        availability = pd.DataFrame()
 
-    wellness["date"]      = pd.to_datetime(wellness["date"])
-    training_load["date"] = pd.to_datetime(training_load["date"])
-    force_plate["date"]   = pd.to_datetime(force_plate["date"])
-    acwr["date"]          = pd.to_datetime(acwr["date"])
+    wellness["date"]       = pd.to_datetime(wellness["date"])
+    training_load["date"]  = pd.to_datetime(training_load["date"])
+    force_plate["date"]    = pd.to_datetime(force_plate["date"])
+    acwr["date"]           = pd.to_datetime(acwr["date"])
     if len(injuries) > 0:
         injuries["injury_date"] = pd.to_datetime(injuries["injury_date"])
+        if "return_date" in injuries.columns:
+            injuries["return_date"] = pd.to_datetime(injuries["return_date"])
 
     conn.close()
-    return players, wellness, training_load, force_plate, injuries, acwr
+    return players, wellness, training_load, force_plate, injuries, acwr, availability
 
 
 try:
-    players, wellness, training_load, force_plate, injuries, acwr = load_data()
+    players, wellness, training_load, force_plate, injuries, acwr, availability = load_data()
 except Exception as e:
     st.error(f"Error loading database: {e}")
     st.info("Make sure waims_demo.db is in the current directory")
@@ -86,7 +95,6 @@ def create_mini_battery(value, show_label=True):
     """Emoji + percentage only — no battery bar."""
     color = "#10b981" if value >= 80 else ("#f59e0b" if value >= 60 else "#ef4444")
     emoji = "🟢"       if value >= 80 else ("🟡"       if value >= 60 else "🔴")
-
     if show_label:
         html = (
             f'<div style="display:flex;align-items:center;gap:8px;">'
@@ -185,7 +193,6 @@ def classify_player_full(player_id, today_wellness_row, today_fp_row, wellness_d
             flags += 1
             notes.append(f"Mood {today_wellness_row['mood']:.0f}/10 — {abs(mood_z):.1f}σ below her norm")
     else:
-        # Absolute fallback
         if today_wellness_row["sleep_hours"] < 6.5:
             flags += 2; notes.append("Sleep below safety floor (insufficient history for z-score)")
         if today_wellness_row["soreness"] > 7:
@@ -242,14 +249,13 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
         st.info("No data available for selected date")
         return
 
-    latest_fp  = fp_df[fp_df["date"] == pd.to_datetime(end_date)]
-    ref_date   = pd.to_datetime(end_date)
+    latest_fp = fp_df[fp_df["date"] == pd.to_datetime(end_date)]
+    ref_date  = pd.to_datetime(end_date)
 
     def get_fp_row(pid):
         row = latest_fp[latest_fp["player_id"] == pid]
         return row.iloc[0].to_dict() if len(row) > 0 else None
 
-    # Classify every player using full z-score model (wellness + force plate)
     results = today_wellness.apply(
         lambda r: pd.Series(
             classify_player_full(r["player_id"], r, get_fp_row(r["player_id"]), wellness_df, fp_df, ref_date),
@@ -266,7 +272,6 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
     sleep_icon   = "🟢" if avg_sleep >= 8 else ("🟡" if avg_sleep >= 7 else "🔴")
     fp_coverage  = len(latest_fp["player_id"].unique())
 
-    # Summary cards
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown(create_summary_card("Ready",     green_count,         "#10b981", "🟢"), unsafe_allow_html=True)
@@ -277,10 +282,9 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
     with c4:
         st.markdown(create_summary_card("Avg Sleep", f"{avg_sleep:.1f}h", "#3b82f6", sleep_icon), unsafe_allow_html=True)
 
-    st.caption(f"Force plate data available for {fp_coverage}/{len(today_wellness)} athletes today. CMJ/RSI deviations weighted higher than subjective wellness.")
+    st.caption(f"Force plate data for {fp_coverage}/{len(today_wellness)} athletes today. CMJ/RSI deviations weighted higher than subjective wellness.")
     st.markdown("---")
 
-    # Also compute legacy readiness score for display purposes
     today_wellness["readiness_score"] = (
         (today_wellness["sleep_hours"] / 8) * 30
         + ((10 - today_wellness["soreness"]) / 10) * 25
@@ -331,7 +335,7 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
                 unsafe_allow_html=True,
             )
             for _, player in today_wellness.iterrows():
-                bg = "#d1fae5" if player["readiness_score"] >= 80 else ("#fef3c7" if player["readiness_score"] >= 60 else "#fee2e2")
+                bg     = "#d1fae5" if player["readiness_score"] >= 80 else ("#fef3c7" if player["readiness_score"] >= 60 else "#fee2e2")
                 fp_row = get_fp_row(player["player_id"])
                 cmj_str = f"{fp_row['cmj_height_cm']:.1f} cm" if fp_row else "—"
                 rsi_str = f"{fp_row['rsi_modified']:.2f}"     if fp_row else "—"
@@ -356,8 +360,8 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
 
     else:
         for _, player in today_wellness.iterrows():
-            emoji   = "🟢" if player["readiness_score"] >= 80 else ("🟡" if player["readiness_score"] >= 60 else "🔴")
-            fp_row  = get_fp_row(player["player_id"])
+            emoji  = "🟢" if player["readiness_score"] >= 80 else ("🟡" if player["readiness_score"] >= 60 else "🔴")
+            fp_row = get_fp_row(player["player_id"])
             with st.expander(f"{emoji} **{player['name']}** ({player['position']}) — Score: {player['readiness_score']:.0f}/100"):
                 colA, colB = st.columns([2, 1])
                 with colA:
@@ -372,16 +376,15 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
                     st.caption(f"Stress: {player['stress']:.0f}/10")
                 with colB:
                     st.markdown("**Raw Values**")
-                    st.metric("Sleep",         f"{player['sleep_hours']:.1f} hrs")
-                    st.metric("Soreness",      f"{player['soreness']:.0f}/10")
-                    st.metric("Stress",        f"{player['stress']:.0f}/10")
-                    st.metric("Mood",          f"{player['mood']:.0f}/10")
+                    st.metric("Sleep",    f"{player['sleep_hours']:.1f} hrs")
+                    st.metric("Soreness", f"{player['soreness']:.0f}/10")
+                    st.metric("Stress",   f"{player['stress']:.0f}/10")
+                    st.metric("Mood",     f"{player['mood']:.0f}/10")
                     if fp_row:
-                        st.metric("CMJ Height",  f"{fp_row['cmj_height_cm']:.1f} cm")
-                        st.metric("RSI-Modified",f"{fp_row['rsi_modified']:.2f}")
+                        st.metric("CMJ Height",   f"{fp_row['cmj_height_cm']:.1f} cm")
+                        st.metric("RSI-Modified", f"{fp_row['rsi_modified']:.2f}")
                     else:
                         st.caption("No force plate data today")
-
                 st.markdown("---")
                 st.markdown("**Flags:**")
                 for note in player["flag_notes"]:
@@ -402,7 +405,308 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, end_date):
             st.info(f"Training modifications recommended for {red_count + yellow_count} players")
 
 # ==============================================================================
-# SMART QUERY FUNCTIONS (TAB 7)
+# TAB 5: AVAILABILITY & INJURIES
+# ==============================================================================
+
+def availability_injuries_tab(availability_df, injuries_df, players_df, end_date):
+    st.header("Availability & Injury Tracker")
+    latest_date = pd.to_datetime(end_date)
+
+    # ── TODAY'S AVAILABILITY BOARD ────────────────────────────────────
+    st.subheader("Today's Availability")
+
+    if len(availability_df) > 0:
+        today_av = (
+            availability_df[availability_df["date"] == latest_date]
+            .merge(players_df[["player_id", "name", "position"]], on="player_id", how="left")
+        )
+        if len(today_av) > 0:
+            out_count          = (today_av["status"] == "OUT").sum()
+            questionable_count = (today_av["status"] == "QUESTIONABLE").sum()
+            available_count    = (today_av["status"] == "AVAILABLE").sum()
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Available",     available_count)
+            c2.metric("Questionable",  questionable_count)
+            c3.metric("Out",           out_count)
+            c4.metric("Availability %", f"{(available_count / len(today_av) * 100):.0f}%")
+            st.markdown("---")
+
+            for _, row in today_av.sort_values("status").iterrows():
+                color = {"AVAILABLE": "#10b981", "QUESTIONABLE": "#f59e0b", "OUT": "#ef4444"}.get(row["status"], "#6b7280")
+                bg    = {"AVAILABLE": "#d1fae5",  "QUESTIONABLE": "#fef3c7",  "OUT": "#fee2e2"}.get(row["status"], "#f3f4f6")
+                html  = _html_oneliner(
+                    f'<div style="display:flex;align-items:center;justify-content:space-between;'
+                    f'background:{bg};border-left:5px solid {color};padding:12px 16px;'
+                    f'border-radius:6px;margin:5px 0;">'
+                    f'<div>'
+                    f'<span style="font-weight:700;font-size:14px;color:#1f2937;">{row["name"]}</span>'
+                    f'<span style="font-size:12px;color:#6b7280;margin-left:10px;">{row["position"]}</span>'
+                    f'</div>'
+                    f'<div style="display:flex;gap:20px;align-items:center;">'
+                    f'<span style="font-size:12px;color:#6b7280;">Practice: <b>{row["practice_status"]}</b></span>'
+                    f'<span style="font-size:13px;font-weight:800;color:{color};">{row["status"]}</span>'
+                    f'</div>'
+                    f'</div>'
+                )
+                st.markdown(html, unsafe_allow_html=True)
+        else:
+            st.info("No availability data for selected date.")
+    else:
+        st.info("No availability table found. Run generate_demo_data.py to populate.")
+
+    # ── SEASON AVAILABILITY % ─────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Season Availability %")
+    st.caption("Days available out of total days in season. Target: >85%")
+
+    if len(availability_df) > 0:
+        season_av = (
+            availability_df.groupby("player_id")
+            .apply(lambda x: pd.Series({
+                "days_available":    (x["status"] == "AVAILABLE").sum(),
+                "days_questionable": (x["status"] == "QUESTIONABLE").sum(),
+                "days_out":          (x["status"] == "OUT").sum(),
+                "total_days":        len(x),
+            }))
+            .reset_index()
+            .merge(players_df[["player_id", "name", "position"]], on="player_id")
+        )
+        season_av["availability_pct"] = (season_av["days_available"] / season_av["total_days"] * 100).round(1)
+        season_av = season_av.sort_values("availability_pct")
+
+        bar_colors = season_av["availability_pct"].apply(
+            lambda x: "#10b981" if x >= 85 else ("#f59e0b" if x >= 70 else "#ef4444")
+        ).tolist()
+
+        fig = go.Figure(go.Bar(
+            x=season_av["availability_pct"],
+            y=season_av["name"],
+            orientation="h",
+            marker_color=bar_colors,
+            text=season_av["availability_pct"].apply(lambda x: f"{x:.1f}%"),
+            textposition="outside",
+        ))
+        fig.add_vline(x=85, line_dash="dash", line_color="#6b7280",
+                      annotation_text="85% target", annotation_position="top right")
+        fig.update_layout(
+            height=380, margin=dict(l=10, r=60, t=20, b=20),
+            xaxis=dict(range=[0, 110], title="Availability %"),
+            yaxis=dict(title=""),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # ── INJURY LOG ────────────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Injury Log")
+
+    if len(injuries_df) > 0:
+        inj_display  = injuries_df.merge(players_df[["player_id", "name"]], on="player_id")
+        sev_colors   = {"Mild": "#f59e0b", "Moderate": "#ef4444", "Severe": "#7c3aed"}
+
+        for _, inj in inj_display.iterrows():
+            ret = (inj["return_date"].strftime("%b %d")
+                   if "return_date" in inj.index and pd.notna(inj["return_date"]) else "TBD")
+            with st.expander(
+                f"🚨 **{inj['name']}** — {inj['injury_type']} · "
+                f"{inj['injury_date'].strftime('%b %d, %Y')} · {inj.get('severity', '')}"
+            ):
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Injury Date", inj["injury_date"].strftime("%B %d, %Y"))
+                c2.metric("Days Missed", inj["days_missed"])
+                c3.metric("Return Date", ret)
+
+                st.markdown("**Wellness 7 Days Before Injury:**")
+                pre = wellness[
+                    (wellness["player_id"] == inj["player_id"]) &
+                    (wellness["date"] >= inj["injury_date"] - timedelta(days=7)) &
+                    (wellness["date"] <= inj["injury_date"])
+                ].sort_values("date")
+
+                if len(pre) > 0:
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=pre["date"], y=pre["sleep_hours"], name="Sleep (hrs)",  mode="lines+markers", line=dict(color="#2E86AB", width=2)))
+                    fig.add_trace(go.Scatter(x=pre["date"], y=pre["soreness"],    name="Soreness /10", mode="lines+markers", line=dict(color="#ef4444", width=2), yaxis="y2"))
+                    fig.update_layout(
+                        yaxis =dict(title="Sleep Hours"),
+                        yaxis2=dict(title="Soreness", overlaying="y", side="right"),
+                        height=260, hovermode="x unified",
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.success("No injuries recorded this season")
+
+# ==============================================================================
+# TAB 6: GPS & LOAD
+# ==============================================================================
+
+def gps_load_tab(training_load_df, players_df, end_date):
+    st.header("GPS & Load Monitoring")
+    st.caption("Kinexon tracking — distance, high-speed running, sprint, accel/decel, player load.")
+
+    if "total_distance_km" not in training_load_df.columns:
+        st.warning("GPS fields not found. Run generate_demo_data.py to populate them.")
+        return
+
+    latest_date = training_load_df["date"].max()
+    today_load  = (
+        training_load_df[training_load_df["date"] == latest_date]
+        .merge(players_df[["player_id", "name", "position"]], on="player_id", how="left")
+    )
+
+    if len(today_load) == 0:
+        st.info("No GPS data for latest date.")
+        return
+
+    # ── TEAM SUMMARY ──────────────────────────────────────────────────
+    st.subheader("Team Summary — Today")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Avg Distance",    f"{today_load['total_distance_km'].mean():.1f} km")
+    c2.metric("Avg HSR",         f"{today_load['hsr_distance_m'].mean():.0f} m")
+    c3.metric("Avg Sprint",      f"{today_load['sprint_distance_m'].mean():.0f} m")
+    c4.metric("Avg Player Load", f"{today_load['player_load'].mean():.0f}")
+    c5.metric("Avg Accels",      f"{today_load['accel_count'].mean():.0f}")
+    st.markdown("---")
+
+    # ── PLAYER GPS TABLE ──────────────────────────────────────────────
+    st.subheader("Individual GPS — Today")
+
+    def gps_flag(player_id, col, today_val):
+        hist = training_load_df[
+            (training_load_df["player_id"] == player_id) &
+            (training_load_df["date"] < latest_date) &
+            (training_load_df[col] > 0)
+        ].tail(30)[col]
+        if len(hist) < 5: return "🟡"
+        z = (today_val - hist.mean()) / max(hist.std(), 0.1)
+        return "🔴" if z <= -2.0 else ("🟡" if z <= -1.0 else "🟢")
+
+    for _, row in today_load.sort_values("player_load", ascending=False).iterrows():
+        l_flag = gps_flag(row["player_id"], "player_load",        row["player_load"])
+        d_flag = gps_flag(row["player_id"], "total_distance_km",  row["total_distance_km"])
+        h_flag = gps_flag(row["player_id"], "hsr_distance_m",     row["hsr_distance_m"])
+
+        with st.expander(
+            f"{l_flag} **{row['name']}** ({row['position']})  —  "
+            f"Load: {row['player_load']:.0f}  ·  Dist: {row['total_distance_km']:.1f} km  ·  HSR: {row['hsr_distance_m']:.0f} m"
+        ):
+            g1, g2, g3, g4, g5, g6 = st.columns(6)
+            g1.metric("Distance",    f"{row['total_distance_km']:.1f} km")
+            g2.metric("HSR",         f"{row['hsr_distance_m']:.0f} m")
+            g3.metric("Sprint",      f"{row['sprint_distance_m']:.0f} m")
+            g4.metric("Accels",      f"{row['accel_count']}")
+            g5.metric("Decels",      f"{row['decel_count']}")
+            g6.metric("Player Load", f"{row['player_load']:.0f}")
+            if row["game_minutes"] > 0:
+                st.caption(f"Game day — {row['game_minutes']:.0f} min played")
+            else:
+                st.caption(f"Practice — {row['practice_minutes']:.0f} min @ RPE {row['practice_rpe']:.1f}")
+
+    st.markdown("---")
+
+    # ── 14-DAY GPS TRENDS ─────────────────────────────────────────────
+    st.subheader("14-Day GPS Trends")
+    athlete_list = sorted(players_df["name"].tolist())
+    sel = st.multiselect("Select athletes", athlete_list, default=athlete_list[:4], key="gps_trend_select")
+
+    if sel:
+        sel_ids  = players_df[players_df["name"].isin(sel)]["player_id"].tolist()
+        cutoff   = latest_date - pd.Timedelta(days=14)
+        trend_df = (
+            training_load_df[
+                (training_load_df["player_id"].isin(sel_ids)) &
+                (training_load_df["date"] >= cutoff)
+            ]
+            .merge(players_df[["player_id", "name"]], on="player_id")
+            .sort_values(["player_id", "date"])
+        )
+
+        COLORS = ["#2E86AB", "#A23B72", "#F18F01", "#C73E1D", "#3B1F2B", "#44BBA4"]
+
+        def gps_chart(metric_col, title, y_label):
+            fig = go.Figure()
+            for i, name in enumerate(sel):
+                sub = trend_df[trend_df["name"] == name]
+                fig.add_trace(go.Scatter(
+                    x=sub["date"], y=sub[metric_col],
+                    mode="lines+markers", name=name,
+                    line=dict(color=COLORS[i % len(COLORS)], width=2),
+                ))
+            fig.update_layout(
+                title=title, height=280,
+                yaxis=dict(title=y_label),
+                hovermode="x unified",
+                margin=dict(l=10, r=10, t=40, b=10),
+                legend=dict(orientation="h", y=-0.3),
+            )
+            return fig
+
+        t1, t2 = st.columns(2)
+        with t1:
+            st.plotly_chart(gps_chart("total_distance_km", "Total Distance (km)", "km"), use_container_width=True)
+        with t2:
+            st.plotly_chart(gps_chart("hsr_distance_m", "High-Speed Running (m, >18 km/h)", "m"), use_container_width=True)
+
+        t3, t4 = st.columns(2)
+        with t3:
+            st.plotly_chart(gps_chart("player_load", "Player Load", "AU"), use_container_width=True)
+        with t4:
+            fig = go.Figure()
+            for i, name in enumerate(sel):
+                sub = trend_df[trend_df["name"] == name]
+                fig.add_trace(go.Bar(
+                    x=sub["date"], y=sub["accel_count"],
+                    name=name, marker_color=COLORS[i % len(COLORS)], opacity=0.75,
+                ))
+            fig.update_layout(
+                title="Accel Count", height=280, barmode="group",
+                hovermode="x unified",
+                margin=dict(l=10, r=10, t=40, b=10),
+                legend=dict(orientation="h", y=-0.3),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    # ── PLAYER LOAD ACWR ──────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Player Load ACWR")
+    st.caption("Acute:Chronic workload ratio using GPS player load. Optimal zone: 0.8–1.3")
+
+    acwr_gps_rows = []
+    for pid in players_df["player_id"].tolist():
+        p_loads = (
+            training_load_df[training_load_df["player_id"] == pid]
+            .sort_values("date")[["date", "player_load"]]
+        )
+        if len(p_loads) >= 14:
+            acute_mean   = p_loads.tail(7)["player_load"].mean()
+            chronic_mean = p_loads.tail(28)["player_load"].mean()
+            ratio        = acute_mean / chronic_mean if chronic_mean > 0 else 1.0
+            pname        = players_df[players_df["player_id"] == pid]["name"].values[0]
+            acwr_gps_rows.append({"name": pname, "acwr_gps": round(ratio, 2)})
+
+    if acwr_gps_rows:
+        acwr_df    = pd.DataFrame(acwr_gps_rows).sort_values("acwr_gps", ascending=False)
+        bar_colors = acwr_df["acwr_gps"].apply(
+            lambda x: "#10b981" if 0.8 <= x <= 1.3 else ("#f59e0b" if x <= 1.5 else "#ef4444")
+        ).tolist()
+        fig = go.Figure(go.Bar(
+            x=acwr_df["name"], y=acwr_df["acwr_gps"],
+            marker_color=bar_colors,
+            text=acwr_df["acwr_gps"].apply(lambda x: f"{x:.2f}"),
+            textposition="outside",
+        ))
+        fig.add_hline(y=0.8, line_dash="dash", line_color="#10b981", annotation_text="0.8 low")
+        fig.add_hline(y=1.3, line_dash="dash", line_color="#f59e0b", annotation_text="1.3 caution")
+        fig.add_hline(y=1.5, line_dash="dash", line_color="#ef4444", annotation_text="1.5 high risk")
+        fig.update_layout(
+            height=320,
+            yaxis=dict(title="Player Load ACWR", range=[0, 2.2]),
+            margin=dict(l=10, r=10, t=20, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+# ==============================================================================
+# SMART QUERY FUNCTIONS
 # ==============================================================================
 
 def get_latest_date():
@@ -435,7 +739,10 @@ def query_position_comparison():
     df   = df.merge(players[keep], on="player_id")
     if "position" not in df.columns:
         df["position"] = "NA"
-    comparison = df.groupby("position").agg({"sleep_hours": "mean", "soreness": "mean", "stress": "mean", "mood": "mean", "player_id": "count"}).round(1)
+    comparison = df.groupby("position").agg({
+        "sleep_hours": "mean", "soreness": "mean",
+        "stress": "mean", "mood": "mean", "player_id": "count",
+    }).round(1)
     comparison.columns = ["avg_sleep", "avg_soreness", "avg_stress", "avg_mood", "count"]
     return comparison.reset_index()
 
@@ -500,14 +807,22 @@ st.sidebar.markdown("**How to use**\n1. Pick a **date range**\n2. Select **playe
 if len(wellness) > 0:
     min_date   = wellness["date"].min().date()
     max_date   = wellness["date"].max().date()
-    date_range = st.sidebar.date_input("Date Range", value=(max_date - timedelta(days=7), max_date), min_value=min_date, max_value=max_date)
+    date_range = st.sidebar.date_input(
+        "Date Range",
+        value=(max_date - timedelta(days=7), max_date),
+        min_value=min_date, max_value=max_date,
+    )
     start_date, end_date = date_range if len(date_range) == 2 else (max_date, max_date)
 else:
     start_date = end_date = datetime.today().date()
 
-selected_players = st.sidebar.multiselect("Select Players", options=players["name"].tolist(), default=players["name"].tolist()[:5])
+selected_players = st.sidebar.multiselect(
+    "Select Players",
+    options=players["name"].tolist(),
+    default=players["name"].tolist()[:5],
+)
 st.sidebar.markdown("---")
-st.sidebar.info("**Data Source:** SQLite Database\n**Records:** 1,637 data points\n**Period:** 50 days of monitoring")
+st.sidebar.info("**Data Source:** SQLite Database\n**Records:** ~10,000+ data points\n**Period:** 90 days of monitoring")
 
 if HAVE_IMPROVED_GAUGES:
     st.sidebar.markdown("---")
@@ -522,12 +837,13 @@ if HAVE_IMPROVED_GAUGES:
 st.title("🏀 WAIMS READINESS WATCHLIST")
 st.markdown(f"**Date:** {end_date.strftime('%B %d, %Y')}")
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📊 Today's Readiness",
     "👤 Athlete Profiles",
     "📈 Trends",
     "💪 Jump Testing",
     "🚨 Availability & Injuries",
+    "📡 GPS & Load",
     "🤖 Forecast",
     "🔍 Ask the Watchlist",
 ])
@@ -570,10 +886,10 @@ with tab3:
                 .merge(players[["player_id", "name"]], on="player_id")
                 .sort_values(["player_id", "date"])
             )
-            trend_df["sleep_roll"]    = trend_df.groupby("player_id")["sleep_hours"].transform(lambda x: x.rolling(7, min_periods=2).mean())
-            trend_df["soreness_roll"] = trend_df.groupby("player_id")["soreness"].transform(lambda x: x.rolling(7, min_periods=2).mean())
-            trend_df["mood_roll"]     = trend_df.groupby("player_id")["mood"].transform(lambda x: x.rolling(7, min_periods=2).mean())
-            trend_df["stress_roll"]   = trend_df.groupby("player_id")["stress"].transform(lambda x: x.rolling(7, min_periods=2).mean())
+            for col in ["sleep_hours", "soreness", "mood", "stress"]:
+                trend_df[f"{col.split('_')[0]}_roll"] = trend_df.groupby("player_id")[col].transform(
+                    lambda x: x.rolling(7, min_periods=2).mean()
+                )
 
             COLORS = ["#2E86AB", "#A23B72", "#F18F01", "#C73E1D", "#3B1F2B", "#44BBA4"]
 
@@ -583,8 +899,10 @@ with tab3:
                     c   = COLORS[i % len(COLORS)]
                     sub = df[df["name"] == name]
                     fig.add_trace(go.Scatter(x=sub["date"], y=sub[raw_col],  mode="lines+markers", name=name, line=dict(color=c, width=1, dash="dot"), marker=dict(size=4), opacity=0.4, legendgroup=name, showlegend=False))
-                    fig.add_trace(go.Scatter(x=sub["date"], y=sub[roll_col], mode="lines",          name=name, line=dict(color=c, width=3),                                               legendgroup=name, showlegend=True))
-                fig.update_layout(title=title, height=260, margin=dict(l=10, r=10, t=40, b=20), hovermode="x unified", yaxis=dict(range=yrange) if yrange else {}, legend=dict(orientation="h", y=-0.2))
+                    fig.add_trace(go.Scatter(x=sub["date"], y=sub[roll_col], mode="lines",          name=name, line=dict(color=c, width=3),             legendgroup=name, showlegend=True))
+                fig.update_layout(title=title, height=260, margin=dict(l=10, r=10, t=40, b=20),
+                                  hovermode="x unified", yaxis=dict(range=yrange) if yrange else {},
+                                  legend=dict(orientation="h", y=-0.2))
                 return fig
 
             r1, r2 = st.columns(2)
@@ -612,7 +930,9 @@ with tab4:
 
     if len(force_plate) > 0:
         latest_date = force_plate["date"].max()
-        today_fp    = force_plate[force_plate["date"] == latest_date].merge(players[["player_id", "name", "position"]], on="player_id", how="left")
+        today_fp    = force_plate[force_plate["date"] == latest_date].merge(
+            players[["player_id", "name", "position"]], on="player_id", how="left"
+        )
 
         def jump_zscore_status(player_id, today_cmj, today_rsi):
             history = force_plate[(force_plate["player_id"] == player_id) & (force_plate["date"] < latest_date)].tail(30)
@@ -661,6 +981,8 @@ with tab4:
                 ca, cb = st.columns(2)
                 ca.metric("CMJ Height",   f"{row['cmj_height_cm']:.1f} cm")
                 cb.metric("RSI-Modified", f"{row['rsi_modified']:.2f}")
+                if "asymmetry_index" in row:
+                    st.caption(f"Asymmetry index: {row['asymmetry_index']:.1f}%")
                 st.markdown("**Assessment:**")
                 for note in row["jump_flags"]:
                     st.write(f"• {note}")
@@ -672,46 +994,36 @@ with tab4:
         if sel_jump:
             sel_ids  = players[players["name"].isin(sel_jump)]["player_id"].tolist()
             week_ago = latest_date - pd.Timedelta(days=7)
-            trend_df = force_plate[(force_plate["player_id"].isin(sel_ids)) & (force_plate["date"] >= week_ago)].merge(players[["player_id", "name"]], on="player_id")
+            trend_df = force_plate[
+                (force_plate["player_id"].isin(sel_ids)) & (force_plate["date"] >= week_ago)
+            ].merge(players[["player_id", "name"]], on="player_id")
             if len(trend_df) > 0:
-                fig = px.line(trend_df, x="date", y="cmj_height_cm", color="name", markers=True, title="CMJ Height (cm) — Personal Trend", labels={"cmj_height_cm": "CMJ (cm)", "name": "Athlete"})
+                fig = px.line(trend_df, x="date", y="cmj_height_cm", color="name", markers=True,
+                              title="CMJ Height (cm) — Personal Trend",
+                              labels={"cmj_height_cm": "CMJ (cm)", "name": "Athlete"})
                 st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No force plate data available.")
 
 # ==============================================================================
-# TAB 5: INJURIES
+# TAB 5: AVAILABILITY & INJURIES
 # ==============================================================================
 
 with tab5:
-    st.header("Injury Tracking")
-    if len(injuries) > 0:
-        injuries_display = injuries.merge(players[["player_id", "name"]], on="player_id")
-        for _, inj in injuries_display.iterrows():
-            with st.expander(f"🚨 **{inj['name']}** - {inj['injury_type']} ({inj['injury_date'].strftime('%Y-%m-%d')})"):
-                c1, c2 = st.columns(2)
-                c1.metric("Injury Date", inj["injury_date"].strftime("%B %d, %Y"))
-                c2.metric("Days Missed", inj["days_missed"])
-                st.markdown("**Wellness 7 Days Before Injury:**")
-                pre_injury = wellness[
-                    (wellness["player_id"] == inj["player_id"]) &
-                    (wellness["date"] >= inj["injury_date"] - timedelta(days=7)) &
-                    (wellness["date"] <= inj["injury_date"])
-                ].sort_values("date")
-                if len(pre_injury) > 0:
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=pre_injury["date"], y=pre_injury["sleep_hours"], name="Sleep Hours",  mode="lines+markers"))
-                    fig.add_trace(go.Scatter(x=pre_injury["date"], y=pre_injury["soreness"],    name="Soreness",     mode="lines+markers", yaxis="y2"))
-                    fig.update_layout(yaxis=dict(title="Sleep Hours"), yaxis2=dict(title="Soreness (0-10)", overlaying="y", side="right"), height=300)
-                    st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.success("No injuries recorded")
+    availability_injuries_tab(availability, injuries, players, end_date)
 
 # ==============================================================================
-# TAB 6: FORECAST
+# TAB 6: GPS & LOAD
 # ==============================================================================
 
 with tab6:
+    gps_load_tab(training_load, players, end_date)
+
+# ==============================================================================
+# TAB 7: FORECAST
+# ==============================================================================
+
+with tab7:
     st.header("Readiness Forecasts")
     st.caption("Flags players showing unusual deviation from their personal baseline — wellness + force plate combined.")
 
@@ -771,10 +1083,14 @@ with tab6:
         st.info("Add wellness + training load data to show forecast watchouts.")
 
     st.markdown("---")
-    st.caption("Risk scoring: hard safety floors (sleep <6.5 hrs, soreness/stress >7) always flag. Personal deviations >1.5σ from 30-day baseline add flags. CMJ/RSI drops weighted ×1.5 vs subjective metrics. Gathercole et al. (2015) · Milewski et al. (2014) · Gabbett (2016)")
+    st.caption(
+        "Risk scoring: hard safety floors (sleep <6.5 hrs, soreness/stress >7) always flag. "
+        "Personal deviations >1.5σ from 30-day baseline add flags. "
+        "CMJ/RSI drops weighted ×1.5 vs subjective metrics. "
+        "Gathercole et al. (2015) · Milewski et al. (2014) · Gabbett (2016)"
+    )
 
     with st.expander("Model details (staff)"):
-        import os, pickle
         model_path = "models/injury_risk_model.pkl"
         if os.path.exists(model_path):
             st.success("Forecast model available")
@@ -793,10 +1109,10 @@ with tab6:
             st.code("python train_models.py", language="bash")
 
 # ==============================================================================
-# TAB 7: ASK THE WATCHLIST
+# TAB 8: ASK THE WATCHLIST
 # ==============================================================================
 
-with tab7:
+with tab8:
     st.header("🔍 Ask the Watchlist")
     st.markdown("Ask questions about your players — instant answers.")
 
@@ -806,7 +1122,12 @@ with tab7:
     c1, c2 = st.columns([2, 1])
     with c1:
         st.markdown("**How to use:** Type `poor sleep`, `high risk`, `readiness`, or `compare positions`")
-        user_query = st.text_input("Ask a question", placeholder="e.g., 'poor sleep' or 'high risk players'", key="smart_query_input", label_visibility="collapsed")
+        user_query = st.text_input(
+            "Ask a question",
+            placeholder="e.g., 'poor sleep' or 'high risk players'",
+            key="smart_query_input",
+            label_visibility="collapsed",
+        )
         if st.session_state.query_to_run:
             user_query = st.session_state.query_to_run
             st.session_state.query_to_run = ""
@@ -816,12 +1137,20 @@ with tab7:
             response, data = generate_smart_response(query_type)
             st.markdown(response)
             if data is not None and len(data) > 0:
-                st.download_button("Download Results", data=data.to_csv(index=False), file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", mime="text/csv")
+                st.download_button(
+                    "Download Results",
+                    data=data.to_csv(index=False),
+                    file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                )
     with c2:
         st.markdown("### Quick Buttons")
-        if st.button("Poor Sleep",  use_container_width=True): st.session_state.query_to_run = "poor sleep";  st.rerun()
-        if st.button("High Risk",   use_container_width=True): st.session_state.query_to_run = "high risk";   st.rerun()
-        if st.button("Readiness",   use_container_width=True): st.session_state.query_to_run = "readiness";   st.rerun()
+        if st.button("Poor Sleep", use_container_width=True):
+            st.session_state.query_to_run = "poor sleep"; st.rerun()
+        if st.button("High Risk",  use_container_width=True):
+            st.session_state.query_to_run = "high risk";  st.rerun()
+        if st.button("Readiness",  use_container_width=True):
+            st.session_state.query_to_run = "readiness";  st.rerun()
 
 # ==============================================================================
 # FOOTER
@@ -831,7 +1160,7 @@ st.markdown("---")
 st.markdown(
     "<div style='text-align:center;color:#666;'>"
     "<p><strong>WAIMS</strong> — Athlete Monitoring System | Python · Streamlit · SQLite</p>"
-    "<p>Demo System — 1,637 integrated data points across 50 days</p>"
+    "<p>Dallas Wings inspired demo — 90 days · 12 players · ~10,000+ data points</p>"
     "</div>",
     unsafe_allow_html=True,
 )
