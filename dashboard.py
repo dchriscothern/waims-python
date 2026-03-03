@@ -19,6 +19,15 @@ import streamlit as st
 
 from athlete_profile_tab import athlete_profile_tab, create_radar_chart  # create_radar_chart ok to keep
 
+# Import improved gauges and research modules
+try:
+    from improved_gauges import create_player_card_compact, create_simple_battery
+    from research_citations import show_research_foundation
+    HAVE_IMPROVED_GAUGES = True
+except ImportError:
+    HAVE_IMPROVED_GAUGES = False
+    print("⚠️ improved_gauges.py or research_citations.py not found - using default display")
+
 # ==============================================================================
 # PAGE CONFIG + BRANDING (MUST COME BEFORE ANY OTHER st.* CALLS)
 # ==============================================================================
@@ -206,69 +215,91 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
     )
 
     if view_mode == "Compact (Battery View)":
-        st.markdown(
-            textwrap.dedent(
+        # Use improved gauges if available, otherwise fall back to default
+        if HAVE_IMPROVED_GAUGES:
+            # Use improved player cards
+            for _, player in today_wellness.iterrows():
+                metrics = {
+                    'sleep': player['sleep_pct'],
+                    'physical': player['physical_pct'],
+                    'mental': player['mental_pct'],
+                    'stress': player['stress_pct']
+                }
+                
+                st.markdown(
+                    create_player_card_compact(
+                        player_name=player['name'],
+                        position=player['position'],
+                        readiness_score=player['readiness_score'],
+                        metrics=metrics
+                    ),
+                    unsafe_allow_html=True
+                )
+        else:
+            # Original battery view code
+            st.markdown(
+                textwrap.dedent(
+                    """
+                    <style>
+                    .player-row{display:flex;align-items:center;padding:12px;margin:8px 0;background:#fff;
+                                border-radius:8px;border:1px solid #e5e7eb;transition:box-shadow .2s;}
+                    .player-row:hover{box-shadow:0 4px 6px rgba(0,0,0,.1);}
+                    .player-name{font-size:16px;font-weight:600;min-width:120px;}
+                    .player-position{font-size:12px;color:#6b7280;min-width:40px;}
+                    .player-status{font-size:14px;font-weight:600;min-width:90px;}
+                    .battery-container{display:flex;gap:12px;flex:1;}
+                    .battery-item{flex:1;text-align:center;}
+                    .battery-label{font-size:11px;color:#6b7280;margin-bottom:4px;}
+                    </style>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
+
+            for _, player in today_wellness.iterrows():
+                if player["readiness_score"] >= 80:
+                    status_bg = "#d1fae5"
+                elif player["readiness_score"] >= 60:
+                    status_bg = "#fef3c7"
+                else:
+                    status_bg = "#fee2e2"
+
+                row_html = f"""
+                <div class="player-row">
+                  <div style="display:flex;align-items:center;gap:12px;min-width:280px;">
+                    <span class="player-name">{player['name']}</span>
+                    <span class="player-position">{player['position']}</span>
+                    <span class="player-status" style="background-color:{status_bg};padding:4px 12px;border-radius:12px;">
+                      {player['status']}
+                    </span>
+                  </div>
+
+                  <div class="battery-container">
+                    <div class="battery-item">
+                      <div class="battery-label">💤 Sleep</div>
+                      {create_mini_battery(player['sleep_pct'], show_label=False)}
+                    </div>
+                    <div class="battery-item">
+                      <div class="battery-label">💪 Physical</div>
+                      {create_mini_battery(player['physical_pct'], show_label=False)}
+                    </div>
+                    <div class="battery-item">
+                      <div class="battery-label">😊 Mental</div>
+                      {create_mini_battery(player['mental_pct'], show_label=False)}
+                    </div>
+                    <div class="battery-item">
+                      <div class="battery-label">😌 Stress</div>
+                      {create_mini_battery(player['stress_pct'], show_label=False)}
+                    </div>
+                  </div>
+
+                  <div style="min-width:120px;text-align:center;">
+                    <div style="font-size:24px;font-weight:700;color:{player['status_color']};">{player['readiness_score']:.0f}</div>
+                    <div style="font-size:11px;color:#6b7280;">Overall Score</div>
+                  </div>
+                </div>
                 """
-                <style>
-                .player-row{display:flex;align-items:center;padding:12px;margin:8px 0;background:#fff;
-                            border-radius:8px;border:1px solid #e5e7eb;transition:box-shadow .2s;}
-                .player-row:hover{box-shadow:0 4px 6px rgba(0,0,0,.1);}
-                .player-name{font-size:16px;font-weight:600;min-width:120px;}
-                .player-position{font-size:12px;color:#6b7280;min-width:40px;}
-                .player-status{font-size:14px;font-weight:600;min-width:90px;}
-                .battery-container{display:flex;gap:12px;flex:1;}
-                .battery-item{flex:1;text-align:center;}
-                .battery-label{font-size:11px;color:#6b7280;margin-bottom:4px;}
-                </style>
-                """
-            ).strip(),
-            unsafe_allow_html=True,
-        )
-
-        for _, player in today_wellness.iterrows():
-            if player["readiness_score"] >= 80:
-                status_bg = "#d1fae5"
-            elif player["readiness_score"] >= 60:
-                status_bg = "#fef3c7"
-            else:
-                status_bg = "#fee2e2"
-
-            row_html = f"""
-            <div class="player-row">
-              <div style="display:flex;align-items:center;gap:12px;min-width:280px;">
-                <span class="player-name">{player['name']}</span>
-                <span class="player-position">{player['position']}</span>
-                <span class="player-status" style="background-color:{status_bg};padding:4px 12px;border-radius:12px;">
-                  {player['status']}
-                </span>
-              </div>
-
-              <div class="battery-container">
-                <div class="battery-item">
-                  <div class="battery-label">💤 Sleep</div>
-                  {create_mini_battery(player['sleep_pct'], show_label=False)}
-                </div>
-                <div class="battery-item">
-                  <div class="battery-label">💪 Physical</div>
-                  {create_mini_battery(player['physical_pct'], show_label=False)}
-                </div>
-                <div class="battery-item">
-                  <div class="battery-label">😊 Mental</div>
-                  {create_mini_battery(player['mental_pct'], show_label=False)}
-                </div>
-                <div class="battery-item">
-                  <div class="battery-label">😌 Stress</div>
-                  {create_mini_battery(player['stress_pct'], show_label=False)}
-                </div>
-              </div>
-
-              <div style="min-width:120px;text-align:center;">
-                <div style="font-size:24px;font-weight:700;color:{player['status_color']};">{player['readiness_score']:.0f}</div>
-                <div style="font-size:11px;color:#6b7280;">Overall Score</div>
-              </div>
-            </div>
-            """
-            st.markdown(_html_oneliner(row_html), unsafe_allow_html=True)
+                st.markdown(_html_oneliner(row_html), unsafe_allow_html=True)
 
     else:
         for _, player in today_wellness.iterrows():
@@ -531,6 +562,13 @@ st.sidebar.info(
 **Period:** 50 days of monitoring
 """
 )
+
+# Add research foundation button if module available
+if HAVE_IMPROVED_GAUGES:
+    st.sidebar.markdown("---")
+    if st.sidebar.button("📚 View Research Foundation", use_container_width=True):
+        with st.expander("📚 Research Foundation", expanded=True):
+            show_research_foundation()
 
 # ==============================================================================
 # MAIN DASHBOARD

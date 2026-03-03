@@ -11,21 +11,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-# Import improved gauges and z-score modules if available
-try:
-    from improved_gauges import create_clean_speedometer, create_recommendation_box
-    from z_score_module import (
-        calculate_athlete_baselines,
-        calculate_z_score,
-        create_z_score_display,
-        add_z_score_alerts
-    )
-    from research_context import injury_mechanism_insight_box
-    HAVE_ENHANCED_MODULES = True
-except ImportError:
-    HAVE_ENHANCED_MODULES = False
-    print("⚠️ Some enhanced modules not found - using default display")
-
 # ==============================================================================
 # VISUAL GAUGE HELPERS
 # ==============================================================================
@@ -413,26 +398,11 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     with col2:
         st.markdown("### Overall Readiness")
 
-        # Use improved speedometer if available, otherwise use current gauge
-        if HAVE_ENHANCED_MODULES:
-            fig = create_clean_speedometer(readiness, "Readiness Score", thresholds=[60, 80])
-            st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
-            
-            # Add recommendation box
-            st.markdown(
-                create_recommendation_box(readiness, context="competition"),
-                unsafe_allow_html=True
-            )
-        else:
-            fig = create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80])
-            st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
+        fig = create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80])
+        st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
 
-            if readiness >= 80:
-                st.success("✅ Full training cleared")
-            elif readiness >= 60:
-                st.info("⚠️ Monitor closely")
-            else:
-                st.warning("🚨 50% volume reduction recommended")
+        if readiness >= 80:
+            st.success("✅ Full training cleared")
         elif readiness >= 60:
             st.info("⚠️ Monitor closely")
         else:
@@ -536,90 +506,6 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         st.markdown(create_metric_card("ACWR", f"{latest_acwr:.2f}", status, "📈"), unsafe_allow_html=True)
 
     # ==================================================================
-    # Z-SCORE PERSONAL BASELINE COMPARISON (if module available)
-    # ==================================================================
-    
-    if HAVE_ENHANCED_MODULES:
-        baselines = calculate_athlete_baselines(wellness, athlete_id, lookback_days=30)
-        
-        if baselines:
-            st.markdown("---")
-            st.markdown("### 📊 Personal Baseline Comparison")
-            st.caption("Compares current values to your 30-day personal average")
-            
-            z_col1, z_col2 = st.columns(2)
-            
-            with z_col1:
-                # Sleep z-score
-                sleep_z = calculate_z_score(
-                    latest_wellness['sleep_hours'],
-                    baselines['sleep_hours']['mean'],
-                    baselines['sleep_hours']['std']
-                )
-                st.markdown(
-                    create_z_score_display(
-                        "Sleep Duration",
-                        latest_wellness['sleep_hours'],
-                        sleep_z,
-                        "higher_better",
-                        " hrs"
-                    ),
-                    unsafe_allow_html=True
-                )
-                
-                # Soreness z-score
-                soreness_z = calculate_z_score(
-                    latest_wellness['soreness'],
-                    baselines['soreness']['mean'],
-                    baselines['soreness']['std']
-                )
-                st.markdown(
-                    create_z_score_display(
-                        "Soreness Level",
-                        latest_wellness['soreness'],
-                        soreness_z,
-                        "lower_better",
-                        "/10"
-                    ),
-                    unsafe_allow_html=True
-                )
-            
-            with z_col2:
-                # Mood z-score
-                mood_z = calculate_z_score(
-                    latest_wellness['mood'],
-                    baselines['mood']['mean'],
-                    baselines['mood']['std']
-                )
-                st.markdown(
-                    create_z_score_display(
-                        "Mood",
-                        latest_wellness['mood'],
-                        mood_z,
-                        "higher_better",
-                        "/10"
-                    ),
-                    unsafe_allow_html=True
-                )
-                
-                # Stress z-score
-                stress_z = calculate_z_score(
-                    latest_wellness['stress'],
-                    baselines['stress']['mean'],
-                    baselines['stress']['std']
-                )
-                st.markdown(
-                    create_z_score_display(
-                        "Stress Level",
-                        latest_wellness['stress'],
-                        stress_z,
-                        "lower_better",
-                        "/10"
-                    ),
-                    unsafe_allow_html=True
-                )
-
-    # ==================================================================
     # WELLNESS INDICATORS (Whistle-style pill meters — replaces speedometers)
     # ==================================================================
 
@@ -716,24 +602,6 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Insufficient data for 7-day trends")
-
-    # ==================================================================
-    # BASKETBALL-SPECIFIC RISK CONTEXT (if module available)
-    # ==================================================================
-    
-    if HAVE_ENHANCED_MODULES:
-        st.markdown("---")
-        st.markdown("### 🏀 Basketball-Specific Risk Context")
-        
-        context = st.radio("Next activity:", ["Practice", "Competition"], horizontal=True, key=f"context_{athlete_id}")
-        
-        athlete_data = {
-            'sleep_hours': latest_wellness['sleep_hours'],
-            'soreness': latest_wellness['soreness'],
-            'acwr': latest_acwr
-        }
-        
-        injury_mechanism_insight_box(athlete_data, context.lower())
 
     with st.expander("📚 Research References"):
         st.markdown(
