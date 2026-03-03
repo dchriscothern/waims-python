@@ -433,10 +433,6 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
                 st.info("⚠️ Monitor closely")
             else:
                 st.warning("🚨 50% volume reduction recommended")
-        elif readiness >= 60:
-            st.info("⚠️ Monitor closely")
-        else:
-            st.warning("🚨 50% volume reduction recommended")
 
     with col3:
         st.markdown("### Performance Profile")
