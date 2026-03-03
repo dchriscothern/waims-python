@@ -223,6 +223,115 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     latest_cmj = latest_force.iloc[0]["cmj_height_cm"] if len(latest_force) > 0 else None
     latest_rsi = latest_force.iloc[0]["rsi_modified"]   if len(latest_force) > 0 else None
 
+# ── After loading latest_force / latest_cmj / latest_rsi ─────────────────
+    # Compute CMJ + RSI z-scores against player's 30-day force plate baseline
+
+    cmj_z = rsi_z = None
+
+    if latest_cmj is not None and latest_rsi is not None:
+        fp_history = force_plate[
+            (force_plate["player_id"] == athlete_id) &
+            (force_plate["date"] < latest_date)
+        ].tail(30)
+
+        if len(fp_history) >= 5:
+            cmj_mean = fp_history["cmj_height_cm"].mean()
+            cmj_std  = max(fp_history["cmj_height_cm"].std(), 0.5)
+            cmj_z    = (latest_cmj - cmj_mean) / cmj_std
+
+            rsi_mean = fp_history["rsi_modified"].mean()
+            rsi_std  = max(fp_history["rsi_modified"].std(), 0.01)
+            rsi_z    = (latest_rsi - rsi_mean) / rsi_std
+
+    # ── Personal Baseline (z-score cards) ────────────────────────────────────
+    # Add CMJ + RSI rows in a third column alongside wellness metrics
+
+    if HAVE_ENHANCED_MODULES and baselines:
+        st.markdown("---")
+        st.markdown("### Personal Baseline Comparison")
+        st.caption("Current values relative to this athlete's 30-day average. Force plate provides objective fatigue signal.")
+
+        z1, z2, z3 = st.columns(3)
+
+        with z1:
+            sleep_z = calculate_z_score(
+                latest_wellness["sleep_hours"],
+                baselines["sleep_hours"]["mean"],
+                baselines["sleep_hours"]["std"],
+            )
+            st.markdown(
+                create_z_score_display("Sleep Duration", latest_wellness["sleep_hours"], sleep_z, "higher_better", " hrs"),
+                unsafe_allow_html=True,
+            )
+            soreness_z = calculate_z_score(
+                latest_wellness["soreness"],
+                baselines["soreness"]["mean"],
+                baselines["soreness"]["std"],
+            )
+            st.markdown(
+                create_z_score_display("Soreness", latest_wellness["soreness"], soreness_z, "lower_better", "/10"),
+                unsafe_allow_html=True,
+            )
+
+        with z2:
+            mood_z = calculate_z_score(
+                latest_wellness["mood"],
+                baselines["mood"]["mean"],
+                baselines["mood"]["std"],
+            )
+            st.markdown(
+                create_z_score_display("Mood", latest_wellness["mood"], mood_z, "higher_better", "/10"),
+                unsafe_allow_html=True,
+            )
+            stress_z = calculate_z_score(
+                latest_wellness["stress"],
+                baselines["stress"]["mean"],
+                baselines["stress"]["std"],
+            )
+            st.markdown(
+                create_z_score_display("Stress", latest_wellness["stress"], stress_z, "lower_better", "/10"),
+                unsafe_allow_html=True,
+            )
+
+        with z3:
+            if cmj_z is not None:
+                st.markdown(
+                    create_z_score_display("CMJ Height", latest_cmj, cmj_z, "higher_better", " cm"),
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.info("CMJ: insufficient baseline data")
+
+            if rsi_z is not None:
+                st.markdown(
+                    create_z_score_display("RSI-Modified", latest_rsi, rsi_z, "higher_better", ""),
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.info("RSI: insufficient baseline data")
+
+    # ── Basketball Risk Context — pass CMJ/RSI z-scores ──────────────────────
+    if HAVE_ENHANCED_MODULES:
+        st.markdown("---")
+        st.markdown("### Basketball-Specific Risk Context")
+        context = st.radio(
+            "Next activity:", ["Practice", "Competition"],
+            horizontal=True, key=f"context_{athlete_id}",
+        )
+        injury_mechanism_insight_box(
+            {
+                "sleep_hours":    latest_wellness["sleep_hours"],
+                "soreness":       latest_wellness["soreness"],
+                "acwr":           latest_acwr,
+                "cmj_zscore":     cmj_z,
+                "rsi_zscore":     rsi_z,
+                "cmj_height_cm":  latest_cmj,
+                "rsi_modified":   latest_rsi,
+            },
+            context.lower(),
+        )
+
+
     readiness = (
         (latest_wellness["sleep_hours"] / 8) * 30
         + ((10 - latest_wellness["soreness"]) / 10) * 25

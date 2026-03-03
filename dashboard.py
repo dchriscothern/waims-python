@@ -668,98 +668,216 @@ with tab2:
 
 with tab3:
     st.header("Wellness Trends")
+    st.caption("Raw daily values (faint) with 7-day rolling average (bold). Useful for spotting drift across the week.")
 
-    if selected_players:
-        wellness_filtered = wellness[
-            (wellness["date"] >= pd.to_datetime(start_date)) & (wellness["date"] <= pd.to_datetime(end_date))
-        ].merge(players[["player_id", "name"]], on="player_id")
-
-        wellness_filtered = wellness_filtered[wellness_filtered["name"].isin(selected_players)]
-
-        if len(wellness_filtered) > 0:
-            st.subheader("Sleep Hours Over Time")
-            fig = px.line(
-                wellness_filtered,
-                x="date",
-                y="sleep_hours",
-                color="name",
-                markers=True,
-                title="Daily Sleep Hours",
+    if len(wellness) > 0:
+        athlete_list = sorted(players["name"].tolist())
+        col_sel, col_days = st.columns([2, 1])
+        with col_sel:
+            selected = st.multiselect(
+                "Select athletes", athlete_list,
+                default=athlete_list[:4],
+                key="trends_athlete_select",
             )
-            fig.add_hline(y=7, line_dash="dash", line_color="orange", annotation_text="7 hrs (minimum)")
-            fig.add_hline(y=8, line_dash="dash", line_color="green", annotation_text="8 hrs (target)")
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+        with col_days:
+            lookback = st.selectbox("Window", [7, 14, 21, 30], index=1, key="trends_window")
 
-            st.subheader("Soreness Levels")
-            fig = px.line(
-                wellness_filtered,
-                x="date",
-                y="soreness",
-                color="name",
-                markers=True,
-                title="Daily Soreness (0-10)",
+        if selected:
+            sel_ids  = players[players["name"].isin(selected)]["player_id"].tolist()
+            cutoff   = wellness["date"].max() - pd.Timedelta(days=lookback)
+            trend_df = (
+                wellness[
+                    (wellness["player_id"].isin(sel_ids)) &
+                    (wellness["date"] >= cutoff)
+                ]
+                .merge(players[["player_id", "name"]], on="player_id")
+                .sort_values(["player_id", "date"])
             )
-            fig.add_hline(y=7, line_dash="dash", line_color="red", annotation_text="High soreness threshold")
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
 
-            st.subheader("Training Load")
-            load_filtered = training_load[
-                (training_load["date"] >= pd.to_datetime(start_date)) & (training_load["date"] <= pd.to_datetime(end_date))
-            ].merge(players[["player_id", "name"]], on="player_id")
+            # Compute 7-day rolling average per player
+            trend_df["sleep_roll"]    = trend_df.groupby("player_id")["sleep_hours"].transform(lambda x: x.rolling(7, min_periods=2).mean())
+            trend_df["soreness_roll"] = trend_df.groupby("player_id")["soreness"].transform(lambda x: x.rolling(7, min_periods=2).mean())
+            trend_df["mood_roll"]     = trend_df.groupby("player_id")["mood"].transform(lambda x: x.rolling(7, min_periods=2).mean())
+            trend_df["stress_roll"]   = trend_df.groupby("player_id")["stress"].transform(lambda x: x.rolling(7, min_periods=2).mean())
 
-            load_filtered = load_filtered[load_filtered["name"].isin(selected_players)]
+            import plotly.graph_objects as go
 
-            if len(load_filtered) > 0:
-                fig = px.bar(
-                    load_filtered,
-                    x="date",
-                    y="practice_minutes",
-                    color="name",
-                    title="Practice Minutes by Day",
-                    barmode="group",
+            COLORS = ["#2E86AB", "#A23B72", "#F18F01", "#C73E1D", "#3B1F2B", "#44BBA4"]
+
+            def dual_trace_chart(df, raw_col, roll_col, title, yrange=None):
+                fig = go.Figure()
+                for i, name in enumerate(selected):
+                    c   = COLORS[i % len(COLORS)]
+                    sub = df[df["name"] == name]
+                    # Raw — thin, low opacity
+                    fig.add_trace(go.Scatter(
+                        x=sub["date"], y=sub[raw_col],
+                        mode="lines+markers",
+                        name=f"{name}",
+                        line=dict(color=c, width=1, dash="dot"),
+                        marker=dict(size=4),
+                        opacity=0.4,
+                        legendgroup=name,
+                        showlegend=False,
+                    ))
+                    # Rolling avg — bold
+                    fig.add_trace(go.Scatter(
+                        x=sub["date"], y=sub[roll_col],
+                        mode="lines",
+                        name=name,
+                        line=dict(color=c, width=3),
+                        legendgroup=name,
+                        showlegend=True,
+                    ))
+                fig.update_layout(
+                    title=title, height=260,
+                    margin=dict(l=10, r=10, t=40, b=20),
+                    hovermode="x unified",
+                    yaxis=dict(range=yrange) if yrange else {},
+                    legend=dict(orientation="h", y=-0.2),
                 )
-                fig.update_layout(height=400)
-                st.plotly_chart(fig, use_container_width=True)
+                return fig
+
+            r1, r2 = st.columns(2)
+            with r1:
+                st.plotly_chart(
+                    dual_trace_chart(trend_df, "sleep_hours", "sleep_roll", "Sleep Hours", [4, 10]),
+                    use_container_width=True,
+                )
+            with r2:
+                st.plotly_chart(
+                    dual_trace_chart(trend_df, "soreness", "soreness_roll", "Soreness (0–10)", [0, 10]),
+                    use_container_width=True,
+                )
+
+            r3, r4 = st.columns(2)
+            with r3:
+                st.plotly_chart(
+                    dual_trace_chart(trend_df, "mood", "mood_roll", "Mood (0–10)", [0, 10]),
+                    use_container_width=True,
+                )
+            with r4:
+                st.plotly_chart(
+                    dual_trace_chart(trend_df, "stress", "stress_roll", "Stress (0–10)", [0, 10]),
+                    use_container_width=True,
+                )
         else:
-            st.info("No data for selected players and date range")
+            st.info("Select at least one athlete above.")
     else:
-        st.info("Please select at least one player from the sidebar")
+        st.info("No wellness data available.")
 
 # ==============================================================================
-# TAB 4: FORCE PLATE
+# TAB 4: Jump testing FORCE PLATE
 # ==============================================================================
 
 with tab4:
-    st.header("Force Plate Testing")
+    st.header("Jump Testing & Neuromuscular Readiness")
+    st.caption("Flags based on deviation from each athlete's personal baseline, not population targets.")
 
-    if selected_players and len(force_plate) > 0:
-        fp_filtered = force_plate[
-            (force_plate["date"] >= pd.to_datetime(start_date)) & (force_plate["date"] <= pd.to_datetime(end_date))
-        ].merge(players[["player_id", "name"]], on="player_id")
+    if len(force_plate) > 0:
+        latest_date = force_plate["date"].max()
+        today_fp    = force_plate[force_plate["date"] == latest_date].merge(
+            players[["player_id", "name", "position"]], on="player_id", how="left"
+        )
 
-        fp_filtered = fp_filtered[fp_filtered["name"].isin(selected_players)]
+        def jump_zscore_status(player_id, today_cmj, today_rsi):
+            history = force_plate[
+                (force_plate["player_id"] == player_id) &
+                (force_plate["date"] < latest_date)
+            ].tail(30)
 
-        if len(fp_filtered) > 0:
-            st.subheader("CMJ Jump Height Trends")
-            fig = px.line(fp_filtered, x="date", y="cmj_height_cm", color="name", markers=True, title="CMJ Height (cm)")
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            flags = []
 
-            st.subheader("Reactive Strength Index (Modified)")
-            fig = px.line(fp_filtered, x="date", y="rsi_modified", color="name", markers=True, title="RSI-Modified")
-            fig.add_hline(y=0.35, line_dash="dash", line_color="green", annotation_text="Target (0.35+)")
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            if len(history) < 5:
+                # Hard floor fallback
+                cmj_status = "🔴" if today_cmj < 25 else ("🟡" if today_cmj < 30 else "🟢")
+                rsi_status = "🔴" if today_rsi < 0.25 else ("🟡" if today_rsi < 0.35 else "🟢")
+                return cmj_status, rsi_status, ["Insufficient history — absolute thresholds used"]
 
-            st.subheader("Latest Test Results")
-            latest = fp_filtered.sort_values("date", ascending=False).groupby("name").first().reset_index()
-            st.dataframe(latest[["name", "date", "cmj_height_cm", "rsi_modified"]], hide_index=True, use_container_width=True)
-        else:
-            st.info("No force plate data for selected players and date range")
+            # CMJ z-score
+            cmj_mean = history["cmj_height_cm"].mean()
+            cmj_std  = max(history["cmj_height_cm"].std(), 0.5)
+            cmj_z    = (today_cmj - cmj_mean) / cmj_std
+            if cmj_z <= -2.0:
+                cmj_status = "🔴"
+                flags.append(f"CMJ {today_cmj:.1f} cm — {abs(cmj_z):.1f}σ below her norm ({cmj_mean:.1f} cm avg)")
+            elif cmj_z <= -1.0:
+                cmj_status = "🟡"
+                flags.append(f"CMJ {today_cmj:.1f} cm — {abs(cmj_z):.1f}σ below her norm ({cmj_mean:.1f} cm avg)")
+            else:
+                cmj_status = "🟢"
+
+            # RSI z-score
+            rsi_mean = history["rsi_modified"].mean()
+            rsi_std  = max(history["rsi_modified"].std(), 0.01)
+            rsi_z    = (today_rsi - rsi_mean) / rsi_std
+            if rsi_z <= -2.0:
+                rsi_status = "🔴"
+                flags.append(f"RSI {today_rsi:.2f} — {abs(rsi_z):.1f}σ below her norm ({rsi_mean:.2f} avg)")
+            elif rsi_z <= -1.0:
+                rsi_status = "🟡"
+                flags.append(f"RSI {today_rsi:.2f} — {abs(rsi_z):.1f}σ below her norm ({rsi_mean:.2f} avg)")
+            else:
+                rsi_status = "🟢"
+
+            return cmj_status, rsi_status, flags if flags else ["Within normal range for this athlete"]
+
+        # Apply
+        today_fp[["cmj_status", "rsi_status", "jump_flags"]] = today_fp.apply(
+            lambda r: pd.Series(jump_zscore_status(r["player_id"], r["cmj_height_cm"], r["rsi_modified"])),
+            axis=1,
+        )
+
+        # Summary row
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Athletes Tested", len(today_fp))
+        c2.metric("CMJ Flags",  (today_fp["cmj_status"] != "🟢").sum())
+        c3.metric("RSI Flags",  (today_fp["rsi_status"] != "🟢").sum())
+
+        st.markdown("---")
+
+        # Sort: most flagged first
+        today_fp["flag_count"] = today_fp.apply(
+            lambda r: (r["cmj_status"] != "🟢") + (r["rsi_status"] != "🟢"), axis=1
+        )
+        today_fp = today_fp.sort_values("flag_count", ascending=False)
+
+        for _, row in today_fp.iterrows():
+            label = f"{row['cmj_status']} {row['rsi_status']}  **{row['name']}**  — CMJ {row['cmj_height_cm']:.1f} cm  ·  RSI {row['rsi_modified']:.2f}"
+            with st.expander(label):
+                ca, cb = st.columns(2)
+                ca.metric("CMJ Height", f"{row['cmj_height_cm']:.1f} cm")
+                cb.metric("RSI-Modified", f"{row['rsi_modified']:.2f}")
+                st.markdown("**Assessment:**")
+                for note in row["jump_flags"]:
+                    st.write(f"• {note}")
+
+        st.markdown("---")
+
+        # 7-day trend chart with rolling average
+        st.subheader("Team CMJ — 7-Day Trend")
+        athlete_list = sorted(players["name"].tolist())
+        selected = st.multiselect("Select athletes", athlete_list, default=athlete_list[:3], key="jump_trend_select")
+
+        if selected:
+            sel_ids  = players[players["name"].isin(selected)]["player_id"].tolist()
+            week_ago = latest_date - pd.Timedelta(days=7)
+            trend_df = force_plate[
+                (force_plate["player_id"].isin(sel_ids)) &
+                (force_plate["date"] >= week_ago)
+            ].merge(players[["player_id", "name"]], on="player_id")
+
+            if len(trend_df) > 0:
+                import plotly.express as px
+                fig = px.line(
+                    trend_df, x="date", y="cmj_height_cm",
+                    color="name", markers=True,
+                    title="CMJ Height (cm) — Personal Trend",
+                    labels={"cmj_height_cm": "CMJ (cm)", "name": "Athlete"},
+                )
+                st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No force plate data available or no players selected")
+        st.info("No force plate data available.")
 
 # ==============================================================================
 # TAB 5: INJURIES
