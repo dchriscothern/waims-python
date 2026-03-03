@@ -180,13 +180,79 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
     )
     red_count = len(today_wellness[today_wellness["readiness_score"] < 60])
     
-    # Determine sleep icon colour based on avg sleep
-    if avg_sleep >= 8:
-        sleep_icon = "🟢"
-    elif avg_sleep >= 7:
-        sleep_icon = "🟡"
-    else:
-        sleep_icon = "🔴"
+    avg_sleep = today_wellness["sleep_hours"].mean()
+
+    # --- Z-score based readiness classification ---
+    # Build per-player baselines from last 30 days of wellness history
+    def classify_player_zscore(player_id, today_row, wellness_df):
+        history = wellness_df[
+            (wellness_df["player_id"] == player_id) &
+            (wellness_df["date"] < pd.to_datetime(end_date))
+        ].tail(30)
+
+        if len(history) < 7:
+            # Fall back to absolute thresholds if insufficient history
+            score = (
+                (today_row["sleep_hours"] / 8) * 30
+                + ((10 - today_row["soreness"]) / 10) * 25
+                + ((10 - today_row["stress"]) / 10) * 25
+                + (today_row["mood"] / 10) * 20
+            )
+            return "green" if score >= 80 else ("yellow" if score >= 60 else "red")
+
+        flags = 0
+
+        # Sleep: lower is worse
+        sleep_mean = history["sleep_hours"].mean()
+        sleep_std  = max(history["sleep_hours"].std(), 0.3)
+        sleep_z    = (today_row["sleep_hours"] - sleep_mean) / sleep_std
+        if today_row["sleep_hours"] < 6.5:   # hard floor always fires
+            flags += 2
+        elif sleep_z < -1.5:
+            flags += 1
+
+        # Soreness: higher is worse
+        sor_mean = history["soreness"].mean()
+        sor_std  = max(history["soreness"].std(), 0.5)
+        sor_z    = (today_row["soreness"] - sor_mean) / sor_std
+        if today_row["soreness"] > 7:        # hard ceiling always fires
+            flags += 2
+        elif sor_z > 1.5:
+            flags += 1
+
+        # Stress: higher is worse
+        str_mean = history["stress"].mean()
+        str_std  = max(history["stress"].std(), 0.5)
+        str_z    = (today_row["stress"] - str_mean) / str_std
+        if today_row["stress"] > 7:
+            flags += 2
+        elif str_z > 1.5:
+            flags += 1
+
+        # Mood: lower is worse
+        mood_mean = history["mood"].mean()
+        mood_std  = max(history["mood"].std(), 0.5)
+        mood_z    = (today_row["mood"] - mood_mean) / mood_std
+        if mood_z < -1.5:
+            flags += 1
+
+        if flags == 0:
+            return "green"
+        elif flags <= 2:
+            return "yellow"
+        else:
+            return "red"
+
+    today_wellness["zscore_status"] = today_wellness.apply(
+        lambda row: classify_player_zscore(row["player_id"], row, wellness_df), axis=1
+    )
+
+    green_count  = (today_wellness["zscore_status"] == "green").sum()
+    yellow_count = (today_wellness["zscore_status"] == "yellow").sum()
+    red_count    = (today_wellness["zscore_status"] == "red").sum()
+
+    # Sleep icon colour
+    sleep_icon = "🟢" if avg_sleep >= 8 else ("🟡" if avg_sleep >= 7 else "🔴")
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -197,7 +263,6 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, end_date):
         st.markdown(create_summary_card("At Risk",   red_count,           "#ef4444", "🔴"), unsafe_allow_html=True)
     with c4:
         st.markdown(create_summary_card("Avg Sleep", f"{avg_sleep:.1f}h", "#3b82f6", sleep_icon), unsafe_allow_html=True)
-   
     st.markdown("---")
     st.subheader("Player Details")
 
