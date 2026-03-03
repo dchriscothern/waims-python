@@ -86,51 +86,38 @@ def _html_oneliner(s: str) -> str:
     """Collapse whitespace so Streamlit doesn't interpret indented HTML as a Markdown code block."""
     return re.sub(r"\s+", " ", s).strip()
 
-
 def create_mini_battery(value, show_label=True):
-    """Create a compact battery indicator (HTML)"""
+    """Emoji + percentage only — no battery bar."""
     if value >= 80:
         color = "#10b981"
-        bg_color = "#d1fae5"
-        emoji = "🟢"
     elif value >= 60:
         color = "#f59e0b"
-        bg_color = "#fef3c7"
-        emoji = "🟡"
     else:
         color = "#ef4444"
-        bg_color = "#fee2e2"
+
+    if value >= 80:
+        emoji = "🟢"
+    elif value >= 60:
+        emoji = "🟡"
+    else:
         emoji = "🔴"
 
-    battery_width = int(value)
-
     if show_label:
-        html = f"""
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="background:linear-gradient(to right,{bg_color} 0%,#f3f4f6 100%);
-                      height:20px;width:100px;border-radius:10px;overflow:hidden;
-                      position:relative;border:1px solid {color}40;">
-            <div style="background:linear-gradient(135deg,{color} 0%,{color}dd 100%);
-                        height:100%;width:{battery_width}%;border-radius:10px;
-                        box-shadow:inset 0 1px 3px rgba(0,0,0,0.1);"></div>
-          </div>
-          <span style="font-size:14px;font-weight:700;min-width:35px;color:{color};">{value:.0f}%</span>
-          <span style="font-size:16px;">{emoji}</span>
-        </div>
-        """
+        html = (
+            f'<div style="display:flex;align-items:center;gap:8px;">'
+            f'<span style="font-size:18px;">{emoji}</span>'
+            f'<span style="font-size:13px;font-weight:700;color:{color};">{value:.0f}%</span>'
+            f'</div>'
+        )
     else:
-        html = f"""
-        <div style="display:inline-flex;align-items:center;gap:4px;">
-          <div style="background:{bg_color};height:16px;width:70px;border-radius:8px;
-                      overflow:hidden;border:1px solid {color}60;">
-            <div style="background:linear-gradient(135deg,{color} 0%,{color}dd 100%);
-                        height:100%;width:{battery_width}%;border-radius:8px;"></div>
-          </div>
-          <span style="font-size:12px;font-weight:700;color:{color};">{value:.0f}</span>
-        </div>
-        """
-    return _html_oneliner(html)
+        html = (
+            f'<div style="display:inline-flex;align-items:center;gap:4px;">'
+            f'<span style="font-size:16px;">{emoji}</span>'
+            f'<span style="font-size:12px;font-weight:700;color:{color};">{value:.0f}</span>'
+            f'</div>'
+        )
 
+    return html
 
 def create_summary_card(label, count, color, icon):
     html = f"""
