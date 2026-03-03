@@ -1,6 +1,5 @@
 """
-Enhanced Athlete Profile Tab with Gauge Charts and Visual Indicators
-Inspired by Apollo.io dashboard style
+Athlete Profile Tab — clean, professional layout
 """
 
 import os
@@ -11,285 +10,139 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-# Import improved gauges and z-score modules if available
 try:
     from improved_gauges import create_clean_speedometer, create_recommendation_box
     from z_score_module import (
         calculate_athlete_baselines,
         calculate_z_score,
         create_z_score_display,
-        add_z_score_alerts
+        add_z_score_alerts,
     )
     from research_context import injury_mechanism_insight_box
     HAVE_ENHANCED_MODULES = True
 except ImportError:
     HAVE_ENHANCED_MODULES = False
-    print("⚠️ Some enhanced modules not found - using default display")
+
 
 # ==============================================================================
-# VISUAL GAUGE HELPERS
+# GAUGE / CHART HELPERS
 # ==============================================================================
 
 def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[60, 80]):
-    """
-    Cleaner, higher-contrast half-gauge (Whistle/Apollo vibe)
-    - thresholds = [yellow_start, green_start] on 0..100
-    """
-
-    # Clamp value safely
     try:
         v = float(value)
     except Exception:
         v = 0.0
     v = max(float(min_val), min(float(max_val), v))
+    y_start, g_start = thresholds
 
-    y_start, g_start = thresholds  # e.g., 60, 80
-
-    # More saturated zone fills (not pastel)
-    Z_RED   = "rgba(239, 68, 68, 0.45)"   # red-500 @ 45%
-    Z_AMBER = "rgba(245, 158, 11, 0.45)"  # amber-500 @ 45%
-    Z_GREEN = "rgba(16, 185, 129, 0.45)"  # emerald-500 @ 45%
-
-    # Bar/needle color by status
     if v >= g_start:
-        status_color = "#10b981"  # emerald
+        status_color = "#10b981"
     elif v >= y_start:
-        status_color = "#f59e0b"  # amber
+        status_color = "#f59e0b"
     else:
-        status_color = "#ef4444"  # red
+        status_color = "#ef4444"
 
-    fig = go.Figure(
-        go.Indicator(
-            mode="gauge+number",
-            value=v,
-            title={"text": title, "font": {"size": 14}},
-            number={"suffix": "%", "font": {"size": 26, "color": "#111827"}},
-            gauge={
-                "shape": "angular",
-                "axis": {
-                    "range": [min_val, max_val],
-                    "tickvals": [min_val, (min_val + max_val) / 2, max_val],
-                    "tickwidth": 1,
-                    "tickcolor": "rgba(17, 24, 39, 0.35)",
-                    "tickfont": {"size": 10, "color": "rgba(17, 24, 39, 0.65)"},
-                },
-
-                # slimmer fill (more like a “track” than a fat wedge)
-                "bar": {"color": status_color, "thickness": 0.28},
-
-                "bgcolor": "white",
-                "borderwidth": 0,
-
-                # higher-contrast segments
-                "steps": [
-                    {"range": [min_val, y_start], "color": Z_RED},
-                    {"range": [y_start, g_start], "color": Z_AMBER},
-                    {"range": [g_start, max_val], "color": Z_GREEN},
-                ],
-
-                # “needle” at the current value (same color as status)
-                "threshold": {
-                    "line": {"color": status_color, "width": 6},
-                    "thickness": 0.95,
-                    "value": v,
-                },
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=v,
+        title={"text": title, "font": {"size": 14}},
+        number={"suffix": "%", "font": {"size": 26, "color": "#111827"}},
+        gauge={
+            "shape": "angular",
+            "axis": {
+                "range": [min_val, max_val],
+                "tickvals": [min_val, (min_val + max_val) / 2, max_val],
+                "tickwidth": 1,
+                "tickcolor": "rgba(17,24,39,0.35)",
+                "tickfont": {"size": 10, "color": "rgba(17,24,39,0.65)"},
             },
-        )
-    )
-
-    fig.update_layout(
-        height=190,
-        margin=dict(l=10, r=10, t=44, b=0),
-        paper_bgcolor="white",
-        font={"family": "Arial"},
-    )
-
+            "bar": {"color": status_color, "thickness": 0.28},
+            "bgcolor": "white",
+            "borderwidth": 0,
+            "steps": [
+                {"range": [min_val, y_start], "color": "rgba(239,68,68,0.45)"},
+                {"range": [y_start, g_start], "color": "rgba(245,158,11,0.45)"},
+                {"range": [g_start, max_val], "color": "rgba(16,185,129,0.45)"},
+            ],
+            "threshold": {"line": {"color": status_color, "width": 6}, "thickness": 0.95, "value": v},
+        },
+    ))
+    fig.update_layout(height=190, margin=dict(l=10, r=10, t=44, b=0), paper_bgcolor="white", font={"family": "Arial"})
     return fig
 
+
 def pill_meter(value, title, max_val=10, good_max=3, warn_max=7, invert=True, suffix=""):
-    """
-    Whistle-style pill meter:
-      - Colored bands (good / caution / high)
-      - Marker showing today's value
-      - invert=True means LOWER is better (soreness, stress)
-      - invert=False means HIGHER is better (mood)
-    """
     try:
         v = float(value)
     except Exception:
         v = 0.0
-
     v = max(0.0, min(float(max_val), v))
     pct = (v / float(max_val)) * 100.0
 
-    # palette
-    GREEN = "#16a34a"
-    AMBER = "#f59e0b"
-    RED = "#ef4444"
+    GREEN, AMBER, RED = "#16a34a", "#f59e0b", "#ef4444"
+    GREEN_BG, AMBER_BG, RED_BG = "rgba(22,163,74,0.18)", "rgba(245,158,11,0.20)", "rgba(239,68,68,0.18)"
 
-    GREEN_BG = "rgba(22,163,74,0.18)"
-    AMBER_BG = "rgba(245,158,11,0.20)"
-    RED_BG = "rgba(239,68,68,0.18)"
-
-    # bands depend on direction
     if invert:
-        # low is good: green -> amber -> red
         band1, band2, band3 = GREEN_BG, AMBER_BG, RED_BG
-        if v <= good_max:
-            val_color = GREEN
-            status = "GOOD"
-        elif v <= warn_max:
-            val_color = AMBER
-            status = "CAUTION"
-        else:
-            val_color = RED
-            status = "HIGH"
-        legend = f"Good ≤ {good_max}{suffix} • Caution ≤ {warn_max}{suffix} • High > {warn_max}{suffix}"
+        val_color, status = (GREEN, "GOOD") if v <= good_max else ((AMBER, "CAUTION") if v <= warn_max else (RED, "HIGH"))
+        legend = f"Good ≤{good_max}{suffix}  ·  Caution ≤{warn_max}{suffix}  ·  High >{warn_max}{suffix}"
     else:
-        # high is good: red -> amber -> green
         band1, band2, band3 = RED_BG, AMBER_BG, GREEN_BG
-        if v >= warn_max:
-            val_color = GREEN
-            status = "GOOD"
-        elif v >= good_max:
-            val_color = AMBER
-            status = "CAUTION"
-        else:
-            val_color = RED
-            status = "LOW"
-        legend = f"Low < {good_max}{suffix} • Caution < {warn_max}{suffix} • Good ≥ {warn_max}{suffix}"
+        val_color, status = (GREEN, "GOOD") if v >= warn_max else ((AMBER, "CAUTION") if v >= good_max else (RED, "LOW"))
+        legend = f"Low <{good_max}{suffix}  ·  Caution <{warn_max}{suffix}  ·  Good ≥{warn_max}{suffix}"
 
-    html = f"""
-    <div style="background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 12px 12px 10px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-        <div style="font-weight:700; font-size:13px; color:#111827;">{title}</div>
-        <div style="font-weight:800; font-size:13px; color:{val_color};">{v:.1f}{suffix} <span style="font-weight:700; opacity:0.75;">{status}</span></div>
-      </div>
-
-      <div style="position:relative; height:14px; border-radius:999px; overflow:hidden; border:1px solid rgba(0,0,0,0.08);">
-        <div style="display:flex; height:100%;">
-          <div style="width:{(good_max/max_val)*100:.2f}%; background:{band1};"></div>
-          <div style="width:{((warn_max-good_max)/max_val)*100:.2f}%; background:{band2};"></div>
-          <div style="width:{((max_val-warn_max)/max_val)*100:.2f}%; background:{band3};"></div>
-        </div>
-
-        <!-- marker -->
-        <div style="position:absolute; left:calc({pct:.2f}% - 1px); top:-6px; width:2px; height:26px; background:{val_color}; border-radius:2px;"></div>
-      </div>
-
-      <div style="margin-top:8px; font-size:11px; color:#6b7280;">{legend}</div>
-    </div>
-    """
+    html = (
+        f'<div style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:12px;">'
+        f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+        f'<span style="font-weight:700;font-size:13px;color:#111827;">{title}</span>'
+        f'<span style="font-weight:800;font-size:13px;color:{val_color};">{v:.1f}{suffix} <span style="font-weight:600;opacity:0.75;">{status}</span></span>'
+        f'</div>'
+        f'<div style="position:relative;height:14px;border-radius:999px;overflow:hidden;border:1px solid rgba(0,0,0,0.08);">'
+        f'<div style="display:flex;height:100%;">'
+        f'<div style="width:{(good_max/max_val)*100:.2f}%;background:{band1};"></div>'
+        f'<div style="width:{((warn_max-good_max)/max_val)*100:.2f}%;background:{band2};"></div>'
+        f'<div style="width:{((max_val-warn_max)/max_val)*100:.2f}%;background:{band3};"></div>'
+        f'</div>'
+        f'<div style="position:absolute;left:calc({pct:.2f}% - 1px);top:-6px;width:2px;height:26px;background:{val_color};border-radius:2px;"></div>'
+        f'</div>'
+        f'<div style="margin-top:6px;font-size:11px;color:#6b7280;">{legend}</div>'
+        f'</div>'
+    )
     return html
 
 
-def create_battery_indicator(value, label):
-    """
-    Create a battery-style indicator (0-100%)
-    Returns HTML for display
-    """
-    if value >= 80:
-        color = "#10b981"
-        emoji = "🟢"
-        battery_emoji = "🔋"
-    elif value >= 60:
-        color = "#f59e0b"
-        emoji = "🟡"
-        battery_emoji = "🔋"
-    elif value >= 40:
-        color = "#fb923c"
-        emoji = "🟠"
-        battery_emoji = "🪫"
-    else:
-        color = "#ef4444"
-        emoji = "🔴"
-        battery_emoji = "🪫"
-
-    battery_width = int(value)
-
-    html = f"""
-    <div style="background-color: #f3f4f6; padding: 12px; border-radius: 8px; margin: 5px 0;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-            <span style="font-size: 14px; font-weight: 600;">{label}</span>
-            <span style="font-size: 18px;">{battery_emoji} {emoji}</span>
-        </div>
-        <div style="background-color: #e5e7eb; height: 20px; border-radius: 10px; overflow: hidden; position: relative;">
-            <div style="background: linear-gradient(90deg, {color} 0%, {color} 100%);
-                        height: 100%;
-                        width: {battery_width}%;
-                        transition: width 0.3s ease;
-                        border-radius: 10px;">
-            </div>
-            <div style="position: absolute;
-                        top: 50%;
-                        left: 50%;
-                        transform: translate(-50%, -50%);
-                        font-size: 11px;
-                        font-weight: 700;
-                        color: {'white' if battery_width > 50 else '#1f2937'};
-                        text-shadow: 0 0 2px rgba(0,0,0,0.5);">
-                {value:.0f}%
-            </div>
-        </div>
-    </div>
-    """
-    return html
-
-
-def create_metric_card(label, value, status, icon="📊"):
-    if status == "good":
-        bg_color = "#d1fae5"
-        border_color = "#10b981"
-        text_color = "#065f46"
-    elif status == "warning":
-        bg_color = "#fef3c7"
-        border_color = "#f59e0b"
-        text_color = "#92400e"
-    else:
-        bg_color = "#fee2e2"
-        border_color = "#ef4444"
-        text_color = "#991b1b"
-
-    html = f"""
-    <div style="background-color: {bg_color};
-                border-left: 4px solid {border_color};
-                padding: 12px;
-                border-radius: 6px;
-                margin: 8px 0;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div>
-                <div style="font-size: 12px; color: {text_color}; opacity: 0.8; margin-bottom: 2px;">
-                    {label}
-                </div>
-                <div style="font-size: 24px; font-weight: 700; color: {text_color};">
-                    {value}
-                </div>
-            </div>
-            <div style="font-size: 32px;">
-                {icon}
-            </div>
-        </div>
-    </div>
-    """
+def create_metric_card(label, value, status):
+    """Clean metric card — no icons, no emojis."""
+    colors = {
+        "good":    ("#10b981", "#d1fae5"),
+        "warning": ("#f59e0b", "#fef3c7"),
+        "bad":     ("#ef4444", "#fee2e2"),
+    }
+    border, bg = colors.get(status, ("#6b7280", "#f3f4f6"))
+    html = (
+        f'<div style="background:{bg};border-left:4px solid {border};'
+        f'padding:14px 16px;border-radius:6px;margin:4px 0;">'
+        f'<div style="font-size:11px;color:{border};font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px;">{label}</div>'
+        f'<div style="font-size:24px;font-weight:800;color:#1f2937;">{value}</div>'
+        f'</div>'
+    )
     return html
 
 
 # ==============================================================================
-# PHOTO HELPERS (SIMPLIFIED FOR STREAMLIT CLOUD)
+# PHOTO HELPER
 # ==============================================================================
 
 PHOTOS_DIR = "assets/photos"
 
 def athlete_photo_block(ath_key: str):
-    """Display athlete photo (static files only for Streamlit Cloud)"""
     ath_key = str(ath_key).lower()
-
     for ext in (".jpg", ".jpeg", ".png"):
-        photo_path = f"{PHOTOS_DIR}/{ath_key}{ext}"
-        if os.path.exists(photo_path):
-            st.image(photo_path, use_container_width=True)
+        path = f"{PHOTOS_DIR}/{ath_key}{ext}"
+        if os.path.exists(path):
+            st.image(path, use_container_width=True)
             return
-
     st.image(
         f"https://via.placeholder.com/200x250/2E86AB/FFFFFF?text={ath_key.replace('_', '+')}",
         use_container_width=True,
@@ -301,8 +154,6 @@ def athlete_photo_block(ath_key: str):
 # ==============================================================================
 
 def create_radar_chart(athlete_data, athlete_name):
-    """Create radar chart for athlete's multi-dimensional assessment"""
-
     sleep_score = (athlete_data["sleep_hours"] / 8) * 100
     physical_score = ((10 - athlete_data["soreness"]) / 10) * 100
     mental_score = (athlete_data["mood"] / 10) * 100
@@ -322,37 +173,26 @@ def create_radar_chart(athlete_data, athlete_name):
     values = [sleep_score, physical_score, mental_score, load_score, neuro_score]
 
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatterpolar(
-            r=values,
-            theta=categories,
-            fill="toself",
-            name=athlete_name,
-            fillcolor="rgba(46, 134, 171, 0.3)",
-            line=dict(color="rgb(46, 134, 171)", width=2),
-        )
-    )
-
+    fig.add_trace(go.Scatterpolar(
+        r=values, theta=categories, fill="toself", name=athlete_name,
+        fillcolor="rgba(46,134,171,0.25)", line=dict(color="rgb(46,134,171)", width=2),
+    ))
     fig.update_layout(
         polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
         showlegend=False,
-        title=f"{athlete_name}'s Profile",
+        title=f"{athlete_name} — Performance Profile",
         height=300,
         margin=dict(l=40, r=40, t=40, b=20),
     )
-
     return fig
 
 
 # ==============================================================================
-# MAIN ATHLETE PROFILE TAB
+# MAIN TAB
 # ==============================================================================
 
 def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None):
-    """Enhanced athlete profile with Apollo.io-style gauges and indicators"""
-
-    st.header("👤 Athlete Profiles")
-    st.markdown("Select an athlete to view their complete performance profile")
+    st.header("Athlete Profiles")
 
     athlete_names = sorted(players["name"].tolist())
     selected_athlete = st.selectbox("Select Athlete", athlete_names)
@@ -362,15 +202,12 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         return
 
     athlete_info = players[players["name"] == selected_athlete].iloc[0]
-    athlete_id = athlete_info["player_id"]
+    athlete_id   = athlete_info["player_id"]
 
     pid_num = pd.to_numeric(athlete_id, errors="coerce")
-    if pd.notnull(pid_num):
-        ath_key = f"ath_{int(pid_num):03d}"
-    else:
-        ath_key = str(athlete_id).strip().lower()
+    ath_key = f"ath_{int(pid_num):03d}" if pd.notnull(pid_num) else str(athlete_id).strip().lower()
 
-    latest_date = wellness["date"].max()
+    latest_date     = wellness["date"].max()
     latest_wellness = wellness[(wellness["player_id"] == athlete_id) & (wellness["date"] == latest_date)]
 
     if len(latest_wellness) == 0:
@@ -383,12 +220,8 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     latest_acwr = float(latest_acwr_data.iloc[0]["acwr"]) if len(latest_acwr_data) > 0 else 1.0
 
     latest_force = force_plate[(force_plate["player_id"] == athlete_id) & (force_plate["date"] == latest_date)]
-    if len(latest_force) > 0:
-        latest_cmj = latest_force.iloc[0]["cmj_height_cm"]
-        latest_rsi = latest_force.iloc[0]["rsi_modified"]
-    else:
-        latest_cmj = None
-        latest_rsi = None
+    latest_cmj = latest_force.iloc[0]["cmj_height_cm"] if len(latest_force) > 0 else None
+    latest_rsi = latest_force.iloc[0]["rsi_modified"]   if len(latest_force) > 0 else None
 
     readiness = (
         (latest_wellness["sleep_hours"] / 8) * 30
@@ -397,346 +230,170 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         + (latest_wellness["mood"] / 10) * 20
     )
 
-    # ==================================================================
-    # HEADER: Photo + Key Metrics
-    # ==================================================================
-
+    # ------------------------------------------------------------------
+    # HEADER ROW
+    # ------------------------------------------------------------------
     col1, col2, col3 = st.columns([1, 2, 2])
 
     with col1:
-        st.markdown("### Profile")
+        st.markdown("**Profile**")
         athlete_photo_block(ath_key)
-
-        st.markdown(f"**{athlete_info.get('position', '')}** • Age {athlete_info.get('age', '')}")
-        st.caption(f"Injury history: {athlete_info.get('injury_history_count', 0)} previous")
+        pos = athlete_info.get("position", "")
+        age = athlete_info.get("age", "")
+        inj = athlete_info.get("injury_history_count", 0)
+        st.markdown(f"**{pos}** · Age {age}")
+        st.caption(f"Injury history: {inj} previous")
 
     with col2:
-        st.markdown("### Overall Readiness")
-
-        # Use improved speedometer if available, otherwise use current gauge
+        st.markdown("**Overall Readiness**")
         if HAVE_ENHANCED_MODULES:
             fig = create_clean_speedometer(readiness, "Readiness Score", thresholds=[60, 80])
             st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
-            
-            # Add recommendation box
-            st.markdown(
-                create_recommendation_box(readiness, context="competition"),
-                unsafe_allow_html=True
-            )
+            st.markdown(create_recommendation_box(readiness, context="competition"), unsafe_allow_html=True)
         else:
             fig = create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80])
             st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
-
             if readiness >= 80:
-                st.success("✅ Full training cleared")
+                st.success("Full training cleared")
             elif readiness >= 60:
-                st.info("⚠️ Monitor closely")
+                st.info("Monitor closely")
             else:
-                st.warning("🚨 50% volume reduction recommended")
+                st.warning("50% volume reduction recommended")
 
     with col3:
-        st.markdown("### Performance Profile")
-
+        st.markdown("**Performance Profile**")
         radar_data = {
             "sleep_hours": latest_wellness["sleep_hours"],
-            "soreness": latest_wellness["soreness"],
-            "mood": latest_wellness["mood"],
-            "stress": latest_wellness["stress"],
-            "acwr": latest_acwr,
+            "soreness":    latest_wellness["soreness"],
+            "mood":        latest_wellness["mood"],
+            "stress":      latest_wellness["stress"],
+            "acwr":        latest_acwr,
             "cmj_height_cm": latest_cmj if latest_cmj else 30,
         }
-
         fig = create_radar_chart(radar_data, selected_athlete)
         st.plotly_chart(fig, use_container_width=True, key=f"radar_{athlete_id}")
 
-    # ==================================================================
-    # BATTERY INDICATORS (Apollo.io style)
-    # ==================================================================
-
+    # ------------------------------------------------------------------
+    # METRIC CARDS (4 across, clean, no icons)
+    # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("### 🔋 Key Metrics")
+    st.markdown("### Key Metrics")
 
-    col1, col2, col3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
 
-    with col1:
-        sleep_pct = min(100, (latest_wellness["sleep_hours"] / 8) * 100)
-        st.markdown(create_battery_indicator(sleep_pct, "Sleep Quality"), unsafe_allow_html=True)
+    with c1:
+        hrs = latest_wellness["sleep_hours"]
+        s   = "good" if hrs >= 7.5 else ("warning" if hrs >= 6.5 else "bad")
+        st.markdown(create_metric_card("Sleep", f"{hrs:.1f} hrs", s), unsafe_allow_html=True)
 
-        physical_pct = ((10 - latest_wellness["soreness"]) / 10) * 100
-        st.markdown(create_battery_indicator(physical_pct, "Physical Readiness"), unsafe_allow_html=True)
+    with c2:
+        sor = latest_wellness["soreness"]
+        s   = "good" if sor <= 4 else ("warning" if sor <= 7 else "bad")
+        st.markdown(create_metric_card("Soreness", f"{sor:.0f} / 10", s), unsafe_allow_html=True)
 
-    with col2:
-        mental_pct = (latest_wellness["mood"] / 10) * 100
-        st.markdown(create_battery_indicator(mental_pct, "Mental Wellness"), unsafe_allow_html=True)
+    with c3:
+        moo = latest_wellness["mood"]
+        s   = "good" if moo >= 7 else ("warning" if moo >= 5 else "bad")
+        st.markdown(create_metric_card("Mood", f"{moo:.0f} / 10", s), unsafe_allow_html=True)
 
-        stress_pct = ((10 - latest_wellness["stress"]) / 10) * 100
-        st.markdown(create_battery_indicator(stress_pct, "Stress Management"), unsafe_allow_html=True)
+    with c4:
+        s   = "good" if 0.8 <= latest_acwr <= 1.3 else ("warning" if latest_acwr <= 1.5 else "bad")
+        st.markdown(create_metric_card("ACWR", f"{latest_acwr:.2f}", s), unsafe_allow_html=True)
 
-    with col3:
-        if 0.8 <= latest_acwr <= 1.3:
-            acwr_pct = 100
-        elif latest_acwr < 0.8:
-            acwr_pct = max(0, latest_acwr / 0.8 * 100)
-        else:
-            acwr_pct = max(0, 100 - (latest_acwr - 1.3) * 50)
-
-        st.markdown(create_battery_indicator(acwr_pct, "Load Balance"), unsafe_allow_html=True)
-
-        if latest_cmj:
-            neuro_pct = min(100, (latest_cmj / 40) * 100)
-            st.markdown(create_battery_indicator(neuro_pct, "Neuromuscular"), unsafe_allow_html=True)
-
-    # ==================================================================
-    # METRIC CARDS (Detailed Values)
-    # ==================================================================
-
+    # ------------------------------------------------------------------
+    # WELLNESS INDICATORS (pill meters)
+    # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("### 📊 Detailed Metrics")
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        if latest_wellness["sleep_hours"] >= 7.5:
-            status = "good"
-        elif latest_wellness["sleep_hours"] >= 6.5:
-            status = "warning"
-        else:
-            status = "bad"
-        st.markdown(create_metric_card("Sleep Hours", f"{latest_wellness['sleep_hours']:.1f} hrs", status, "😴"), unsafe_allow_html=True)
-
-    with col2:
-        if latest_wellness["soreness"] <= 4:
-            status = "good"
-        elif latest_wellness["soreness"] <= 7:
-            status = "warning"
-        else:
-            status = "bad"
-        st.markdown(create_metric_card("Soreness", f"{latest_wellness['soreness']:.0f}/10", status, "😫"), unsafe_allow_html=True)
-
-    with col3:
-        if latest_wellness["mood"] >= 7:
-            status = "good"
-        elif latest_wellness["mood"] >= 5:
-            status = "warning"
-        else:
-            status = "bad"
-        st.markdown(create_metric_card("Mood", f"{latest_wellness['mood']:.0f}/10", status, "😊"), unsafe_allow_html=True)
-
-    with col4:
-        if 0.8 <= latest_acwr <= 1.3:
-            status = "good"
-        elif latest_acwr < 0.8 or (1.3 < latest_acwr <= 1.5):
-            status = "warning"
-        else:
-            status = "bad"
-        st.markdown(create_metric_card("ACWR", f"{latest_acwr:.2f}", status, "📈"), unsafe_allow_html=True)
-
-    # ==================================================================
-    # Z-SCORE PERSONAL BASELINE COMPARISON (if module available)
-    # ==================================================================
-    
-    if HAVE_ENHANCED_MODULES:
-        baselines = calculate_athlete_baselines(wellness, athlete_id, lookback_days=30)
-        
-        if baselines:
-            st.markdown("---")
-            st.markdown("### 📊 Personal Baseline Comparison")
-            st.caption("Compares current values to your 30-day personal average")
-            
-            z_col1, z_col2 = st.columns(2)
-            
-            with z_col1:
-                # Sleep z-score
-                sleep_z = calculate_z_score(
-                    latest_wellness['sleep_hours'],
-                    baselines['sleep_hours']['mean'],
-                    baselines['sleep_hours']['std']
-                )
-                st.markdown(
-                    create_z_score_display(
-                        "Sleep Duration",
-                        latest_wellness['sleep_hours'],
-                        sleep_z,
-                        "higher_better",
-                        " hrs"
-                    ),
-                    unsafe_allow_html=True
-                )
-                
-                # Soreness z-score
-                soreness_z = calculate_z_score(
-                    latest_wellness['soreness'],
-                    baselines['soreness']['mean'],
-                    baselines['soreness']['std']
-                )
-                st.markdown(
-                    create_z_score_display(
-                        "Soreness Level",
-                        latest_wellness['soreness'],
-                        soreness_z,
-                        "lower_better",
-                        "/10"
-                    ),
-                    unsafe_allow_html=True
-                )
-            
-            with z_col2:
-                # Mood z-score
-                mood_z = calculate_z_score(
-                    latest_wellness['mood'],
-                    baselines['mood']['mean'],
-                    baselines['mood']['std']
-                )
-                st.markdown(
-                    create_z_score_display(
-                        "Mood",
-                        latest_wellness['mood'],
-                        mood_z,
-                        "higher_better",
-                        "/10"
-                    ),
-                    unsafe_allow_html=True
-                )
-                
-                # Stress z-score
-                stress_z = calculate_z_score(
-                    latest_wellness['stress'],
-                    baselines['stress']['mean'],
-                    baselines['stress']['std']
-                )
-                st.markdown(
-                    create_z_score_display(
-                        "Stress Level",
-                        latest_wellness['stress'],
-                        stress_z,
-                        "lower_better",
-                        "/10"
-                    ),
-                    unsafe_allow_html=True
-                )
-
-    # ==================================================================
-    # WELLNESS INDICATORS (Whistle-style pill meters — replaces speedometers)
-    # ==================================================================
-
-    st.markdown("---")
-    st.markdown("### 🎯 Wellness Indicators")
+    st.markdown("### Wellness Indicators")
 
     w1, w2, w3 = st.columns(3)
-
     with w1:
-        st.markdown(
-            pill_meter(
-                latest_wellness["soreness"],
-                "Soreness",
-                max_val=10,
-                good_max=3,
-                warn_max=7,
-                invert=True,
-                suffix="/10",
-            ),
-            unsafe_allow_html=True,
-        )
-
+        st.markdown(pill_meter(latest_wellness["soreness"], "Soreness", max_val=10, good_max=3, warn_max=7, invert=True, suffix="/10"), unsafe_allow_html=True)
     with w2:
-        st.markdown(
-            pill_meter(
-                latest_wellness["stress"],
-                "Stress",
-                max_val=10,
-                good_max=3,
-                warn_max=7,
-                invert=True,
-                suffix="/10",
-            ),
-            unsafe_allow_html=True,
-        )
-
+        st.markdown(pill_meter(latest_wellness["stress"],   "Stress",   max_val=10, good_max=3, warn_max=7, invert=True, suffix="/10"), unsafe_allow_html=True)
     with w3:
-        st.markdown(
-            pill_meter(
-                latest_wellness["mood"],
-                "Mood",
-                max_val=10,
-                good_max=4,
-                warn_max=7,
-                invert=False,
-                suffix="/10",
-            ),
-            unsafe_allow_html=True,
-        )
+        st.markdown(pill_meter(latest_wellness["mood"],     "Mood",     max_val=10, good_max=4, warn_max=7, invert=False, suffix="/10"), unsafe_allow_html=True)
 
-    # ==================================================================
+    # ------------------------------------------------------------------
+    # PERSONAL BASELINE (Z-SCORES)
+    # ------------------------------------------------------------------
+    if HAVE_ENHANCED_MODULES:
+        baselines = calculate_athlete_baselines(wellness, athlete_id, lookback_days=30)
+
+        if baselines:
+            st.markdown("---")
+            st.markdown("### Personal Baseline Comparison")
+            st.caption("Current values relative to this athlete's 30-day average")
+
+            z1, z2 = st.columns(2)
+
+            with z1:
+                sleep_z = calculate_z_score(latest_wellness["sleep_hours"], baselines["sleep_hours"]["mean"], baselines["sleep_hours"]["std"])
+                st.markdown(create_z_score_display("Sleep Duration", latest_wellness["sleep_hours"], sleep_z, "higher_better", " hrs"), unsafe_allow_html=True)
+
+                soreness_z = calculate_z_score(latest_wellness["soreness"], baselines["soreness"]["mean"], baselines["soreness"]["std"])
+                st.markdown(create_z_score_display("Soreness", latest_wellness["soreness"], soreness_z, "lower_better", "/10"), unsafe_allow_html=True)
+
+            with z2:
+                mood_z = calculate_z_score(latest_wellness["mood"], baselines["mood"]["mean"], baselines["mood"]["std"])
+                st.markdown(create_z_score_display("Mood", latest_wellness["mood"], mood_z, "higher_better", "/10"), unsafe_allow_html=True)
+
+                stress_z = calculate_z_score(latest_wellness["stress"], baselines["stress"]["mean"], baselines["stress"]["std"])
+                st.markdown(create_z_score_display("Stress", latest_wellness["stress"], stress_z, "lower_better", "/10"), unsafe_allow_html=True)
+
+            # Smart alerts
+            alerts = add_z_score_alerts(
+                dict(latest_wellness),
+                baselines,
+                {"sleep": 6.5, "soreness": 7, "acwr": 1.5},
+            )
+            if alerts:
+                st.markdown("**Alerts**")
+                for a in alerts:
+                    if a["type"] == "critical":
+                        st.error(a["message"])
+                    elif a["type"] == "warning":
+                        st.warning(a["message"])
+                    else:
+                        st.info(a["message"])
+
+    # ------------------------------------------------------------------
     # 7-DAY TRENDS
-    # ==================================================================
-
+    # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("### 📈 7-Day Trends")
+    st.markdown("### 7-Day Trends")
 
     week_ago = latest_date - timedelta(days=7)
-    weekly_wellness = wellness[
-        (wellness["player_id"] == athlete_id) & (wellness["date"] >= week_ago) & (wellness["date"] <= latest_date)
+    weekly = wellness[
+        (wellness["player_id"] == athlete_id)
+        & (wellness["date"] >= week_ago)
+        & (wellness["date"] <= latest_date)
     ].sort_values("date")
 
-    if len(weekly_wellness) > 0:
+    if len(weekly) > 0:
         fig = go.Figure()
-
-        fig.add_trace(
-            go.Scatter(
-                x=weekly_wellness["date"],
-                y=weekly_wellness["sleep_hours"],
-                mode="lines+markers",
-                name="Sleep (hrs)",
-                line=dict(color="#2E86AB", width=2),
-            )
-        )
-
-        fig.add_trace(
-            go.Scatter(
-                x=weekly_wellness["date"],
-                y=weekly_wellness["soreness"],
-                mode="lines+markers",
-                name="Soreness (0-10)",
-                line=dict(color="#A23B72", width=2),
-            )
-        )
-
-        fig.update_layout(
-            title=f"{selected_athlete} - Weekly Trends",
-            yaxis_title="Value",
-            xaxis_title="Date",
-            height=300,
-            hovermode="x unified",
-        )
-
+        fig.add_trace(go.Scatter(x=weekly["date"], y=weekly["sleep_hours"], mode="lines+markers", name="Sleep (hrs)", line=dict(color="#2E86AB", width=2)))
+        fig.add_trace(go.Scatter(x=weekly["date"], y=weekly["soreness"],    mode="lines+markers", name="Soreness (0–10)", line=dict(color="#A23B72", width=2)))
+        fig.update_layout(title=f"{selected_athlete} — Weekly Trends", yaxis_title="Value", height=300, hovermode="x unified")
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Insufficient data for 7-day trends")
 
-    # ==================================================================
-    # BASKETBALL-SPECIFIC RISK CONTEXT (if module available)
-    # ==================================================================
-    
+    # ------------------------------------------------------------------
+    # BASKETBALL RISK CONTEXT
+    # ------------------------------------------------------------------
     if HAVE_ENHANCED_MODULES:
         st.markdown("---")
-        st.markdown("### 🏀 Basketball-Specific Risk Context")
-        
+        st.markdown("### Basketball-Specific Risk Context")
         context = st.radio("Next activity:", ["Practice", "Competition"], horizontal=True, key=f"context_{athlete_id}")
-        
-        athlete_data = {
-            'sleep_hours': latest_wellness['sleep_hours'],
-            'soreness': latest_wellness['soreness'],
-            'acwr': latest_acwr
-        }
-        
-        injury_mechanism_insight_box(athlete_data, context.lower())
+        injury_mechanism_insight_box(
+            {"sleep_hours": latest_wellness["sleep_hours"], "soreness": latest_wellness["soreness"], "acwr": latest_acwr},
+            context.lower(),
+        )
 
-    with st.expander("📚 Research References"):
+    with st.expander("Research References"):
         st.markdown(
-            """
-        **Thresholds used in this profile:**
-        - **Sleep:** <6.5 hours = 1.7x injury risk (Milewski et al. 2014)
-        - **ACWR:** >1.5 = 2.4x injury risk (Gabbett 2016)
-        - **Soreness:** >7 requires monitoring (Hulin et al. 2016)
-        """
+            "- **Sleep:** <6.5 hrs → 1.7× injury risk (Milewski et al. 2014)\n"
+            "- **ACWR:** >1.5 → 2.4× injury risk (Gabbett 2016)\n"
+            "- **Soreness:** >7 requires monitoring (Hulin et al. 2016)"
         )
