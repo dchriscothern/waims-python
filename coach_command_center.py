@@ -121,6 +121,9 @@ def _build_summary(wellness, players, force_plate, training_load, end_date):
         })
 
 
+    return sorted(rows, key=lambda r: r["score"])
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ALERT GENERATOR
 # ─────────────────────────────────────────────────────────────────────────────
@@ -410,40 +413,73 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     def _status_key(score):
         return "red" if score < 60 else ("yellow" if score < 80 else "green")
 
+    # Render each card as a Plotly figure — bypasses Streamlit HTML sanitiser
+    # so background colors are guaranteed to show
+    def _player_card(r):
+        key   = _status_key(r["score"])
+        s     = STATUS_STYLES[key]
+        score = r["score"]
+
+        BG    = {"red": "#fde8e8", "yellow": "#fef9c3", "green": "#dcfce7"}[key]
+        BDCLR = {"red": "#ef4444", "yellow": "#f59e0b", "green": "#22c55e"}[key]
+        SCLR  = {"red": "#dc2626", "yellow": "#d97706", "green": "#16a34a"}[key]
+        LBL   = {"red": "PROTECT", "yellow": "MONITOR", "green": "READY"}[key]
+        LBLCLR= {"red": "#991b1b", "yellow": "#92400e", "green": "#166534"}[key]
+
+        fig = go.Figure()
+
+        # Background fill
+        fig.add_shape(type="rect", x0=0, y0=0, x1=1, y1=1,
+                      fillcolor=BG, line=dict(color=BDCLR, width=2),
+                      xref="paper", yref="paper", layer="below")
+
+        # Player name
+        fig.add_annotation(x=0.06, y=0.88, text=f"<b>{r['name']}</b>",
+                           xref="paper", yref="paper", showarrow=False,
+                           font=dict(size=14, color="#0f172a"), xanchor="left")
+        # Position
+        fig.add_annotation(x=0.06, y=0.74, text=r["pos"],
+                           xref="paper", yref="paper", showarrow=False,
+                           font=dict(size=11, color="#64748b"), xanchor="left")
+        # Status badge
+        fig.add_annotation(x=0.94, y=0.88, text=f"<b>{LBL}</b>",
+                           xref="paper", yref="paper", showarrow=False,
+                           font=dict(size=10, color=LBLCLR), xanchor="right",
+                           bgcolor=s["badge_bg"], borderpad=4)
+        # Score
+        fig.add_annotation(x=0.06, y=0.46,
+                           text=f"<b>{score:.0f}<span style='font-size:16px'>%</span></b>",
+                           xref="paper", yref="paper", showarrow=False,
+                           font=dict(size=38, color=SCLR, family="Georgia, serif"),
+                           xanchor="left")
+        # Reason line
+        fig.add_annotation(x=0.06, y=0.12, text=r["reason"],
+                           xref="paper", yref="paper", showarrow=False,
+                           font=dict(size=11, color="#475569"), xanchor="left")
+        # Divider line
+        fig.add_shape(type="line", x0=0.04, y0=0.22, x1=0.96, y1=0.22,
+                      xref="paper", yref="paper",
+                      line=dict(color=BDCLR, width=1, dash="solid"))
+
+        fig.update_layout(
+            height=150,
+            margin=dict(l=0, r=0, t=0, b=0),
+            paper_bgcolor=BG,
+            plot_bgcolor=BG,
+            xaxis=dict(visible=False, range=[0,1]),
+            yaxis=dict(visible=False, range=[0,1]),
+            showlegend=False,
+        )
+        return fig
+
     cols = st.columns(4)
     for i, r in enumerate(grid_rows):
-        s = STATUS_STYLES[_status_key(r["score"])]
-        col = cols[i % 4]
-        with col:
-            st.markdown(
-                f"""
-                <div style="
-                    background:{s['bg']};
-                    border:2px solid {s['border']};
-                    border-radius:12px;
-                    padding:16px 18px;
-                    margin-bottom:12px;
-                ">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-                        <div>
-                            <div style="font-weight:800;font-size:15px;color:#0f172a;">{r['name']}</div>
-                            <div style="font-size:11px;color:#64748b;margin-top:1px;">{r['pos']}</div>
-                        </div>
-                        <div style="background:{s['badge_bg']};color:{s['badge_text']};
-                            font-size:10px;font-weight:800;letter-spacing:0.08em;
-                            padding:3px 8px;border-radius:20px;">{s['label']}</div>
-                    </div>
-                    <div style="font-size:42px;font-weight:900;color:{s['score_color']};
-                        font-family:Georgia,serif;line-height:1;margin-bottom:10px;">
-                        {r['score']:.0f}<span style="font-size:18px;font-weight:600;">%</span>
-                    </div>
-                    <div style="font-size:12px;color:#475569;font-weight:600;
-                        border-top:1px solid {s['border']}40;padding-top:8px;">
-                        {r['reason']}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
+        with cols[i % 4]:
+            st.plotly_chart(
+                _player_card(r),
+                use_container_width=True,
+                config={"displayModeBar": False},
+                key=f"card_{r['pid']}",
             )
 
     # ── ROW 3: Team Wellness Sparklines ───────────────────────────────────────

@@ -42,7 +42,7 @@ def _build_master(wellness, training_load, force_plate, acwr, injuries, players)
         on=["player_id", "date"], how="left",
     )
 
-    # Forward-fill force plate (weekly tests) — robust to missing columns
+       # Forward-fill force plate (weekly tests)
     fp_cols = ["player_id", "date", "cmj_height_cm", "rsi_modified"]
     if "asymmetry_percent" in force_plate.columns:
         fp_cols.append("asymmetry_percent")
@@ -53,15 +53,17 @@ def _build_master(wellness, training_load, force_plate, acwr, injuries, players)
         .sort_values(["player_id", "date"])
     )
 
-    # Ensure column exists even if force_plate doesn't have it
-    if "asymmetry_percent" not in fp_daily.columns:
-        fp_daily["asymmetry_percent"] = np.nan
+    ffill_cols = [c for c in ["cmj_height_cm", "rsi_modified", "asymmetry_percent"] if c in fp_daily.columns]
+    if ffill_cols:
+        fp_daily[ffill_cols] = fp_daily.groupby("player_id")[ffill_cols].ffill()
 
-    fill_cols = ["cmj_height_cm", "rsi_modified", "asymmetry_percent"]
-    fp_daily[fill_cols] = fp_daily.groupby("player_id")[fill_cols].ffill()
-
-    # Merge back by keys (avoids index alignment issues)
-    df = df.merge(fp_daily[["player_id", "date"] + fill_cols], on=["player_id", "date"], how="left")
+    df = df.merge(
+        fp_daily.drop(columns=["player_id", "date"]),
+        left_index=True,
+        right_index=True,
+        how="left",
+    )
+    
     # Injury label
     df["injured_within_7days"] = 0
     if len(injuries) > 0:
@@ -219,34 +221,26 @@ def _top_correlations_section(df, corr, avail, top_n=10):
         s_color  = "#dc2626" if p["abs_r"] > 0.6 else ("#d97706" if p["abs_r"] > 0.3 else "#16a34a")
         sig_tag  = "✓ Significant" if p["p"] < 0.05 else "~ Marginal"
         dir_col  = "#dc2626" if p["r"] < 0 else "#16a34a"
+        note_html = f'<div style="font-size:11px;color:#6366f1;margin-top:2px;">📚 {note}</div>' if note else ""
 
-        st.markdown(
-            f"""
-            <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px;
-                padding:14px 18px; margin-bottom:8px; display:flex;
-                align-items:center; gap:16px;">
-                <div style="font-size:22px; font-weight:900; color:#94a3b8;
-                    font-family:monospace; min-width:32px;">#{rank}</div>
-                <div style="flex:1;">
-                    <div style="font-weight:700; font-size:14px; color:#1e293b;">
-                        {p['label_a']}
-                        <span style="color:#94a3b8; font-weight:400;"> vs </span>
-                        {p['label_b']}
-                    </div>
-                    {f'<div style="font-size:11px; color:#6366f1; margin-top:2px;">📚 {note}</div>' if note else ''}
-                </div>
-                <div style="text-align:right; min-width:120px;">
-                    <div style="font-size:22px; font-weight:800; color:{s_color};
-                        font-family:monospace;">r = {p['r']:+.3f}</div>
-                    <div style="font-size:11px; color:#64748b;">
-                        {strength} · <span style="color:{dir_col};">{p['direction']}</span>
-                        · {sig_tag}
-                    </div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        card = (
+            f'<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;'
+            f'padding:14px 18px;margin-bottom:8px;display:flex;align-items:center;gap:16px;">'
+            f'<div style="font-size:22px;font-weight:900;color:#94a3b8;font-family:monospace;min-width:32px;">#{rank}</div>'
+            f'<div style="flex:1;">'
+            f'<div style="font-weight:700;font-size:14px;color:#1e293b;">'
+            f'{p["label_a"]} <span style="color:#94a3b8;font-weight:400;">vs</span> {p["label_b"]}'
+            f'</div>'
+            f'{note_html}'
+            f'</div>'
+            f'<div style="text-align:right;min-width:120px;">'
+            f'<div style="font-size:22px;font-weight:800;color:{s_color};font-family:monospace;">r = {p["r"]:+.3f}</div>'
+            f'<div style="font-size:11px;color:#64748b;">'
+            f'{strength} · <span style="color:{dir_col};">{p["direction"]}</span> · {sig_tag}'
+            f'</div></div></div>'
         )
+        st.markdown(card, unsafe_allow_html=True)
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -508,23 +502,30 @@ def _per_player_section(df, players):
         "Players with near-zero or positive r may have other confounders (high game load, injury history)."
     )
 
-    # CMJ vs soreness scatter per player
     st.markdown("#### Scatter: CMJ vs Soreness (all players)")
     scatter_data = df[["cmj_height_cm", "soreness", "name", "position"]].dropna()
     if len(scatter_data) > 20:
         fig2 = px.scatter(
             scatter_data, x="cmj_height_cm", y="soreness",
             color="position", hover_data=["name"],
-            trendline="ols",
             labels={
                 "cmj_height_cm": "CMJ Height (cm)",
                 "soreness":      "Soreness (0–10)",
             },
             title="CMJ vs Soreness — Position Breakdown",
         )
+        x_arr  = scatter_data["cmj_height_cm"].values
+        y_arr  = scatter_data["soreness"].values
+        m, b   = np.polyfit(x_arr, y_arr, 1)
+        x_line = np.linspace(x_arr.min(), x_arr.max(), 50)
+        fig2.add_trace(go.Scatter(
+            x=x_line, y=m * x_line + b,
+            mode="lines", name="Trend",
+            line=dict(color="#64748b", width=2, dash="dash"),
+            showlegend=False,
+        ))
         fig2.update_layout(height=320, margin=dict(l=10, r=10, t=50, b=10))
         st.plotly_chart(fig2, use_container_width=True)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SECTION 6: MODEL FEATURE AUDIT
@@ -587,7 +588,8 @@ def _model_audit_section():
 
         c1, c2, c3 = st.columns(3)
         c1.metric("Wellness signals", f"{well_imp*100:.1f}%", "of total importance")
-        c2.metric("GPS signals",      f"{gps_imp*100:.1f}%",  "player load + accels/decels")
+        gps_label = "player load + accels/decels" if gps_imp > 0 else "⚠️ Run train_models.py to include GPS"
+        c2.metric("GPS signals", f"{gps_imp*100:.1f}%", gps_label)
         c3.metric("Force plate",      f"{fp_imp*100:.1f}%",   "CMJ + RSI")
 
     except FileNotFoundError:
