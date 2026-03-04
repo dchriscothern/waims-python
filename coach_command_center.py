@@ -476,36 +476,5 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                     key=f"spark_{field}",
                 )
 
-    # ── ROW 4: Quick Navigation ───────────────────────────────────────────────
-    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
-    st.markdown(
-        '<div style="font-family:Georgia,serif; font-size:13px; font-weight:700; '
-        'letter-spacing:0.12em; text-transform:uppercase; color:#64748b; margin-bottom:10px;">'
-        'Deep Dive →</div>',
-        unsafe_allow_html=True,
-    )
 
-    nav_cols = st.columns(6)
-    nav_items = [
-        ("👤 Profiles",       "Open Tab 2 for per-athlete detail"),
-        ("📈 Trends",         "14-day wellness drift analysis"),
-        ("💪 Jump Testing",   "CMJ & RSI neuromuscular panel"),
-        ("📡 GPS & Load",     "Kinexon full session breakdown"),
-        ("🤖 Forecast",       "7-day injury risk predictions"),
-        ("🔬 Correlations",   "Hidden signal discovery"),
-    ]
-    for col_w, (label, tip) in zip(nav_cols, nav_items):
-        with col_w:
-            st.markdown(
-                f"""
-                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
-                    padding:12px; text-align:center; cursor:pointer;"
-                    title="{tip}">
-                    <div style="font-size:18px;">{label.split()[0]}</div>
-                    <div style="font-size:11px; font-weight:700; color:#334155; margin-top:4px;">
-                        {' '.join(label.split()[1:])}</div>
-                    <div style="font-size:10px; color:#94a3b8; margin-top:2px;">{tip}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
             )

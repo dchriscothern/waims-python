@@ -144,7 +144,7 @@ def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[60, 80]
     fig.update_layout(
         xaxis=dict(range=[-1.3, 1.3], visible=False, scaleanchor="y"),
         yaxis=dict(range=[-0.7, 1.2], visible=False),
-        height=240,
+        height=320,
         margin=dict(l=10, r=10, t=30, b=10),
         paper_bgcolor="white",
         plot_bgcolor="white",
