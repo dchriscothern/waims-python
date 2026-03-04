@@ -31,9 +31,11 @@ except ImportError:
 
 def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[60, 80]):
     """
-    Needle-style readiness gauge — clean arc with colour bands,
-    thin needle, large centred score. Matches the screenshot aesthetic.
+    Pure SVG needle gauge — matches screenshot exactly.
+    Solid colored arcs, thin black needle from center, large score below.
+    Rendered as HTML so no Plotly bar-fills-arc problem.
     """
+    import math
     try:
         v = float(value)
     except Exception:
@@ -41,57 +43,115 @@ def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[60, 80]
     v = max(float(min_val), min(float(max_val), v))
     y_start, g_start = thresholds
 
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=v,
-        title={
-            "text": title,
-            "font": {"size": 13, "color": "#6b7280", "family": "Georgia, serif"},
-        },
-        number={
-            "suffix": "/100",
-            "font": {"size": 38, "color": "#111827", "family": "Georgia, serif"},
-            "valueformat": ".0f",
-        },
-        gauge={
-            "shape": "angular",
-            "axis": {
-                "range": [min_val, max_val],
-                "tickvals": [0, 20, y_start, g_start, 100],
-                "ticktext":  ["0", "20", str(y_start), str(g_start), "100"],
-                "tickwidth": 1,
-                "tickcolor": "#d1d5db",
-                "tickfont":  {"size": 10, "color": "#9ca3af"},
-            },
-            # Needle only — thin transparent bar so the arc bands show
-            "bar": {"color": "#1e293b", "thickness": 0.04},
-            "bgcolor": "white",
-            "borderwidth": 0,
-            "steps": [
-                {"range": [min_val,  y_start], "color": "#fecaca"},   # soft red
-                {"range": [y_start,  g_start], "color": "#fef08a"},   # soft yellow
-                {"range": [g_start,  max_val], "color": "#bbf7d0"},   # soft green
-            ],
-            "threshold": {
-                "line": {"color": "#374151", "width": 3},
-                "thickness": 0.85,
-                "value": v,
-            },
-        },
-    ))
-    fig.update_layout(
-        height=220,
-        margin=dict(l=20, r=20, t=40, b=0),
-        paper_bgcolor="white",
-        font={"family": "Georgia, serif"},
+    # Arc geometry: 180° sweep, left=0, right=100
+    # Center at (150, 130), radius 100
+    cx, cy, r = 150, 130, 100
+
+    def polar(deg):
+        """Convert 0–180 left-to-right to SVG x,y. 0=left, 180=right."""
+        rad = math.radians(180 - deg)
+        return cx + r * math.cos(rad), cy - r * math.sin(rad)
+
+    def arc_path(start_pct, end_pct, outer_r, inner_r):
+        s = start_pct / 100 * 180
+        e = end_pct   / 100 * 180
+        x1o, y1o = polar_r(s, outer_r)
+        x2o, y2o = polar_r(e, outer_r)
+        x1i, y1i = polar_r(s, inner_r)
+        x2i, y2i = polar_r(e, inner_r)
+        large = 1 if (e - s) > 90 else 0
+        return (f"M {x1o:.1f} {y1o:.1f} "
+                f"A {outer_r} {outer_r} 0 {large} 1 {x2o:.1f} {y2o:.1f} "
+                f"L {x2i:.1f} {y2i:.1f} "
+                f"A {inner_r} {inner_r} 0 {large} 0 {x1i:.1f} {y1i:.1f} Z")
+
+    def polar_r(deg, radius):
+        rad = math.radians(180 - deg)
+        return cx + radius * math.cos(rad), cy - radius * math.sin(rad)
+
+    # Color zones (matching screenshot)
+    zones = [
+        (0,        y_start,  "#e05252"),  # red
+        (y_start,  g_start,  "#f5c842"),  # amber
+        (g_start,  85,       "#d4eeaa"),  # light yellow-green
+        (85,       100,      "#5ec48a"),  # green
+    ]
+
+    arcs_svg = ""
+    for start, end, color in zones:
+        arcs_svg += f'<path d="{arc_path(start, end, 105, 72)}" fill="{color}"/>\n'
+
+    # Background ring (gray)
+    arcs_svg = f'<path d="{arc_path(0, 100, 110, 68)}" fill="#e5e7eb"/>\n' + arcs_svg
+
+    # Needle
+    needle_pct = (v - min_val) / (max_val - min_val) * 100
+    needle_deg = needle_pct / 100 * 180
+    nx, ny = polar_r(needle_deg, 90)
+    # Base of needle (two points slightly offset from center)
+    base_angle_l = math.radians(180 - needle_deg + 90)
+    base_angle_r = math.radians(180 - needle_deg - 90)
+    bx1 = cx + 7 * math.cos(base_angle_l)
+    by1 = cy - 7 * math.sin(base_angle_l)
+    bx2 = cx + 7 * math.cos(base_angle_r)
+    by2 = cy - 7 * math.sin(base_angle_r)
+
+    needle_svg = (
+        f'<polygon points="{nx:.1f},{ny:.1f} {bx1:.1f},{by1:.1f} {bx2:.1f},{by2:.1f}" '
+        f'fill="#1e293b" opacity="0.9"/>\n'
+        f'<circle cx="{cx}" cy="{cy}" r="8" fill="#1e293b"/>\n'
+        f'<circle cx="{cx}" cy="{cy}" r="4" fill="white"/>\n'
     )
-    return fig
+
+    # Tick labels
+    ticks_svg = ""
+    for label, pct in [("0", 0), ("20", 20), (str(y_start), y_start),
+                        (str(g_start), g_start), ("100", 100)]:
+        tx, ty = polar_r(pct / 100 * 180, 120)
+        ticks_svg += (f'<text x="{tx:.1f}" y="{ty:.1f}" text-anchor="middle" '
+                      f'font-size="11" fill="#9ca3af" font-family="Georgia,serif">{label}</text>\n')
+
+    # Recommendation text
+    if v >= g_start:
+        rec = "Full training cleared"
+        rec_bg = "#dcfce7"; rec_color = "#15803d"
+    elif v >= y_start:
+        rec = "Monitor closely today"
+        rec_bg = "#fef9c3"; rec_color = "#92400e"
+    else:
+        rec = "🚨 50% volume reduction recommended"
+        rec_bg = "#fff7ed"; rec_color = "#c2410c"
+
+    html = f"""
+<div style="background:white; border:1px solid #e5e7eb; border-radius:16px;
+    padding:20px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+    <div style="font-size:12px; color:#9ca3af; font-weight:600; letter-spacing:0.06em;
+        text-transform:uppercase; margin-bottom:8px;">{title}</div>
+    <svg width="300" height="155" viewBox="0 0 300 155"
+        style="overflow:visible; max-width:100%;">
+        {arcs_svg}
+        {ticks_svg}
+        {needle_svg}
+        <text x="{cx}" y="148" text-anchor="middle"
+            font-size="36" font-weight="800" fill="#111827"
+            font-family="Georgia,serif">{int(v)}</text>
+        <text x="{cx+28}" y="148" text-anchor="middle"
+            font-size="18" font-weight="500" fill="#9ca3af"
+            font-family="Georgia,serif">/100</text>
+    </svg>
+    <div style="margin-top:4px; background:{rec_bg}; color:{rec_color};
+        border-radius:8px; padding:8px 14px; font-size:13px; font-weight:600;">
+        {rec}
+    </div>
+</div>"""
+    return html
 
 
 def pill_meter(value, title, max_val=10, good_max=3, warn_max=7, invert=True, suffix=""):
     """
-    Whistle-style pill meter — soft pastel bands, rounded pill, clean needle tick,
-    value + status label top-right. Matches the screenshot aesthetic.
+    Whistle-style pill meter — matches screenshot exactly.
+    Solid filled color up to value, light tint for remainder.
+    Thin dark needle tick. Large bold number top-right.
     """
     try:
         v = float(value)
@@ -100,60 +160,77 @@ def pill_meter(value, title, max_val=10, good_max=3, warn_max=7, invert=True, su
     v   = max(0.0, min(float(max_val), v))
     pct = (v / float(max_val)) * 100.0
 
-    # Pastel palette — softer than the previous version
-    RED    = "#ef4444";  RED_SOFT    = "#fecaca"
-    AMBER  = "#f59e0b";  AMBER_SOFT  = "#fde68a"
-    GREEN  = "#16a34a";  GREEN_SOFT  = "#bbf7d0"
-
+    # Exact colors from screenshot
     if invert:
-        band1, band2, band3 = GREEN_SOFT, AMBER_SOFT, RED_SOFT
+        # low=good (soreness, stress): red zone left, green right
+        # filled color depends on where value sits
         if v <= good_max:
-            val_color, status, status_bg = GREEN, "Low (better)", "#dcfce7"
+            fill_color = "#5ec48a"   # green — low soreness is good
         elif v <= warn_max:
-            val_color, status, status_bg = AMBER, "Moderate",     "#fef9c3"
+            fill_color = "#f5c842"   # amber
         else:
-            val_color, status, status_bg = RED,   "High",         "#fee2e2"
+            fill_color = "#e05252"   # red
+
+        # Band colors: green→amber→red left to right
+        band_stops = (
+            f'<stop offset="0%"   stop-color="#5ec48a"/>'
+            f'<stop offset="{(good_max/max_val)*100:.0f}%" stop-color="#5ec48a"/>'
+            f'<stop offset="{(good_max/max_val)*100:.0f}%" stop-color="#f5c842"/>'
+            f'<stop offset="{(warn_max/max_val)*100:.0f}%" stop-color="#f5c842"/>'
+            f'<stop offset="{(warn_max/max_val)*100:.0f}%" stop-color="#e05252"/>'
+            f'<stop offset="100%" stop-color="#e05252"/>'
+        )
         left_label, right_label = "Low (better)", "High"
     else:
-        band1, band2, band3 = RED_SOFT, AMBER_SOFT, GREEN_SOFT
+        # high=good (mood): red left, green right
         if v >= warn_max:
-            val_color, status, status_bg = GREEN, "High (better)", "#dcfce7"
+            fill_color = "#5ec48a"
         elif v >= good_max:
-            val_color, status, status_bg = AMBER, "Moderate",      "#fef9c3"
+            fill_color = "#f5c842"
         else:
-            val_color, status, status_bg = RED,   "Low",           "#fee2e2"
+            fill_color = "#e05252"
+
+        band_stops = (
+            f'<stop offset="0%"   stop-color="#e05252"/>'
+            f'<stop offset="{(good_max/max_val)*100:.0f}%" stop-color="#e05252"/>'
+            f'<stop offset="{(good_max/max_val)*100:.0f}%" stop-color="#f5c842"/>'
+            f'<stop offset="{(warn_max/max_val)*100:.0f}%" stop-color="#f5c842"/>'
+            f'<stop offset="{(warn_max/max_val)*100:.0f}%" stop-color="#5ec48a"/>'
+            f'<stop offset="100%" stop-color="#5ec48a"/>'
+        )
         left_label, right_label = "Low", "High (better)"
 
-    # Integer display if whole number, else 1dp
     display_val = f"{int(v)}" if v == int(v) else f"{v:.1f}"
+    uid = f"grad_{title.replace(' ','_')}"
+
+    # Pill: filled portion uses solid color, unfilled uses very light tint
+    fill_w   = pct
+    unfill_w = 100 - pct
+    light    = {"#e05252": "#fde8e8", "#f5c842": "#fefce8", "#5ec48a": "#e8f7ef"}
+    light_color = light.get(fill_color, "#f3f4f6")
 
     html = f"""
 <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:14px;
     padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
     <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px;">
-        <span style="font-weight:700; font-size:14px; color:#111827;">{title}</span>
-        <span style="font-weight:800; font-size:22px; color:#111827; font-family:Georgia,serif;">
-            {display_val}<span style="font-size:13px; font-weight:600; color:#6b7280;">{suffix}</span>
-        </span>
+        <span style="font-weight:700; font-size:15px; color:#111827;">{title}</span>
+        <span style="font-weight:800; font-size:26px; color:#111827; font-family:Georgia,serif;
+            line-height:1;">{display_val}<span style="font-size:14px; font-weight:500;
+            color:#9ca3af;">{suffix}</span></span>
     </div>
-    <div style="position:relative; height:16px; border-radius:999px; overflow:visible;
-        background:transparent; margin-bottom:8px;">
-        <!-- Banded pill -->
-        <div style="display:flex; height:16px; border-radius:999px; overflow:hidden;
-            border:1px solid rgba(0,0,0,0.06);">
-            <div style="width:{(good_max/max_val)*100:.2f}%; background:{band1};"></div>
-            <div style="width:{((warn_max-good_max)/max_val)*100:.2f}%; background:{band2};"></div>
-            <div style="width:{((max_val-warn_max)/max_val)*100:.2f}%; background:{band3};"></div>
+    <div style="position:relative; height:18px; border-radius:999px; overflow:visible;
+        margin-bottom:8px;">
+        <div style="display:flex; height:18px; border-radius:999px; overflow:hidden;">
+            <div style="width:{fill_w:.2f}%; background:{fill_color}; transition:width 0.3s;"></div>
+            <div style="width:{unfill_w:.2f}%; background:{light_color};"></div>
         </div>
-        <!-- Needle tick -->
-        <div style="position:absolute; left:calc({pct:.2f}% - 1.5px); top:-4px;
-            width:3px; height:24px; background:#374151; border-radius:2px;
-            box-shadow:0 1px 3px rgba(0,0,0,0.25);"></div>
+        <div style="position:absolute; left:calc({pct:.2f}% - 2px); top:-5px;
+            width:4px; height:28px; background:#374151; border-radius:2px;
+            box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
     </div>
-    <div style="display:flex; justify-content:space-between; font-size:11px; color:#9ca3af;
-        font-weight:500; margin-top:2px;">
-        <span>{left_label}</span>
-        <span>{right_label}</span>
+    <div style="display:flex; justify-content:space-between; font-size:11px;
+        color:#9ca3af; font-weight:500;">
+        <span>{left_label}</span><span>{right_label}</span>
     </div>
 </div>"""
     return html
@@ -368,14 +445,9 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
             st.markdown(create_recommendation_box(readiness, context="competition"), unsafe_allow_html=True)
         else:
-            fig = create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80])
-            st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
-            if readiness >= 80:
-                st.success("Full training cleared")
-            elif readiness >= 60:
-                st.info("Monitor closely")
-            else:
-                st.warning("50% volume reduction recommended")
+            # create_gauge_chart now returns HTML (SVG needle gauge)
+            st.markdown(create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80]),
+                        unsafe_allow_html=True)
 
     with col3:
         st.markdown("**Performance Profile**")
