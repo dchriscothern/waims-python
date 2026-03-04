@@ -27,36 +27,100 @@ print("=" * 60)
 # 1. LOAD DATA
 # ==============================================================================
 
+# ==============================================================================
+# 1. LOAD DATA
+# ==============================================================================
+
 print("\n1. Loading data from database...")
 
 conn = sqlite3.connect("waims_demo.db")
 
-df = pd.read_sql_query(
-    """
-    SELECT
-        p.player_id, p.name, p.position, p.age, p.injury_history_count,
-        w.date,
-        w.sleep_hours, w.sleep_quality, w.soreness, w.stress, w.mood,
-        t.practice_minutes, t.practice_rpe, t.total_daily_load, t.game_minutes,
-        t.player_load, t.accel_count, t.decel_count,
-        t.total_distance_km, t.hsr_distance_m, t.sprint_distance_m,
-        a.acwr,
-        f.cmj_height_cm, f.rsi_modified,
-        COALESCE(s.is_back_to_back, 0) AS is_back_to_back,
-        COALESCE(s.days_rest, 3)       AS days_rest,
-        COALESCE(s.travel_flag, 0)     AS travel_flag,
-        COALESCE(s.time_zone_diff, 0)  AS time_zone_diff,
-        CASE WHEN s.game_type = 'Unrivaled' THEN 1 ELSE 0 END AS unrivaled_flag
-    FROM players p
-    LEFT JOIN wellness w       ON p.player_id = w.player_id
-    LEFT JOIN training_load t  ON p.player_id = t.player_id AND w.date = t.date
-    LEFT JOIN acwr a           ON p.player_id = a.player_id AND w.date = a.date
-    LEFT JOIN force_plate f    ON p.player_id = f.player_id AND w.date = f.date
-    LEFT JOIN schedule s       ON w.date = s.date
-    WHERE w.date IS NOT NULL
-    """,
-    conn,
-)
+def _table_exists(conn, name: str) -> bool:
+    q = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1"
+    return pd.read_sql_query(q, conn, params=(name,)).shape[0] > 0
+
+def _cols(conn, table: str) -> set:
+    try:
+        info = pd.read_sql_query(f"PRAGMA table_info({table});", conn)
+        return set(info["name"].tolist())
+    except Exception:
+        return set()
+
+def _sel(alias: str, available: set, col: str, default_sql: str) -> str:
+    """Return 'alias.col' if present, else 'default AS col'."""
+    return f"{alias}.{col}" if col in available else f"{default_sql} AS {col}"
+
+# What exists?
+training_cols = _cols(conn, "training_load")
+force_cols    = _cols(conn, "force_plate")
+acwr_cols     = _cols(conn, "acwr")
+
+schedule_exists = _table_exists(conn, "schedule")
+schedule_cols   = _cols(conn, "schedule") if schedule_exists else set()
+
+# Build SELECT list (keeps GPS columns you asked about)
+select_cols = [
+    "p.player_id", "p.name", "p.position", "p.age", "p.injury_history_count",
+    "w.date",
+    "w.sleep_hours", "w.sleep_quality", "w.soreness", "w.stress", "w.mood",
+
+    _sel("t", training_cols, "practice_minutes", "NULL"),
+    _sel("t", training_cols, "practice_rpe", "NULL"),
+    _sel("t", training_cols, "total_daily_load", "NULL"),
+    _sel("t", training_cols, "game_minutes", "NULL"),
+
+    # GPS-ish fields (kept)
+    _sel("t", training_cols, "player_load", "NULL"),
+    _sel("t", training_cols, "accel_count", "NULL"),
+    _sel("t", training_cols, "decel_count", "NULL"),
+    _sel("t", training_cols, "total_distance_km", "NULL"),
+    _sel("t", training_cols, "hsr_distance_m", "NULL"),
+    _sel("t", training_cols, "sprint_distance_m", "NULL"),
+
+    _sel("a", acwr_cols, "acwr", "1.0"),
+
+    _sel("f", force_cols, "cmj_height_cm", "NULL"),
+    _sel("f", force_cols, "rsi_modified", "NULL"),
+]
+
+# Schedule fields: only if table exists; otherwise default constants
+if schedule_exists:
+    select_cols += [
+        f"COALESCE({_sel('s', schedule_cols, 'is_back_to_back', '0')}, 0) AS is_back_to_back"
+        if "is_back_to_back" in schedule_cols else "0 AS is_back_to_back",
+        f"COALESCE({_sel('s', schedule_cols, 'days_rest', '3')}, 3) AS days_rest"
+        if "days_rest" in schedule_cols else "3 AS days_rest",
+        f"COALESCE({_sel('s', schedule_cols, 'travel_flag', '0')}, 0) AS travel_flag"
+        if "travel_flag" in schedule_cols else "0 AS travel_flag",
+        f"COALESCE({_sel('s', schedule_cols, 'time_zone_diff', '0')}, 0) AS time_zone_diff"
+        if "time_zone_diff" in schedule_cols else "0 AS time_zone_diff",
+        "CASE WHEN s.game_type = 'Unrivaled' THEN 1 ELSE 0 END AS unrivaled_flag"
+        if "game_type" in schedule_cols else "0 AS unrivaled_flag",
+    ]
+    schedule_join = "LEFT JOIN schedule s ON w.date = s.date"
+else:
+    select_cols += [
+        "0 AS is_back_to_back",
+        "3 AS days_rest",
+        "0 AS travel_flag",
+        "0 AS time_zone_diff",
+        "0 AS unrivaled_flag",
+    ]
+    schedule_join = ""
+
+sql = f"""
+SELECT
+    {",\n    ".join(select_cols)}
+FROM players p
+LEFT JOIN wellness w       ON p.player_id = w.player_id
+LEFT JOIN training_load t  ON p.player_id = t.player_id AND w.date = t.date
+LEFT JOIN acwr a           ON p.player_id = a.player_id AND w.date = a.date
+LEFT JOIN force_plate f    ON p.player_id = f.player_id AND w.date = f.date
+{schedule_join}
+WHERE w.date IS NOT NULL
+"""
+
+df = pd.read_sql_query(sql, conn)
 
 injuries = pd.read_sql_query("SELECT * FROM injuries", conn)
 
@@ -75,6 +139,11 @@ print(f"✓ Loaded {len(df)} records")
 print(f"  Players    : {df['player_id'].nunique()}")
 print(f"  Date range : {df['date'].min()} → {df['date'].max()}")
 
+# Check GPS coverage
+gps_cols = ["player_load", "accel_count", "decel_count", "total_distance_km", "hsr_distance_m", "sprint_distance_m"]
+gps_present = all(c in df.columns and df[c].notna().sum() > 0 for c in gps_cols)
+print(f"  GPS data   : {'✓ available' if gps_present else '✗ not found — GPS features will be skipped/filled'}")
+print(f"  Schedule   : {'✓ schedule table joined' if schedule_exists else '✗ no schedule table — using defaults'}")
 # Check GPS coverage
 gps_cols = ["player_load", "accel_count", "decel_count"]
 gps_present = all(c in df.columns and df[c].notna().sum() > 0 for c in gps_cols)
