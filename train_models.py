@@ -26,7 +26,6 @@ print("=" * 60)
 # ==============================================================================
 # 1. LOAD DATA
 # ==============================================================================
-
 # ==============================================================================
 # 1. LOAD DATA
 # ==============================================================================
@@ -35,69 +34,51 @@ print("\n1. Loading data from database...")
 
 conn = sqlite3.connect("waims_demo.db")
 
-def _table_exists(conn, name: str) -> bool:
-    q = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1"
-    return pd.read_sql_query(q, conn, params=(name,)).shape[0] > 0
+def _table_exists(cnx, name: str) -> bool:
+    row = cnx.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1;",
+        (name,),
+    ).fetchone()
+    return row is not None
 
-def _cols(conn, table: str) -> set:
-    try:
-        info = pd.read_sql_query(f"PRAGMA table_info({table});", conn)
-        return set(info["name"].tolist())
-    except Exception:
-        return set()
+def _table_cols(cnx, name: str):
+    if not _table_exists(cnx, name):
+        return []
+    return [r[1] for r in cnx.execute(f"PRAGMA table_info({name});").fetchall()]
 
-def _sel(alias: str, available: set, col: str, default_sql: str) -> str:
-    """Return 'alias.col' if present, else 'default AS col'."""
-    return f"{alias}.{col}" if col in available else f"{default_sql} AS {col}"
+def _sel(alias: str, col: str, cols_present):
+    # If column exists in that table, select it; otherwise create NULL column with same name
+    return f"{alias}.{col}" if col in cols_present else f"NULL AS {col}"
 
-# What exists?
-training_cols = _cols(conn, "training_load")
-force_cols    = _cols(conn, "force_plate")
-acwr_cols     = _cols(conn, "acwr")
+has_schedule = _table_exists(conn, "schedule")
 
-schedule_exists = _table_exists(conn, "schedule")
-schedule_cols   = _cols(conn, "schedule") if schedule_exists else set()
+tcols = _table_cols(conn, "training_load")
+fcols = _table_cols(conn, "force_plate")
 
-# Build SELECT list (keeps GPS columns you asked about)
 select_cols = [
-    "p.player_id", "p.name", "p.position", "p.age", "p.injury_history_count",
+    "p.player_id, p.name, p.position, p.age, p.injury_history_count",
     "w.date",
-    "w.sleep_hours", "w.sleep_quality", "w.soreness", "w.stress", "w.mood",
+    "w.sleep_hours, w.sleep_quality, w.soreness, w.stress, w.mood",
 
-    _sel("t", training_cols, "practice_minutes", "NULL"),
-    _sel("t", training_cols, "practice_rpe", "NULL"),
-    _sel("t", training_cols, "total_daily_load", "NULL"),
-    _sel("t", training_cols, "game_minutes", "NULL"),
+    # training_load (GPS/Kinexon-friendly; will become NULL columns if not present)
+    f"{_sel('t','practice_minutes',tcols)}, {_sel('t','practice_rpe',tcols)}, {_sel('t','total_daily_load',tcols)}, {_sel('t','game_minutes',tcols)}",
+    f"{_sel('t','player_load',tcols)}, {_sel('t','accel_count',tcols)}, {_sel('t','decel_count',tcols)}",
+    f"{_sel('t','total_distance_km',tcols)}, {_sel('t','hsr_distance_m',tcols)}, {_sel('t','sprint_distance_m',tcols)}",
 
-    # GPS-ish fields (kept)
-    _sel("t", training_cols, "player_load", "NULL"),
-    _sel("t", training_cols, "accel_count", "NULL"),
-    _sel("t", training_cols, "decel_count", "NULL"),
-    _sel("t", training_cols, "total_distance_km", "NULL"),
-    _sel("t", training_cols, "hsr_distance_m", "NULL"),
-    _sel("t", training_cols, "sprint_distance_m", "NULL"),
-
-    _sel("a", acwr_cols, "acwr", "1.0"),
-
-    _sel("f", force_cols, "cmj_height_cm", "NULL"),
-    _sel("f", force_cols, "rsi_modified", "NULL"),
+    # acwr + force plate
+    "a.acwr",
+    f"{_sel('f','cmj_height_cm',fcols)}, {_sel('f','rsi_modified',fcols)}",
 ]
 
-# Schedule fields: only if table exists; otherwise default constants
-if schedule_exists:
+# schedule context (use real table if present; otherwise constants)
+if has_schedule:
     select_cols += [
-        f"COALESCE({_sel('s', schedule_cols, 'is_back_to_back', '0')}, 0) AS is_back_to_back"
-        if "is_back_to_back" in schedule_cols else "0 AS is_back_to_back",
-        f"COALESCE({_sel('s', schedule_cols, 'days_rest', '3')}, 3) AS days_rest"
-        if "days_rest" in schedule_cols else "3 AS days_rest",
-        f"COALESCE({_sel('s', schedule_cols, 'travel_flag', '0')}, 0) AS travel_flag"
-        if "travel_flag" in schedule_cols else "0 AS travel_flag",
-        f"COALESCE({_sel('s', schedule_cols, 'time_zone_diff', '0')}, 0) AS time_zone_diff"
-        if "time_zone_diff" in schedule_cols else "0 AS time_zone_diff",
-        "CASE WHEN s.game_type = 'Unrivaled' THEN 1 ELSE 0 END AS unrivaled_flag"
-        if "game_type" in schedule_cols else "0 AS unrivaled_flag",
+        "COALESCE(s.is_back_to_back, 0) AS is_back_to_back",
+        "COALESCE(s.days_rest, 3)       AS days_rest",
+        "COALESCE(s.travel_flag, 0)     AS travel_flag",
+        "COALESCE(s.time_zone_diff, 0)  AS time_zone_diff",
+        "CASE WHEN s.game_type = 'Unrivaled' THEN 1 ELSE 0 END AS unrivaled_flag",
     ]
-    schedule_join = "LEFT JOIN schedule s ON w.date = s.date"
 else:
     select_cols += [
         "0 AS is_back_to_back",
@@ -106,45 +87,50 @@ else:
         "0 AS time_zone_diff",
         "0 AS unrivaled_flag",
     ]
-    schedule_join = ""
 
-sql = f"""
-SELECT
-    {",\n    ".join(select_cols)}
-FROM players p
-LEFT JOIN wellness w       ON p.player_id = w.player_id
-LEFT JOIN training_load t  ON p.player_id = t.player_id AND w.date = t.date
-LEFT JOIN acwr a           ON p.player_id = a.player_id AND w.date = a.date
-LEFT JOIN force_plate f    ON p.player_id = f.player_id AND w.date = f.date
-{schedule_join}
-WHERE w.date IS NOT NULL
-"""
+# IMPORTANT: build the select list OUTSIDE any f-string to avoid the backslash error
+select_list = ",\n        ".join(select_cols)
+
+sql = """
+    SELECT
+        {select_list}
+    FROM players p
+    LEFT JOIN wellness w       ON p.player_id = w.player_id
+    LEFT JOIN training_load t  ON p.player_id = t.player_id AND w.date = t.date
+    LEFT JOIN acwr a           ON p.player_id = a.player_id AND w.date = a.date
+    LEFT JOIN force_plate f    ON p.player_id = f.player_id AND w.date = f.date
+""".format(select_list=select_list)
+
+if has_schedule:
+    sql += "\n    LEFT JOIN schedule s       ON w.date = s.date\n"
+
+sql += "    WHERE w.date IS NOT NULL\n"
 
 df = pd.read_sql_query(sql, conn)
 
-injuries = pd.read_sql_query("SELECT * FROM injuries", conn)
+injuries = pd.read_sql_query("SELECT * FROM injuries", conn) if _table_exists(conn, "injuries") else pd.DataFrame()
 
 df["injured_within_7days"] = 0
-for _, inj in injuries.iterrows():
-    inj_date      = pd.to_datetime(inj["injury_date"])
-    warning_start = inj_date - pd.Timedelta(days=7)
-    mask = (
-        (df["player_id"] == inj["player_id"])
-        & (pd.to_datetime(df["date"]) >= warning_start)
-        & (pd.to_datetime(df["date"]) <= inj_date)
-    )
-    df.loc[mask, "injured_within_7days"] = 1
+if len(injuries) > 0:
+    for _, inj in injuries.iterrows():
+        inj_date = pd.to_datetime(inj["injury_date"])
+        warning_start = inj_date - pd.Timedelta(days=7)
+        mask = (
+            (df["player_id"] == inj["player_id"])
+            & (pd.to_datetime(df["date"]) >= warning_start)
+            & (pd.to_datetime(df["date"]) <= inj_date)
+        )
+        df.loc[mask, "injured_within_7days"] = 1
 
 print(f"✓ Loaded {len(df)} records")
 print(f"  Players    : {df['player_id'].nunique()}")
 print(f"  Date range : {df['date'].min()} → {df['date'].max()}")
 
 # Check GPS coverage
-gps_cols = ["player_load", "accel_count", "decel_count", "total_distance_km", "hsr_distance_m", "sprint_distance_m"]
+gps_cols = ["player_load", "accel_count", "decel_count"]
 gps_present = all(c in df.columns and df[c].notna().sum() > 0 for c in gps_cols)
-print(f"  GPS data   : {'✓ available' if gps_present else '✗ not found — GPS features will be skipped/filled'}")
-print(f"  Schedule   : {'✓ schedule table joined' if schedule_exists else '✗ no schedule table — using defaults'}")
-
+print(f"  Schedule   : {'✓ available' if has_schedule else '✗ not found — defaults used'}")
+print(f"  GPS data   : {'✓ available' if gps_present else '✗ not found — GPS features will be skipped'}")
 # ==============================================================================
 # 2. FEATURE ENGINEERING
 # ==============================================================================
