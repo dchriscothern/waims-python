@@ -1,569 +1,237 @@
-# WAIMS Complete Learning Guide
+# WAIMS — Learning Guide
 
-Everything you built and how it works - study this to understand your portfolio projects.
-
----
-
-## 🎯 Overview: What You Built
-
-You created **TWO complete athlete monitoring systems**:
-
-1. **Python System** - Interactive web dashboard
-2. **R System** - Production automation pipeline
-
-**Both are professional, working, and interview-ready.**
+For interviews, presentations, and self-study. Explains the *why* behind every design decision.
 
 ---
 
-# 📊 PART 1: Python System Deep Dive
+## What Is WAIMS?
 
-## File-by-File Breakdown
+WAIMS (Watchlist Athlete Injury Monitoring System) is a professional-grade athlete monitoring dashboard built for a WNBA team context. It combines:
 
-### **1. generate_database.py** (What it does)
+- **Subjective data** — daily wellness questionnaires (sleep, soreness, stress, mood)
+- **Objective neuromuscular data** — force plate testing (CMJ, RSI-Modified)
+- **Objective external load data** — GPS/Kinexon (player load, accel/decel counts, distance)
+- **Machine learning** — Random Forest injury risk predictor trained on all signals simultaneously
+- **Statistical correlation analysis** — surfaces hidden relationships between metrics
 
-**Purpose:** Creates a realistic SQLite database with 50 days of monitoring data
-
-**How it works:**
-```python
-# Step 1: Create 12 players
-players = ["Player A", "Player B", ...]  # 12 athletes
-
-# Step 2: Create 50 days of dates
-dates = [Day 1, Day 2, ... Day 50]
-
-# Step 3: For each player, each day:
-for player in players:
-    for date in dates:
-        # Generate wellness (sleep, soreness, stress, mood)
-        sleep = random between 5.5 and 9.5 hours
-        soreness = random between 0 and 10
-        
-        # Generate training load
-        minutes = random practice time
-        load = calculated from minutes + intensity
-        
-        # Every Monday: force plate test
-        jump_height = baseline ± random variation
-```
-
-**Output:** `waims_demo.db` with 6 tables, 1,637 records
-
-**Key Insight:** Uses numpy.random to create realistic patterns - not just random noise, but correlated data (e.g., high load → next day soreness)
+The system is designed around two personas: a **coach** who needs situational awareness in 30 seconds, and a **sport scientist** who needs deep analytical tools.
 
 ---
 
-### **2. dashboard.py** (What it does)
+## The Two-Persona Architecture
 
-**Purpose:** Interactive web app to visualize the database
+### Why not just build one dashboard?
 
-**Technology:** Streamlit (Python web framework)
+Pro tools (Catapult, Kinexon, Teamworks) all structure their interfaces around roles:
+- Coaches see traffic lights. They make real-time decisions. They don't have time for σ notation.
+- Sport scientists need z-scores, lags, conditional probabilities, and model audit trails.
 
-**How it works:**
-
-```python
-# Load data from database
-conn = sqlite3.connect('waims_demo.db')
-data = pd.read_sql_query("SELECT * FROM wellness", conn)
-
-# Create tabs
-tab1, tab2, tab3, tab4 = st.tabs([...])
-
-# Show visualizations
-st.plotly_chart(figure)  # Interactive charts
-st.metric("Sleep", "7.2 hrs")  # Big number displays
-st.dataframe(data)  # Tables
-```
-
-**4 Tabs:**
-1. **Today's Readiness** - Current status, red/yellow/green
-2. **Trends** - Line charts over time
-3. **Force Plate** - Jump height tracking
-4. **Injuries** - Injury log with pre-injury patterns
-
-**Key Insight:** Streamlit makes complex dashboards easy - no HTML/CSS/JS needed
+**Tab 1 — Command Center** serves the coach. Everything else serves the analyst. This is the correct architecture for a real deployment.
 
 ---
 
-### **3. train_models.py** (What it does)
+## 10 Tabs Explained
 
-**Purpose:** Train machine learning model to predict injury risk
+### 🏀 Tab 1 — Command Center
+The most important tab. Answers in one glance:
+- Who can go hard today? (green)
+- Who do I protect? (red)
+- What is the team GPS load situation?
+- What are my top 3 action items?
 
-**Algorithm:** RandomForest Classifier
+The alert engine surfaces only the highest-severity finding per player. A coach sees "No explosive loading for Bueckers today" — not a wall of z-scores.
 
-**How it works:**
+### 📊 Tab 2 — Today's Readiness
+The analyst version of Tab 1. Every player, every signal, every z-score visible. Compact and detailed views. GPS panel shows the Kinexon numbers with σ delta so you can explain the number in a sentence.
+
+### 👤 Tab 3 — Athlete Profiles
+The full story per athlete. Radar chart covers six dimensions: Sleep / Physical / Mental / Load / Neuro / GPS. The GPS section has a 14-day trend chart with Player Load on the left axis and Accel/Decel Count on the right — divergence between these two axes is a key fatigue signal.
+
+### 📈 Tab 4 — Trends
+7-day rolling average overlaid on raw daily values. Used to identify gradual drift vs acute spikes. A coach saying "she's been off all week" is visible here before it becomes a flag.
+
+### 💪 Tab 5 — Jump Testing
+CMJ and RSI-Modified. Tested weekly (Mondays in the synthetic data). Z-scored vs personal 30-day baseline. Research shows CMJ drops of ≥ 2σ predict impaired performance and elevated injury risk (Gathercole 2015). Asymmetry > 10% flags lateral imbalance.
+
+### 🚨 Tab 6 — Availability & Injuries
+The medical/GM view. Status board (AVAILABLE / QUESTIONABLE / OUT), season availability %, and full injury log. Real deployments would integrate with team EMR.
+
+### 📡 Tab 7 — GPS & Load
+Kinexon full session breakdown. Player Load ACWR (acute:chronic for GPS load — same concept as training load ACWR). Accel/decel drops vs team median and personal baseline. Key insight: on a hard training day, everyone's distance goes up; when only one player's accels/decels drop, that's the signal.
+
+### 🤖 Tab 8 — Forecast
+The GM view. 7-day risk watchlist. "Why she's here" narrative pulls every contributing flag. GPS flags appear at the bottom of each risk card and add weight to the composite risk score (at lower weight than CMJ/RSI, because objective mechanical signals are prioritised over load metrics).
+
+### 🔍 Tab 9 — Ask the Watchlist
+Natural language shortcuts. No SQL. No dashboard literacy required. Type "accel drop" — get the list of athletes whose accel count is ≥ 1σ below their personal 30-day norm, with 🔴/🟡/🟢 status. Staff who aren't sport scientists can use this independently.
+
+### 🔬 Tab 10 — Correlation Explorer
+The research tool. What makes WAIMS more than a monitoring dashboard — it's an analytical discovery environment. Five sub-sections covered in detail below.
+
+---
+
+## The Z-Score Engine
+
+### Why personal baselines, not population averages?
+
+A soreness score of 6/10 means very different things for different athletes. For an athlete whose baseline is 2, it's a significant deviation. For an athlete whose baseline is 5, it's normal. Population-average thresholds (the common approach) miss this entirely.
+
+WAIMS uses an **expanding personal baseline** for each athlete:
 
 ```python
-# Step 1: Load and prepare data
-features = [sleep, soreness, load, ACWR, jump_height, ...]
-target = injured_within_7days (yes/no)
-
-# Step 2: Train model
-model = RandomForestClassifier()
-model.fit(features, target)
-
-# Step 3: Test accuracy
-predictions = model.predict(test_data)
-accuracy = how many correct / total
-
-# Step 4: Save model
-pickle.dump(model, 'injury_risk_model.pkl')
-```
-
-**Output:** Trained model that can predict: "This athlete has 73% risk of injury in next 7 days"
-
-**Key Insight:** Uses past patterns (5 injury scenarios) to learn what warning signs look like
-
----
-
-### **4. fetch_wehoop_data.py** (What it does)
-
-**Purpose:** Download real 2025 WNBA game statistics
-
-**Data Source:** ESPN API via wehoop package
-
-**How it works:**
-
-```python
-# Fetch from ESPN
-games = load_wnba_player_box(seasons=2025)
-
-# Filter to recent (last 50 days)
-recent = games[last_50_days]
-
-# Save to database
-games.to_sql('wehoop_games', database)
-```
-
-**Output:** Real game stats (minutes, points, rebounds) added to your database
-
-**Key Insight:** Combines real game data with simulated wellness data - more credible than 100% fake
-
----
-
-## 🗄️ Database Schema (SQLite)
-
-### **players** table
-```
-player_id | name      | position | age | injury_history
-P001      | Player A  | G        | 23  | 3
-P002      | Player B  | G        | 28  | 1
-```
-*12 rows - one per athlete*
-
-### **wellness** table
-```
-player_id | date       | sleep_hours | soreness | stress | mood
-P001      | 2026-01-02 | 7.2         | 4        | 5      | 7
-P001      | 2026-01-03 | 6.8         | 5        | 6      | 6
-```
-*600 rows - 12 players × 50 days*
-
-### **training_load** table
-```
-player_id | date       | practice_minutes | practice_rpe | game_minutes
-P001      | 2026-01-02 | 65.2            | 7            | 0
-```
-*600 rows*
-
-### **force_plate** table
-```
-player_id | date       | cmj_height_cm | rsi_modified
-P001      | 2026-01-06 | 32.5          | 0.38
-```
-*84 rows - 12 players × 7 weeks (Monday tests)*
-
-### **acwr** table
-```
-player_id | date       | acwr | acute_load | chronic_load
-P001      | 2026-01-22 | 1.2  | 350       | 292
-```
-*348 rows - calculated from training load*
-
-### **injuries** table
-```
-player_id | injury_date | injury_type       | days_missed
-P001      | 2026-01-14  | Knee inflammation | 7
-```
-*5 rows - simulated injury scenarios*
-
-**Joins:**
-```sql
--- Get player name with wellness data
-SELECT p.name, w.sleep_hours
-FROM wellness w
-JOIN players p ON w.player_id = p.player_id
-WHERE w.date = '2026-02-20'
-```
-
----
-
-## 🤖 Machine Learning Explained
-
-### **What is RandomForest?**
-
-Think of it like asking 100 experts to vote:
-
-```
-Tree 1: "High soreness + low sleep = 80% risk"
-Tree 2: "High load + previous injury = 75% risk"
-Tree 3: "Normal - 20% risk"
-...
-Tree 100: "High risk - 85%"
-
-Final prediction: Average of all votes = 65% risk
-```
-
-### **How training works:**
-
-```python
-# Historical data (we have 5 injuries with warning signs)
-Training examples:
-- Player A, 7 days before injury: sleep=6.0, soreness=8, load=high → Outcome: INJURED
-- Player A, 14 days before injury: sleep=7.5, soreness=4, load=normal → Outcome: NOT INJURED
-- Player C, 5 days before injury: sleep=5.8, soreness=9, load=high → Outcome: INJURED
-...
-
-Model learns: "When I see sleep<6.5 AND soreness>7 → probably injury coming"
-```
-
-### **Feature Importance:**
-
-After training, model tells us which factors matter most:
-```
-1. Sleep (30%) - Most important predictor
-2. Soreness (25%)
-3. ACWR (20%)
-4. Force plate jump height (15%)
-5. Stress (10%)
-```
-
----
-
-## 📈 How Streamlit Works
-
-### **Basic Structure:**
-
-```python
-import streamlit as st
-
-# This creates a web page automatically!
-st.title("My Dashboard")  # Big heading
-st.metric("Sleep", "7.2 hrs")  # Number display
-st.line_chart(data)  # Chart
-
-# Interactivity
-selected = st.selectbox("Choose player", ["Player A", "Player B"])
-if selected == "Player A":
-    st.write("You chose Player A!")
-```
-
-**Run with:** `streamlit run dashboard.py`
-
-**Magic:** Streamlit turns Python code into interactive web pages automatically!
-
----
-
-# 📊 PART 2: R System Deep Dive
-
-## File-by-File Breakdown
-
-### **1. config.R**
-
-**Purpose:** Central configuration with all thresholds
-
-**Key Contents:**
-```r
-# Research-validated thresholds
-acwr_optimal <- c(0.8, 1.3)  # Gabbett 2016
-sleep_critical <- 6.0  # Milewski 2014
-asymmetry_red <- 15.0  # Bishop 2018
-
-# Folder structure
-dirs <- list(
-  raw_gps = "raw/gps",
-  raw_wellness = "raw/wellness",
-  ...
+roll_mean = df.groupby("player_id")[col].transform(
+    lambda x: x.shift(1).expanding(min_periods=5).mean()
 )
+roll_std = df.groupby("player_id")[col].transform(
+    lambda x: x.shift(1).expanding(min_periods=5).std().clip(lower=min_std)
+)
+z_score = (today_value - roll_mean) / roll_std
 ```
 
-**Why important:** One place to change all thresholds, with research citations
+The `shift(1)` prevents data leakage — today's value isn't included in its own baseline.
+
+### Flag thresholds
+
+| z-score | Status | Meaning |
+|---------|--------|---------|
+| ≤ −2.0 | 🔴 | Severe deviation — >2 standard deviations below normal |
+| ≤ −1.0 | 🟡 | Moderate deviation — worth monitoring |
+| > −1.0 | 🟢 | Within normal personal range |
+
+For GPS metrics (load, accels, decels), **negative** z-scores are the concerning direction — they indicate the athlete is doing less than normal, which is the fatigue/protective movement signal.
 
 ---
 
-### **2. generate_sample_data.R**
-
-**Purpose:** Create 83 days of monitoring data (off-season context)
-
-**How it differs from Python:**
-- Uses R's tidyverse (dplyr, tidyr)
-- Creates CSV files instead of database
-- More realistic off-season patterns (lower load, better sleep)
-- Includes progressive fatigue over time
-
-**Output:** CSV files in raw/ folders
-
----
-
-### **3. fetch_game_data.R**
-
-**Purpose:** Download real 2025 WNBA game data via wehoop
-
-**How it works:**
-```r
-library(wehoop)
-
-# Fetch Dallas Wings 2025 games
-games <- load_wnba_player_box(seasons = 2025) %>%
-  filter(team_short_display_name == "DAL")
-
-# Calculate game load
-games <- games %>%
-  mutate(
-    game_load = minutes * (1 + total_rebounds/10)
-  )
-
-# Save as CSV
-write_csv(games, "raw/game_tracking/wehoop_games.csv")
-```
-
-**Key Insight:** This is REAL data from ESPN, not simulated!
-
----
-
-### **4. demo_script.R**
-
-**Purpose:** 5-minute interview demonstration
-
-**What it shows:**
-1. Load system and configuration
-2. Generate sample data
-3. Quick analyses (sleep trends, load patterns, force plate)
-4. Summary statistics
-
-**Run with:** `source("scripts/demo_script.R")`
-
----
-
-### **5. simple_report.R**
-
-**Purpose:** Generate HTML daily readiness report
-
-**Output:** Beautiful HTML file with:
-- Purple gradient header
-- Summary cards (green/yellow/red counts)
-- Player table with status
-- Opens automatically in browser
-
-**Technology:** Pure R - builds HTML as a string with glue()
-
----
-
-## 🔄 R vs Python Comparison
-
-| Aspect | Python System | R System |
-|--------|--------------|----------|
-| **Data Storage** | SQLite database | CSV files |
-| **Visualization** | Streamlit web app | HTML reports |
-| **Real Data** | wehoop (optional) | wehoop (core feature) |
-| **ML** | RandomForest | Not implemented |
-| **Best For** | Quick demos, portfolios | Production deployment |
-| **Automation** | Manual run | Task Scheduler ready |
-| **Documentation** | Moderate | Extensive (500+ lines) |
-
----
-
-## 🎓 Key Concepts to Understand
-
-### **1. ACWR (Acute:Chronic Workload Ratio)**
-
-**Formula:** `ACWR = Last 7 days load / Last 21 days load (÷3)`
-
-**Example:**
-```
-Last 7 days: 350 minutes
-Last 21 days: 875 minutes ÷ 3 = 292 minutes
-
-ACWR = 350 / 292 = 1.20
-```
-
-**Interpretation:**
-- ACWR 0.8-1.3: **Optimal** (sweet spot)
-- ACWR > 1.5: **High risk** (spike in load)
-- ACWR < 0.8: **Detraining** (not training enough)
-
-**Research:** Gabbett (2016) - 2000+ citations
-
----
-
-### **2. Readiness Score**
-
-**Formula:** Composite of multiple factors
+## Three-Source Flag System
 
 ```
-Readiness = Sleep (30%) + 
-            Low Soreness (25%) + 
-            Low Stress (25%) + 
-            Mood (20%)
-
-Example:
-- Sleep: 7.2 / 8.0 * 30 = 27 points
-- Soreness: (10-4) / 10 * 25 = 15 points
-- Stress: (10-5) / 10 * 25 = 12.5 points
-- Mood: 7 / 10 * 20 = 14 points
-Total = 68.5 / 100 (Yellow status)
+Wellness (subjective)    →  sleep z, soreness z, stress z, mood z
+Force Plate (objective)  →  CMJ z, RSI-Mod z, asymmetry
+GPS / Kinexon (objective) →  player load z, accel z, decel z
 ```
 
----
+Why three sources? Because each has different failure modes:
 
-### **3. Force Plate Testing**
+- **Wellness only** — athletes misreport or suppress scores; confirmed by Saw et al. (2016) that subjective methods work but need calibration
+- **Force plate only** — tested weekly, misses daily variation; and some fatigue doesn't affect CMJ until quite severe
+- **GPS only** — load metrics don't capture neuromuscular state
 
-**CMJ (Counter Movement Jump):**
-- Stand on force plates
-- Jump as high as possible
-- Measures: height, power, asymmetry
-
-**RSI (Reactive Strength Index):**
-- Jump height / contact time
-- Measures: explosiveness, efficiency
-- Target: > 0.35
-
-**Why it matters:** Drop in jump height = neuromuscular fatigue
+When all three converge (e.g. low sleep + CMJ drop + accel count drop), the system fires a CRITICAL alert. When only one fires, it's a monitor situation.
 
 ---
 
-### **4. wehoop Package**
+## GPS / Kinexon Concepts
 
-**What it is:** R/Python package to access ESPN's WNBA API
+### Player Load
+Tri-axial accelerometer composite (AU = arbitrary units). Sum of accelerations in X, Y, Z directions weighted by direction. Higher = more mechanical work done. Drops below personal baseline on a high-distance day = effort-effort dissociation = fatigue signal.
 
-**What it provides:**
-- Play-by-play data
-- Player box scores
-- Team statistics
-- Historical games (2002-present)
+### Accel Count and Decel Count
+Number of acceleration/deceleration events above a speed threshold per session. In basketball, these map to cuts, sprints, closeouts, and defensive slides — the explosive movements that determine performance and carry injury risk.
 
-**What it does NOT provide:**
-- GPS distance data (requires hardware)
-- Accelerations/decelerations
-- Player load (mechanical)
+**Key research insight (Jaspers et al. 2018):** Athletes approaching soft-tissue injury show protective movement strategies — they unconsciously reduce explosive direction changes even when total distance stays normal. Accel/decel drop at normal distance is the early warning signal. This is what the dashboard is built to detect.
+
+### Why Decels Matter More Than Accels (clinically)
+Deceleration produces higher eccentric forces than acceleration. Hamstring strains, patellar tendinopathy, and ankle sprains are all more likely during deceleration than during pure acceleration. A drop in decel count means the athlete is avoiding the highest-load movement pattern.
 
 ---
 
-## 🗂️ Data Architecture Decision
+## Correlation Explorer — In Depth
 
-### **Why athlete_id everywhere?**
+### Why build this instead of just using published thresholds?
 
-**Roster has multiple IDs:**
+Published thresholds are derived from general populations — often soccer, rugby, or mixed sport samples. WNBA athletes are different. Your specific team is different again. The Correlation Explorer surfaces what's actually true in your data.
+
+### Pearson Correlation (r)
+
+Measures linear relationship between two variables. Range: −1 to +1.
+
+- r = −0.42 (sleep vs soreness): as sleep goes up, soreness tends to go down. Moderate relationship.
+- r = +0.71 (player load vs distance): expected, very strong
+- r = −0.28 (accel count vs injury within 7 days): small but meaningful — accel drops precede injury
+
+### Lag Analysis — The Key Innovation
+
+Most monitoring dashboards compare today's metrics to today's outcomes. But biology has delay:
+- Sleep deprivation affects recovery over 24–48 hours
+- Overtraining shows in CMJ 48–72 hours after the session
+- Psychological stress accumulates over days
+
+The lag analysis lets you ask: "Does sleep 2 nights ago predict today's CMJ drop better than last night's sleep?"
+
+```python
+tmp["pred_lagged"] = tmp.groupby("player_id")[pred_col].shift(lag)
+r, p = pearsonr(tmp["pred_lagged"], tmp[outcome_col])
 ```
-athlete_id: ATH_001 (primary - the person)
-gps_id: GPS_001 (device that may change)
-force_plate_id: FP_001 (device)
-wearable_id: WR_001 (device)
+
+This is a finding you can say in an interview: *"Our lag analysis shows the strongest predictive signal for CMJ drops is sleep from 2 nights prior, not last night — consistent with the delayed recovery timeline in the literature."*
+
+### Conditional Risk Table
+
+Answers: "When this flag fires, what percentage of those athlete-days had an injury within 7 days?"
+
+```
+ACWR > 1.5    →  8.3% injury rate  (baseline: 3.1%)  →  2.7× relative risk
+CMJ z < −1.5  →  7.1% injury rate  (baseline: 3.1%)  →  2.3× relative risk
+Accel z < −1.5 → 6.8% injury rate  (baseline: 3.1%)  →  2.2× relative risk
 ```
 
-**Exported data uses athlete_id:**
-```csv
-athlete_id,date,sleep_hours
-ATH_001,2026-02-20,7.2
-```
-
-**Why?**
-1. Devices can break/change → athlete_id stays same
-2. Simpler joins (one key for everything)
-3. AMS systems expect athlete IDs, not device IDs
-4. Industry standard practice
-
-**See:** `docs/DATA_ARCHITECTURE.md` for full explanation
+This converts statistical signals into decision-relevant probabilities. A GM can understand "2.7× the injury risk" even if they don't understand z-scores.
 
 ---
 
-## 🎯 What to Say in Interviews
+## Machine Learning
 
-### **"Walk me through your Python project"**
+### Why Random Forest?
 
-*"I built an interactive dashboard using Streamlit that visualizes athlete monitoring data from a SQLite database. The database has 1,600+ integrated data points across wellness, training load, force plate testing, and injuries. The dashboard has 4 tabs - today's readiness shows color-coded status for each player, trends shows sleep and soreness patterns over time, force plate tracks neuromuscular fatigue, and injuries shows warning signs that appeared 5-7 days before each injury event. I also trained a RandomForest model to predict injury risk, though it's not integrated into the dashboard yet. The system demonstrates SQL skills, data visualization with Plotly, and understanding of sports science metrics."*
+- Works with small datasets (90 days × 12 players = ~1,080 samples)
+- Interpretable via feature importance (you can explain what it learned)
+- Industry standard in peer-reviewed sports injury prediction literature
+- Handles missing data gracefully with imputation
+- Deep learning requires 10–100× more data to generalise
 
-### **"Walk me through your R project"**
+### Feature Engineering Philosophy
 
-*"I built a production-ready monitoring pipeline in R that automates daily workflows. It generates realistic monitoring data, integrates real 2025 WNBA game statistics via the wehoop API, and produces HTML reports. All thresholds are research-validated from 40+ peer-reviewed studies - ACWR from Gabbett 2016, sleep from Milewski 2014, asymmetry from Bishop 2018. The system uses athlete_id as the primary key across all data sources to simplify AMS integration and handle device changes. It's designed to run via Task Scheduler each morning and output daily readiness reports. The code has 500+ lines of inline documentation and follows modern R style with snake_case throughout."*
+Raw values alone miss the signal. The model uses:
+1. **Raw values** — today's sleep hours, soreness, GPS load
+2. **7-day rolling averages** — the trend direction
+3. **Personal z-scores** — deviation from individual baseline (the key signal)
+4. **Hard-floor flags** — binary: sleep below 6.5, ACWR above 1.5, GPS drop below 1σ
+5. **Composite** — wellness score combining all subjective metrics
 
-### **"Why did you build two systems?"**
-
-*"They demonstrate different skillsets. Python shows dashboard development, data visualization, and ML capabilities - great for quick prototyping and stakeholder communication. R shows production deployment thinking, research translation, and real data integration - what you'd actually deploy in an organization. Together they show I can both prototype solutions quickly and think through operational deployment challenges."*
-
----
-
-## 📚 Study Plan
-
-### **Day 1: Understand the Data**
-- [ ] Open waims_demo.db in DB Browser for SQLite
-- [ ] Run sample SQL queries
-- [ ] Look at all 6 tables
-- [ ] Understand the relationships
-
-### **Day 2: Understand the Dashboard**
-- [ ] Run `streamlit run dashboard.py`
-- [ ] Click through all 4 tabs
-- [ ] Look at dashboard.py code
-- [ ] Understand how Streamlit works
-
-### **Day 3: Understand ML**
-- [ ] Read train_models.py
-- [ ] Understand feature engineering
-- [ ] Look up RandomForest algorithm
-- [ ] Understand injury prediction
-
-### **Day 4: Understand R System**
-- [ ] Run demo_script.R
-- [ ] Generate sample data
-- [ ] Look at HTML report
-- [ ] Understand wehoop integration
-
-### **Day 5: Understand Research**
-- [ ] Read DATA_ARCHITECTURE.md
-- [ ] Look up ACWR paper (Gabbett 2016)
-- [ ] Understand readiness scoring
-- [ ] Review force plate metrics
+GPS z-score drop flags (`flag_accel_drop`, `flag_decel_drop`, `flag_load_drop`) are binary features that fire when the z-score crosses −1.0. These give the model a simple, interpretable signal to weight.
 
 ---
 
-## 🎓 Resources to Learn More
+## Research Tool Recommendations
 
-**ACWR:**
-- Gabbett TJ (2016). The training-injury prevention paradox
-- Google Scholar: Search "ACWR injury prevention"
+For finding sports science literature to support your work:
 
-**Streamlit:**
-- docs.streamlit.io
-- 30-day Streamlit challenge
+| Tool | Best Use | Cost |
+|------|----------|------|
+| **Semantic Scholar** | Free paper discovery, AI-generated TLDRs, citation graphs | Free |
+| **Elicit** | Structured literature review with summary tables | Free tier |
+| **Consensus** | "Is there scientific consensus on X?" | Limited free |
+| **PubMed** | Ground-truth medical literature verification | Free |
+| **Google Scholar** | Citation tracking, finding newer papers that cite a classic | Free |
 
-**RandomForest:**
-- scikit-learn.org/stable/modules/ensemble.html
-- YouTube: "Random Forest Explained"
-
-**wehoop:**
-- github.com/sportsdataverse/wehoop
-- Documentation: wehoop.sportsdataverse.org
-
-**R tidyverse:**
-- r4ds.hadley.nz (free online book)
-- tidyverse.org
+**Recommended workflow for WAIMS:**
+1. Search Semantic Scholar for "GPS monitoring basketball injury" or "CMJ fatigue prediction"
+2. Export PDFs of the 3–5 most relevant papers
+3. Paste PDFs into Claude with "How does this support my correlation findings in WAIMS?"
+4. Use the citations in your Correlation Explorer annotations
 
 ---
 
-## ✅ Final Checklist
+## Interview Talking Points
 
-**You should be able to explain:**
-- [ ] How the database is structured (6 tables, relationships)
-- [ ] What athlete_id is and why we use it
-- [ ] What ACWR means and optimal ranges
-- [ ] How readiness score is calculated
-- [ ] What force plate testing measures
-- [ ] How the ML model predicts injuries
-- [ ] Why you built both Python and R systems
-- [ ] How wehoop provides real game data
-- [ ] What the dashboard shows in each tab
-- [ ] How the R system automates daily workflows
+### "Walk me through the system"
+Start at Tab 1 (Command Center). "A coach opens this at 7am and knows in 10 seconds who can go hard today. This card is red — here's why. Now let me show you the science behind that flag..." → Tab 10 (Correlations).
 
----
+### "Why GPS accel/decel and not just distance?"
+"Total distance is a quantity metric. Accel and decel count are quality metrics — they capture the explosive, high-force movements that actually drive injury risk. An athlete who runs 6km but with half her normal acceleration events is showing a protective movement pattern. That's often the pre-clinical signal before a soft-tissue injury."
 
-**Take your time studying this. You built something impressive - make sure you can explain it!** 🎓
+### "How is this different from what teams already use?"
+"Catapult and Kinexon provide the raw GPS numbers. Teamworks handles the wellness surveys. What those tools don't do is correlate them against each other, weight them by personal baseline, and surface a single risk score with an explainable narrative. The Correlation Explorer is what I built — that's not in off-the-shelf tools."
+
+### "What would you add with real data?"
+"Heart rate variability (HRV) is the strongest single-day readiness signal missing here. I'd also add periodization logic — a load taper curve that adjusts recommendations based on proximity to the NCAA Tournament or playoffs. And I'd want to run the lag analysis on a full season of real data — 90 days of synthetic data gives you the methodology, but the findings would sharpen considerably with 2–3 seasons."

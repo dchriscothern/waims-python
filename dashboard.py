@@ -20,6 +20,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from athlete_profile_tab import athlete_profile_tab, create_radar_chart
+from coach_command_center import coach_command_center
+from correlation_explorer import correlation_explorer_tab
 
 try:
     from improved_gauges import create_player_card_compact, create_simple_battery
@@ -968,7 +970,8 @@ if HAVE_IMPROVED_GAUGES:
 st.title("🏀 WAIMS READINESS WATCHLIST")
 st.markdown(f"**Date:** {end_date.strftime('%B %d, %Y')}")
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+    "🏀 Command Center",
     "📊 Today's Readiness",
     "👤 Athlete Profiles",
     "📈 Trends",
@@ -977,10 +980,18 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📡 GPS & Load",
     "🤖 Forecast",
     "🔍 Ask the Watchlist",
+    "🔬 Correlations",
 ])
 
 # ==============================================================================
 # TAB 1
+# ==============================================================================
+
+with tab0:
+    coach_command_center(wellness, players, force_plate, training_load, acwr, end_date)
+
+# ==============================================================================
+# TAB 1 — TODAY'S READINESS (analyst view)
 # ==============================================================================
 
 with tab1:
@@ -1324,6 +1335,13 @@ with tab8:
             st.session_state.query_to_run = "high risk";  st.rerun()
         if st.button("Readiness",  use_container_width=True):
             st.session_state.query_to_run = "readiness";  st.rerun()
+
+# ==============================================================================
+# TAB 9 — CORRELATION EXPLORER
+# ==============================================================================
+
+with tab9:
+    correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players)
 
 # ==============================================================================
 # FOOTER
