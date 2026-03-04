@@ -144,10 +144,6 @@ gps_cols = ["player_load", "accel_count", "decel_count", "total_distance_km", "h
 gps_present = all(c in df.columns and df[c].notna().sum() > 0 for c in gps_cols)
 print(f"  GPS data   : {'✓ available' if gps_present else '✗ not found — GPS features will be skipped/filled'}")
 print(f"  Schedule   : {'✓ schedule table joined' if schedule_exists else '✗ no schedule table — using defaults'}")
-# Check GPS coverage
-gps_cols = ["player_load", "accel_count", "decel_count"]
-gps_present = all(c in df.columns and df[c].notna().sum() > 0 for c in gps_cols)
-print(f"  GPS data   : {'✓ available' if gps_present else '✗ not found — GPS features will be skipped'}")
 
 # ==============================================================================
 # 2. FEATURE ENGINEERING
