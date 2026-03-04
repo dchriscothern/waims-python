@@ -280,13 +280,13 @@ def create_radar_chart(athlete_data, athlete_name):
     physical_score = ((10 - athlete_data["soreness"]) / 10) * 100
     mental_score   = (athlete_data["mood"] / 10) * 100
 
-    acwr_val = athlete_data.get("acwr", 1.0)
-    if 0.8 <= acwr_val <= 1.3:
-        load_score = 100
-    elif acwr_val < 0.8:
-        load_score = max(0, 100 - ((0.8 - acwr_val) * 100))
-    else:
-        load_score = max(0, 100 - ((acwr_val - 1.3) * 50))
+    # Load score uses RSI + player load z-score — NOT ACWR
+    # ACWR demoted to contextual flag (Impellizzeri 2020, 2025 meta-analysis)
+    rsi_val  = athlete_data.get("rsi_modified", 0.35)
+    load_z   = athlete_data.get("player_load_zscore", 0)
+    rsi_score = min(100, (rsi_val / 0.45) * 100)
+    load_mod  = max(-20, min(0, load_z * -5)) if load_z < -1 else 0
+    load_score = max(0, min(100, rsi_score + load_mod))
 
     cmj         = athlete_data.get("cmj_height_cm", 30)
     neuro_score = min(100, (cmj / 40) * 100)
@@ -460,8 +460,9 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         st.markdown(create_metric_card("Mood", f"{moo:.0f}/10", s), unsafe_allow_html=True)
 
     with c4:
+        # ACWR shown as context only — not scored (Impellizzeri 2020)
         s = "good" if 0.8 <= latest_acwr <= 1.3 else ("warning" if latest_acwr <= 1.5 else "bad")
-        st.markdown(create_metric_card("ACWR", f"{latest_acwr:.2f}", s), unsafe_allow_html=True)
+        st.markdown(create_metric_card("ACWR ⚠", f"{latest_acwr:.2f}", s), unsafe_allow_html=True)
 
     with c5:
         if latest_cmj is not None:
@@ -745,7 +746,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     with st.expander("Research References"):
         st.markdown(
             "- **Sleep:** <6.5 hrs → 1.7× injury risk (Milewski et al. 2014)\n"
-            "- **ACWR:** >1.5 → 2.4× injury risk (Gabbett 2016)\n"
+            "- **ACWR ⚠ (contextual flag only):** Gabbett 2016 established >1.5 as high-risk zone, but Impellizzeri et al. 2020 (BJSM) identified statistical coupling flaws and 2025 meta-analysis (22 cohort studies) recommends 'use with caution' — not scored in readiness formula\n"
             "- **Soreness:** >7 requires monitoring (Hulin et al. 2016)\n"
             "- **CMJ/RSI:** Neuromuscular fatigue indicator — Gathercole et al. (2015)\n"
             "- **Accels/Decels:** Direction-change load; drops may indicate protective movement strategies"

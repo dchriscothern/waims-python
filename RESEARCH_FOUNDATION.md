@@ -54,21 +54,55 @@ Leproult & Van Cauter (2010) — *Role of Sleep and Sleep Loss in Hormonal Relea
 
 ---
 
-## Training Load (ACWR)
+## Training Load — ACWR as Contextual Tool (Not Model Feature)
 
-**Optimal zone: 0.8–1.3 | High risk: > 1.5**
+**WAIMS design decision: ACWR is displayed as a contextual flag only and is NOT included as a scored readiness component.**
+
+### The foundational work (still valid, but with important caveats)
 
 Gabbett (2016) — *The Training-Injury Prevention Paradox* — Tier 1 (2,000+ citations)
+- Original paper establishing ACWR (7-day acute / 28-day chronic) as injury risk tool
 - Athletes with ACWR > 1.5 had 2.4× injury risk vs those in 0.8–1.3 range
-- Below 0.8 = detraining risk; above 1.3 = increasing concern; above 1.5 = high risk
 - Paradox: high chronic load is protective; rapid acute spikes are the danger
+- **Caveat:** Original sample was male rugby athletes; direct WNBA generalization is not established
 
-Hulin et al. (2016) — *The Acute-Chronic Workload Ratio Predicts Injury* — Tier 1
-- Replicated Gabbett in cricket; 21-day chronic window vs 7-day acute
-- WAIMS implements exact 7:21 day ratio
+Hulin et al. (2016) — *BJSM* — Tier 1
+- Prospective replication in cricket; 21-day chronic window
+- Established the "sweet spot" concept (0.8–1.3 optimal zone)
 
-**ACWR limitations (important for interviews):**
-The model is debated (Windt & Gabbett 2017, Impellizzeri 2020). Criticisms: assumes linearity, individual variation is large, chronic window choice affects results. WAIMS treats ACWR as one signal among many rather than a standalone decision tool — this is methodologically correct.
+### Why ACWR was demoted in WAIMS (evidence-based decision)
+
+**Impellizzeri et al. (2020)** — *BJSM* — Tier 1 critique
+- Identified fundamental statistical coupling problem: acute and chronic windows share data, creating spurious correlation
+- Argued ACWR "cannot be recommended for decision-making without further validation"
+- Called for population and sport-specific recalibration before clinical use
+
+**2025 systematic review and meta-analysis (22 cohort studies)**
+- Found ACWR associated with injury risk but with high heterogeneity (I²>75%) across studies
+- Concluded ACWR should be used "with caution as a tool for measuring workload"
+- Critically: effect sizes varied dramatically by sport, sex, calculation method, and threshold used
+- **No WNBA-specific cohort studies were included** — applicability to women's basketball unvalidated
+
+**Windt & Gabbett (2017)** — *BJSM* — Tier 1
+- Acknowledged limitations and proposed methodological refinements
+- Key insight: ACWR captures relative workload change but not absolute load tolerance
+
+### WAIMS implementation rationale
+
+ACWR is displayed in the Trends tab as a contextual strip so sport scientists can see it alongside other signals. It is **not** included in the readiness score formula because:
+1. Its weight cannot be validly calibrated without WNBA-specific prospective data
+2. The statistical coupling problem means including it as a model feature risks inflating its apparent predictive importance (confirmed in WAIMS model audit: ACWR historically showed 20-25% feature importance, likely artifactual)
+3. The 2025 meta-analysis does not support using it as a standalone predictor
+
+**For interviews:** "We display ACWR as a contextual reference but don't weight it in our readiness formula — this is consistent with current evidence. The 2020 Impellizzeri critique and 2025 meta-analysis both recommend using it as one tool among many, not as a primary signal."
+
+### Optimal ACWR reference zones (for display purposes only)
+| Zone | ACWR | Interpretation |
+|------|------|---------------|
+| Underload | < 0.8 | Detraining risk |
+| Sweet spot | 0.8–1.3 | Optimal loading |
+| Caution | 1.3–1.5 | Monitor closely |
+| Spike | > 1.5 | High concern |
 
 ---
 
@@ -158,6 +192,62 @@ Saw et al. (2016) — *Monitoring the Athlete Training Response: Subjective Self
 - Supports WAIMS three-source architecture (wellness + force plate + GPS)
 
 ---
+
+## Evidence-Based Feature Weighting
+
+The readiness scoring formula in WAIMS is grounded in the following published evidence hierarchy. All weights are approximations — no WNBA-specific prospective model exists in the published literature as of 2025.
+
+### How to evaluate research quality for this domain
+
+**Use these criteria (in order of importance):**
+1. Study design: prospective cohort > retrospective > cross-sectional
+2. Sample size: >500 athlete-seasons for reliable effect sizes; <50 is exploratory only
+3. Effect sizes with confidence intervals (not just p-values)
+4. AUC > 0.70 for any prediction model to be clinically useful
+5. External validation on held-out dataset
+6. PRISMA-compliant systematic reviews with GRADE evidence quality ratings
+7. I² heterogeneity in meta-analyses: <50% = consistent evidence; >75% = pooling unreliable
+
+**Red flags:**
+- p<0.05 without effect sizes or CIs
+- n<30 single-team studies reported as generalizable
+- >90% model accuracy without external validation = almost certainly overfitting
+- Male-athlete studies generalized to WNBA without sex-specific replication
+
+### Feature group weights in WAIMS readiness scorer
+
+| Signal Group | Weight | Quality of Evidence | Key Sources |
+|---|---|---|---|
+| Subjective wellness (sleep hrs, quality, soreness, mood, stress) | 35 pts | **Tier 1** — multiple SRs with large n | Saw et al. 2016 (56-study SR), Espasa-Labrador et al. 2023 (women's basketball SR), Watson et al. 2020/2021 |
+| Force plate / neuromuscular (CMJ height, RSI-modified) | 25 pts | **Tier 1** — SR+MA, replicated | Cormack et al. 2008 (foundational), Labban et al. 2024 (CMJ SR+MA), Bishop et al. 2023 (metric framework) |
+| Schedule context (back-to-back, travel, days rest, Unrivaled transition) | 10 pts | **Tier 2** — cohort studies, limited WNBA data | condensed schedule literature, Morikawa 2022 |
+| Personal z-score deviation modifier | ±10 pts | **Tier 1** — intra-individual comparison (Foster 1998, replicated) | Foster 1998 (session RPE, foundational), Cormack 2008 |
+| GPS z-score modifier (player load, accel/decel drops) | ±6 pts | **Tier 2** — basketball-specific limited | Jaspers et al. 2017 (SR), Petway et al. 2020 (basketball) |
+| ACWR | **Flag only** | Demoted — see ACWR section | Impellizzeri 2020, 2025 meta-analysis |
+
+### Key studies for women's basketball specifically
+
+**Espasa-Labrador et al. (2023)** — *Sensors* — PRISMA systematic review
+- Only published SR of load monitoring methods specifically in women's basketball
+- Found session-RPE + heart rate most validated; subjective wellness most practically used
+- Critical limitation: small total sample, most studies single-team
+
+**Watson et al. (2020, 2021)** — Sleep and injury in female athletes
+- Prospective design, female-specific samples
+- Sleep duration independently predicted injury risk after controlling for load
+
+**Pernigoni et al. (2024)** — Meta-analysis of match fatigue in basketball
+- Prospective design, meaningful n across multiple teams
+- Established CMJ and wellness composite as most sensitive post-game fatigue markers
+
+### Menstrual cycle — emerging signal (not yet in WAIMS model)
+
+**Barlow et al. (2024)** + **Espasa-Labrador et al. (2025)**
+- Luteal phase associated with higher ligamentous injury risk in female athletes
+- Sample sizes remain small (largest study: n=37 players)
+- **Evidence grade: Tier 3** — interesting signal, not model-weight-defining yet
+- WAIMS recommendation: track cycle phase as a logged variable; do not weight until WNBA-specific prospective data exists
+- For interviews: "We track it as context — the evidence is promising but the WNBA-specific data doesn't yet exist to justify weighting it in the model"
 
 ## Correlation Methodology
 

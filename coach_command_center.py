@@ -4,11 +4,26 @@ WAIMS — Coach Command Center
 No clicks required. Links out to deep analyst tabs via st.session_state.
 """
 
+import os
+import pickle
 import pandas as pd
 import numpy as np
 import streamlit as st
 import plotly.graph_objects as go
 from datetime import timedelta
+from pathlib import Path
+
+# Load readiness scorer trained model
+# Falls back to formula if pkl not found (e.g. first run before train_models.py)
+_SCORER_PATH = Path("models/readiness_scorer.pkl")
+_READINESS_FN = None
+if _SCORER_PATH.exists():
+    try:
+        with open(_SCORER_PATH, "rb") as _f:
+            _scorer_data = pickle.load(_f)
+            _READINESS_FN = _scorer_data.get("function")
+    except Exception:
+        _READINESS_FN = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -23,13 +38,28 @@ def _zscore(val, series, min_std=0.1):
 
 
 def _readiness(row):
-    s = (
-        (row["sleep_hours"] / 8) * 30
-        + ((10 - row["soreness"]) / 10) * 25
-        + ((10 - row["stress"])   / 10) * 25
-        + (row["mood"] / 10)            * 20
-    )
-    return round(max(0, min(100, s)), 1)
+    """
+    Uses trained readiness_scorer.pkl when available.
+    Falls back to simplified formula if model not yet trained.
+    The pkl version uses evidence-based weights from train_models.py:
+    - Wellness 35pts, Force plate 25pts, Schedule 10pts, z-score modifier ±10pts
+    - ACWR as contextual flag only (Impellizzeri 2020, 2025 meta-analysis)
+    """
+    if _READINESS_FN is not None:
+        try:
+            return _READINESS_FN(row)
+        except Exception:
+            pass
+    # Fallback formula (evidence-based weights, no pkl needed)
+    sleep  = min(15, (row.get("sleep_hours", 7) / 8.0) * 10)
+    sore   = ((10 - row.get("soreness", 5)) / 10) * 10
+    mood   = (row.get("mood", 6)            / 10) * 5
+    stress = ((10 - row.get("stress", 5))   / 10) * 5
+    cmj    = row.get("cmj_height_cm", 30)
+    cmj_s  = min(15, (cmj / 32) * 15) if cmj else 10
+    rsi    = row.get("rsi_modified", 0.35)
+    rsi_s  = min(10, (rsi / 0.45) * 10) if rsi else 7
+    return round(max(0, min(100, sleep + sore + mood + stress + cmj_s + rsi_s)), 1)
 
 
 def _traffic(score):

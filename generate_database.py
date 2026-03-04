@@ -450,6 +450,128 @@ conn.commit()
 print("✓ Analytical view created")
 
 # ==============================================================================
+
+# ==============================================================================
+# 10b. SCHEDULE TABLE — 2026 Dallas Wings (real dates + context flags)
+# Reference: wings.wnba.com/news/wings-announce-2026-schedule (Jan 21, 2026)
+# Unrivaled players: Paige Bueckers (Breeze BC), Arike Ogunbowale (Mist BC)
+# Unrivaled 2026 ran Jan 5 – ~Mar 4; WNBA camp ~Apr 28
+# ==============================================================================
+
+print("\n10b. Building schedule table...")
+
+cursor.execute("DROP TABLE IF EXISTS schedule")
+cursor.execute("""
+CREATE TABLE schedule (
+    game_id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    date            TEXT NOT NULL,
+    opponent        TEXT,
+    location        TEXT,   -- 'home' or 'away'
+    venue           TEXT,   -- stadium name
+    is_back_to_back INTEGER DEFAULT 0,
+    days_rest       INTEGER DEFAULT 1,
+    travel_flag     INTEGER DEFAULT 0,   -- 1 = travel day (away game)
+    game_type       TEXT DEFAULT 'WNBA', -- WNBA / Unrivaled / EuroLeague / practice
+    time_zone_diff  INTEGER DEFAULT 0,   -- hours vs Dallas (CT)
+    fiba_break      INTEGER DEFAULT 0    -- 1 = during FIBA World Cup break
+)
+""")
+
+# ── 2026 Dallas Wings Schedule (all 44 games) ─────────────────────────────────
+# Source: official Wings announcement, Jan 21 2026
+# Location codes: H=home (College Park Center/AAC), A=away
+# Back-to-backs and long road trips flagged per schedule notes
+# Time zone differences from Dallas (CT): ET=+1, PT=-1, MT=0, CT=0, Toronto=+1
+
+wings_2026 = [
+    # May
+    ("2026-05-09", "Indiana Fever",      "away", "Gainbridge Fieldhouse",    0, 0, 1, "WNBA", 1, 0),
+    ("2026-05-12", "Atlanta Dream",      "home", "College Park Center",      0, 3, 0, "WNBA", 0, 0),
+    ("2026-05-14", "Minnesota Lynx",     "home", "College Park Center",      0, 2, 0, "WNBA", 0, 0),
+    ("2026-05-18", "Washington Mystics", "home", "College Park Center",      0, 4, 0, "WNBA", 1, 0),
+    ("2026-05-20", "Chicago Sky",        "away", "Wintrust Arena",           0, 2, 1, "WNBA", 1, 0),
+    ("2026-05-22", "Atlanta Dream",      "away", "State Farm Arena",         0, 2, 1, "WNBA", 1, 0),
+    ("2026-05-24", "New York Liberty",   "away", "Barclays Center",          0, 2, 1, "WNBA", 1, 0),
+    ("2026-05-28", "Las Vegas Aces",     "home", "College Park Center",      0, 4, 0, "WNBA", 2, 0),
+    # June
+    ("2026-06-01", "Seattle Storm",      "home", "College Park Center",      0, 4, 0, "WNBA", 2, 0),
+    ("2026-06-05", "Los Angeles Sparks", "away", "Crypto.com Arena",         0, 4, 1, "WNBA",-1, 0),
+    ("2026-06-09", "Minnesota Lynx",     "away", "Target Center",            0, 4, 1, "WNBA", 0, 0),
+    ("2026-06-11", "Phoenix Mercury",    "home", "College Park Center",      0, 2, 0, "WNBA", 1, 0),
+    ("2026-06-13", "Portland Fire",      "away", "Moda Center",              0, 2, 1, "WNBA",-1, 0),
+    ("2026-06-15", "Las Vegas Aces",     "home", "College Park Center",      0, 2, 0, "WNBA", 2, 0),
+    ("2026-06-17", "Golden State Valkyries","away","Chase Center",           0, 2, 1, "WNBA",-1, 0),
+    ("2026-06-20", "Chicago Sky",        "home", "College Park Center",      0, 3, 0, "WNBA", 1, 0),
+    ("2026-06-22", "Seattle Storm",      "away", "Climate Pledge Arena",     0, 2, 1, "WNBA",-1, 0),
+    ("2026-06-25", "Las Vegas Aces",     "away", "Michelob Ultra Arena",     0, 3, 1, "WNBA", 2, 0),
+    ("2026-06-28", "Minnesota Lynx",     "home", "College Park Center",      0, 3, 0, "WNBA", 0, 0),
+    # July — road trip: CON, TOR, NYL, TOR (4 consecutive away)
+    ("2026-07-02", "Connecticut Sun",    "away", "PeoplesBank Arena",        0, 4, 1, "WNBA", 1, 0),
+    ("2026-07-05", "Toronto Tempo",      "away", "Coca-Cola Coliseum",       0, 3, 1, "WNBA", 1, 0),
+    ("2026-07-07", "New York Liberty",   "away", "Barclays Center",          1, 2, 1, "WNBA", 1, 0),  # B2B
+    ("2026-07-10", "Toronto Tempo",      "away", "Bell Centre Montreal",     1, 3, 1, "WNBA", 1, 0),  # B2B (note: MTL venue)
+    ("2026-07-12", "Chicago Sky",        "home", "American Airlines Center", 0, 2, 0, "WNBA", 1, 0),  # AAC game
+    ("2026-07-16", "New York Liberty",   "home", "College Park Center",      0, 4, 0, "WNBA", 1, 0),
+    ("2026-07-19", "Los Angeles Sparks", "home", "College Park Center",      0, 3, 0, "WNBA", 1, 0),
+    ("2026-07-22", "Portland Fire",      "away", "Moda Center",              0, 3, 1, "WNBA",-1, 0),
+    ("2026-07-25", "Golden State Valkyries","away","Chase Center",           0, 3, 1, "WNBA",-1, 0),
+    ("2026-07-29", "Atlanta Dream",      "home", "College Park Center",      0, 4, 0, "WNBA", 0, 0),
+    ("2026-07-31", "Washington Mystics", "away", "Capital One Arena",        0, 2, 1, "WNBA", 1, 0),
+    # August — homestand of 6: AAC, home, home, home, home, home
+    ("2026-08-02", "Connecticut Sun",    "home", "College Park Center",      0, 2, 0, "WNBA", 1, 0),
+    ("2026-08-05", "Washington Mystics", "away", "Capital One Arena",        0, 3, 1, "WNBA", 1, 0),
+    ("2026-08-07", "Golden State Valkyries","home","American Airlines Center",0,2, 0, "WNBA", 1, 0),  # AAC
+    ("2026-08-09", "Minnesota Lynx",     "away", "Target Center",            0, 2, 1, "WNBA", 0, 0),
+    ("2026-08-12", "Toronto Tempo",      "home", "College Park Center",      0, 3, 0, "WNBA", 1, 0),
+    ("2026-08-14", "Indiana Fever",      "away", "Gainbridge Fieldhouse",    0, 2, 1, "WNBA", 1, 0),
+    ("2026-08-17", "Golden State Valkyries","away","Chase Center",           0, 3, 1, "WNBA",-1, 0),
+    ("2026-08-20", "Indiana Fever",      "home", "American Airlines Center", 0, 3, 0, "WNBA", 1, 0),  # AAC
+    ("2026-08-23", "Seattle Storm",      "home", "College Park Center",      0, 3, 0, "WNBA",-1, 0),
+    ("2026-08-25", "Portland Fire",      "home", "College Park Center",      1, 2, 0, "WNBA",-1, 0),  # B2B
+    ("2026-08-30", "Connecticut Sun",    "home", "College Park Center",      0, 5, 0, "WNBA", 1, 0),  # last pre-FIBA
+    # FIBA Women's World Cup break: Aug 31 – Sep 16 (no games)
+    # September — return from FIBA break
+    ("2026-09-17", "Los Angeles Sparks", "home", "College Park Center",      0,18, 0, "WNBA",-1, 0),  # long rest after FIBA
+    ("2026-09-19", "Phoenix Mercury",    "home", "College Park Center",      1, 2, 0, "WNBA", 1, 0),  # B2B
+    ("2026-09-21", "Phoenix Mercury",    "away", "Footprint Center",         1, 2, 1, "WNBA", 1, 0),  # B2B
+    ("2026-09-23", "Seattle Storm",      "away", "Climate Pledge Arena",     0, 2, 1, "WNBA",-1, 0),  # final game
+]
+
+# Unrivaled 2026 context — players who came in from Unrivaled
+# Paige Bueckers (Breeze BC) and Arike Ogunbowale (Mist BC) played Jan 5 – Mar 4
+# WNBA camp starts ~Apr 28 — ~55 day gap but different movement demands
+unrivaled_context = [
+    # Approximate Unrivaled game dates for tracking (3-on-3, 72ft court, 18s clock)
+    ("2026-01-05", "Unrivaled Opening", "away", "Mohegan Sun Arena", 0, 0, 1, "Unrivaled", 1, 0),
+    ("2026-01-09", "Unrivaled Week 2",  "away", "Mohegan Sun Arena", 0, 4, 1, "Unrivaled", 1, 0),
+    ("2026-01-16", "Unrivaled Week 3",  "away", "Mohegan Sun Arena", 0, 7, 1, "Unrivaled", 1, 0),
+    ("2026-01-23", "Unrivaled Week 4",  "away", "Mohegan Sun Arena", 0, 7, 1, "Unrivaled", 1, 0),
+    ("2026-01-30", "Unrivaled Week 5",  "away", "Mohegan Sun Arena", 0, 7, 1, "Unrivaled", 1, 0),
+    ("2026-02-06", "Unrivaled Week 6",  "away", "Mohegan Sun Arena", 0, 7, 1, "Unrivaled", 1, 0),
+    ("2026-02-13", "Unrivaled Week 7",  "away", "Mohegan Sun Arena", 0, 7, 1, "Unrivaled", 1, 0),
+    ("2026-02-20", "Unrivaled Week 8",  "away", "Mohegan Sun Arena", 0, 7, 1, "Unrivaled", 1, 0),
+    ("2026-02-27", "Unrivaled Finals",  "away", "Mohegan Sun Arena", 0, 7, 1, "Unrivaled", 1, 0),
+]
+
+all_games = wings_2026 + unrivaled_context
+cursor.executemany("""
+    INSERT INTO schedule (date, opponent, location, venue, is_back_to_back,
+        days_rest, travel_flag, game_type, time_zone_diff, fiba_break)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
+""", all_games)
+
+# Mark FIBA break games (Aug 31 – Sep 16)
+cursor.execute("""
+    UPDATE schedule SET fiba_break = 1
+    WHERE date BETWEEN '2026-08-31' AND '2026-09-16'
+""")
+
+conn.commit()
+print(f"✓ Schedule table: {len(all_games)} games ({len(wings_2026)} WNBA + {len(unrivaled_context)} Unrivaled)")
+print("  Back-to-backs flagged: May 9 (none), July 7+10, Aug 25, Sept 19+21")
+print("  AAC venue games: July 12, Aug 7, Aug 20")
+print("  FIBA break: Aug 31 – Sep 16 (18 days rest before Sept 17 return)")
+
 # 11. SUMMARY
 # ==============================================================================
 

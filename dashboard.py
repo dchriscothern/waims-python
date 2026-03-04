@@ -986,7 +986,7 @@ with tab2:
 
 with tab3:
     st.header("Wellness Trends")
-    st.caption("Raw daily values (faint) with 7-day rolling average (bold). Useful for spotting drift across the week.")
+    st.caption("Raw daily values (faint) with 7-day rolling average (bold). Subjective + objective signals side by side.")
 
     if len(wellness) > 0:
         athlete_list = sorted(players["name"].tolist())
@@ -997,48 +997,134 @@ with tab3:
             lookback = st.selectbox("Window", [7, 14, 21, 30], index=1, key="trends_window")
 
         if selected:
-            sel_ids  = players[players["name"].isin(selected)]["player_id"].tolist()
-            cutoff   = wellness["date"].max() - pd.Timedelta(days=lookback)
-            trend_df = (
+            sel_ids = players[players["name"].isin(selected)]["player_id"].tolist()
+            cutoff  = wellness["date"].max() - pd.Timedelta(days=lookback)
+
+            # ── Subjective wellness ────────────────────────────────────────────
+            trend_w = (
                 wellness[(wellness["player_id"].isin(sel_ids)) & (wellness["date"] >= cutoff)]
-                .merge(players[["player_id", "name"]], on="player_id")
-                .sort_values(["player_id", "date"])
+                .merge(players[["player_id","name"]], on="player_id")
+                .sort_values(["player_id","date"])
             )
-            for col in ["sleep_hours", "soreness", "mood", "stress"]:
-                trend_df[f"{col.split('_')[0]}_roll"] = trend_df.groupby("player_id")[col].transform(
+            for col in ["sleep_hours","soreness","mood","stress"]:
+                trend_w[f"{col.split('_')[0]}_roll"] = trend_w.groupby("player_id")[col].transform(
                     lambda x: x.rolling(7, min_periods=2).mean()
                 )
 
-            COLORS = ["#2E86AB", "#A23B72", "#F18F01", "#C73E1D", "#3B1F2B", "#44BBA4"]
+            # ── Force plate (CMJ) ──────────────────────────────────────────────
+            trend_fp = pd.DataFrame()
+            if len(force_plate) > 0 and "cmj_height_cm" in force_plate.columns:
+                trend_fp = (
+                    force_plate[(force_plate["player_id"].isin(sel_ids)) & (force_plate["date"] >= cutoff)]
+                    .merge(players[["player_id","name"]], on="player_id")
+                    .sort_values(["player_id","date"])
+                )
+                if len(trend_fp) > 0:
+                    trend_fp["cmj_roll"] = trend_fp.groupby("player_id")["cmj_height_cm"].transform(
+                        lambda x: x.rolling(7, min_periods=2).mean()
+                    )
 
-            def dual_trace_chart(df, raw_col, roll_col, title, yrange=None):
+            # ── GPS / Player Load ──────────────────────────────────────────────
+            trend_gps = pd.DataFrame()
+            if len(training_load) > 0 and "player_load" in training_load.columns:
+                trend_gps = (
+                    training_load[(training_load["player_id"].isin(sel_ids)) & (training_load["date"] >= cutoff)]
+                    .merge(players[["player_id","name"]], on="player_id")
+                    .sort_values(["player_id","date"])
+                )
+                if len(trend_gps) > 0:
+                    trend_gps["load_roll"] = trend_gps.groupby("player_id")["player_load"].transform(
+                        lambda x: x.rolling(7, min_periods=2).mean()
+                    )
+
+            # ── ACWR context strip ─────────────────────────────────────────────
+            trend_acwr = pd.DataFrame()
+            if len(acwr) > 0:
+                trend_acwr = (
+                    acwr[(acwr["player_id"].isin(sel_ids)) & (acwr["date"] >= cutoff)]
+                    .merge(players[["player_id","name"]], on="player_id")
+                    .sort_values(["player_id","date"])
+                )
+
+            COLORS = ["#2E86AB","#A23B72","#F18F01","#C73E1D","#3B1F2B","#44BBA4"]
+
+            def dual_trace_chart(df, raw_col, roll_col, title, yrange=None, color_override=None):
                 fig = go.Figure()
                 for i, name in enumerate(selected):
-                    c   = COLORS[i % len(COLORS)]
+                    c   = color_override or COLORS[i % len(COLORS)]
                     sub = df[df["name"] == name]
-                    fig.add_trace(go.Scatter(x=sub["date"], y=sub[raw_col],  mode="lines+markers", name=name, line=dict(color=c, width=1, dash="dot"), marker=dict(size=4), opacity=0.4, legendgroup=name, showlegend=False))
-                    fig.add_trace(go.Scatter(x=sub["date"], y=sub[roll_col], mode="lines",          name=name, line=dict(color=c, width=3),             legendgroup=name, showlegend=True))
-                fig.update_layout(title=title, height=260, margin=dict(l=10, r=10, t=40, b=20),
+                    if len(sub) == 0:
+                        continue
+                    fig.add_trace(go.Scatter(x=sub["date"], y=sub[raw_col], mode="lines+markers",
+                        name=name, line=dict(color=c, width=1, dash="dot"),
+                        marker=dict(size=4), opacity=0.4, legendgroup=name, showlegend=False))
+                    fig.add_trace(go.Scatter(x=sub["date"], y=sub[roll_col], mode="lines",
+                        name=name, line=dict(color=c, width=3),
+                        legendgroup=name, showlegend=True))
+                fig.update_layout(title=title, height=240, margin=dict(l=10,r=10,t=40,b=20),
                                   hovermode="x unified", yaxis=dict(range=yrange) if yrange else {},
-                                  legend=dict(orientation="h", y=-0.2))
+                                  legend=dict(orientation="h", y=-0.25))
                 return fig
 
+            # ── Row 1: Sleep + Soreness (primary injury predictors) ───────────
+            st.markdown("#### 🛌 Subjective Wellness")
+            st.caption("Saw et al. 2016 (56-study SR): sleep and soreness are strongest daily wellness predictors.")
             r1, r2 = st.columns(2)
             with r1:
-                st.plotly_chart(dual_trace_chart(trend_df, "sleep_hours", "sleep_roll",    "Sleep Hours",    [4, 10]), use_container_width=True)
+                st.plotly_chart(dual_trace_chart(trend_w, "sleep_hours","sleep_roll","Sleep Hours",[4,10]), use_container_width=True)
             with r2:
-                st.plotly_chart(dual_trace_chart(trend_df, "soreness",    "soreness_roll", "Soreness (0–10)",[0, 10]), use_container_width=True)
+                st.plotly_chart(dual_trace_chart(trend_w, "soreness","soreness_roll","Soreness (0–10)",[0,10]), use_container_width=True)
             r3, r4 = st.columns(2)
             with r3:
-                st.plotly_chart(dual_trace_chart(trend_df, "mood",   "mood_roll",   "Mood (0–10)",   [0, 10]), use_container_width=True)
+                st.plotly_chart(dual_trace_chart(trend_w, "mood","mood_roll","Mood (0–10)",[0,10]), use_container_width=True)
             with r4:
-                st.plotly_chart(dual_trace_chart(trend_df, "stress", "stress_roll", "Stress (0–10)", [0, 10]), use_container_width=True)
+                st.plotly_chart(dual_trace_chart(trend_w, "stress","stress_roll","Stress (0–10)",[0,10]), use_container_width=True)
+
+            # ── Row 2: CMJ + Player Load (objective signals) ─────────────────
+            st.markdown("#### 💪 Objective Load Signals")
+            st.caption("Cormack 2008 + Labban 2024 SR: CMJ is the most sensitive daily neuromuscular fatigue marker. Player load provides external training context.")
+            r5, r6 = st.columns(2)
+            with r5:
+                if len(trend_fp) > 0:
+                    st.plotly_chart(dual_trace_chart(trend_fp, "cmj_height_cm","cmj_roll","CMJ Height (cm)",[15,45]), use_container_width=True)
+                else:
+                    st.info("No force plate data in selected window.")
+            with r6:
+                if len(trend_gps) > 0:
+                    st.plotly_chart(dual_trace_chart(trend_gps, "player_load","load_roll","Player Load (AU)",[0,None]), use_container_width=True)
+                else:
+                    st.info("No GPS data in selected window.")
+
+            # ── ACWR context strip (flag display only, not scored) ────────────
+            st.markdown("#### ⚠️ ACWR — Contextual Flag Only")
+            st.caption("Impellizzeri et al. 2020 + 2025 meta-analysis (22 cohort studies): ACWR should be used 'with caution as a tool', not as a standalone predictor. Shown here for context only — not used in readiness scoring.")
+            if len(trend_acwr) > 0:
+                fig_acwr = go.Figure()
+                for i, name in enumerate(selected):
+                    sub = trend_acwr[trend_acwr["name"] == name]
+                    if len(sub) == 0:
+                        continue
+                    c = COLORS[i % len(COLORS)]
+                    fig_acwr.add_trace(go.Scatter(x=sub["date"], y=sub["acwr"],
+                        mode="lines+markers", name=name,
+                        line=dict(color=c, width=2), marker=dict(size=5)))
+                # Safe zone band
+                fig_acwr.add_hrect(y0=0.8, y1=1.3, fillcolor="#dcfce7", opacity=0.3,
+                    line_width=0, annotation_text="Safe zone (0.8–1.3)", annotation_position="top left")
+                fig_acwr.add_hline(y=1.5, line_dash="dash", line_color="#ef4444",
+                    annotation_text="Spike threshold (1.5)", annotation_position="right")
+                fig_acwr.update_layout(title="ACWR (context only)", height=220,
+                    margin=dict(l=10,r=10,t=40,b=20), hovermode="x unified",
+                    yaxis=dict(range=[0, 2.5]),
+                    legend=dict(orientation="h", y=-0.3))
+                st.plotly_chart(fig_acwr, use_container_width=True)
+            else:
+                st.info("No ACWR data available.")
         else:
             st.info("Select at least one athlete above.")
     else:
         st.info("No wellness data available.")
 
-# ==============================================================================
 # TAB 4: JUMP TESTING
 # ==============================================================================
 
