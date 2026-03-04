@@ -43,7 +43,7 @@ st.set_page_config(
     page_title="WAIMS Readiness Watchlist",
     page_icon=str(LOGO_PATH) if LOGO_PATH.exists() else "🏀",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ==============================================================================
@@ -927,43 +927,18 @@ def generate_smart_response(query_type):
     else:
         return "Try: 'poor sleep', 'high risk', 'readiness', or 'compare positions'", None
 
-# ==============================================================================
-# SIDEBAR
-# ==============================================================================
 
-if LOGO_PATH.exists():
-    st.sidebar.image(str(LOGO_PATH), width=60)
-
-st.sidebar.title("🏀 Roster & Dates")
-st.sidebar.markdown("**How to use**\n1. Pick a **date range**\n2. Select **players**\n3. The Watchlist updates automatically")
+# ==============================================================================
+# DATE — defaults to latest available date in the database
+# ==============================================================================
 
 if len(wellness) > 0:
-    min_date   = wellness["date"].min().date()
-    max_date   = wellness["date"].max().date()
-    date_range = st.sidebar.date_input(
-        "Date Range",
-        value=(max_date - timedelta(days=7), max_date),
-        min_value=min_date, max_value=max_date,
-    )
-    start_date, end_date = date_range if len(date_range) == 2 else (max_date, max_date)
+    end_date = wellness["date"].max().date()
 else:
-    start_date = end_date = datetime.today().date()
+    end_date = datetime.today().date()
 
-selected_players = st.sidebar.multiselect(
-    "Select Players",
-    options=players["name"].tolist(),
-    default=players["name"].tolist()[:5],
-)
-st.sidebar.markdown("---")
-st.sidebar.info("**Data Source:** SQLite Database\n**Records:** ~10,000+ data points\n**Period:** 90 days of monitoring")
+start_date = end_date
 
-if HAVE_IMPROVED_GAUGES:
-    st.sidebar.markdown("---")
-    if st.sidebar.button("📚 View Research Foundation", use_container_width=True):
-        with st.expander("Research Foundation", expanded=True):
-            show_research_foundation()
-
-# ==============================================================================
 # MAIN DASHBOARD
 # ==============================================================================
 

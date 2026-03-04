@@ -31,9 +31,8 @@ except ImportError:
 
 def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[60, 80]):
     """
-    Pure SVG needle gauge — matches screenshot exactly.
-    Solid colored arcs, thin black needle from center, large score below.
-    Rendered as HTML so no Plotly bar-fills-arc problem.
+    Readiness gauge using Plotly — correct needle via scatter trace trick.
+    Returns a Plotly figure (not HTML) so caller uses st.plotly_chart.
     """
     import math
     try:
@@ -43,115 +42,123 @@ def create_gauge_chart(value, title, min_val=0, max_val=100, thresholds=[60, 80]
     v = max(float(min_val), min(float(max_val), v))
     y_start, g_start = thresholds
 
-    # Arc geometry: 180° sweep, left=0, right=100
-    # Center at (150, 130), radius 100
-    cx, cy, r = 150, 130, 100
+    # Build arc segments as filled pie slices masked to a donut
+    # 180° gauge: 0=left, 100=right, mapped to 180°→0° in standard math angles
+    def pct_to_rad(pct):
+        return math.pi - (pct / 100.0) * math.pi
 
-    def polar(deg):
-        """Convert 0–180 left-to-right to SVG x,y. 0=left, 180=right."""
-        rad = math.radians(180 - deg)
-        return cx + r * math.cos(rad), cy - r * math.sin(rad)
+    def arc_points(start_pct, end_pct, r_outer=1.0, r_inner=0.65, n=40):
+        pts_x, pts_y = [], []
+        for i in range(n + 1):
+            t = start_pct + (end_pct - start_pct) * i / n
+            a = pct_to_rad(t)
+            pts_x.append(r_outer * math.cos(a))
+            pts_y.append(r_outer * math.sin(a))
+        for i in range(n, -1, -1):
+            t = start_pct + (end_pct - start_pct) * i / n
+            a = pct_to_rad(t)
+            pts_x.append(r_inner * math.cos(a))
+            pts_y.append(r_inner * math.sin(a))
+        pts_x.append(pts_x[0])
+        pts_y.append(pts_y[0])
+        return pts_x, pts_y
 
-    def arc_path(start_pct, end_pct, outer_r, inner_r):
-        s = start_pct / 100 * 180
-        e = end_pct   / 100 * 180
-        x1o, y1o = polar_r(s, outer_r)
-        x2o, y2o = polar_r(e, outer_r)
-        x1i, y1i = polar_r(s, inner_r)
-        x2i, y2i = polar_r(e, inner_r)
-        large = 1 if (e - s) > 90 else 0
-        return (f"M {x1o:.1f} {y1o:.1f} "
-                f"A {outer_r} {outer_r} 0 {large} 1 {x2o:.1f} {y2o:.1f} "
-                f"L {x2i:.1f} {y2i:.1f} "
-                f"A {inner_r} {inner_r} 0 {large} 0 {x1i:.1f} {y1i:.1f} Z")
-
-    def polar_r(deg, radius):
-        rad = math.radians(180 - deg)
-        return cx + radius * math.cos(rad), cy - radius * math.sin(rad)
-
-    # Color zones (matching screenshot)
     zones = [
-        (0,        y_start,  "#e05252"),  # red
-        (y_start,  g_start,  "#f5c842"),  # amber
-        (g_start,  85,       "#d4eeaa"),  # light yellow-green
-        (85,       100,      "#5ec48a"),  # green
+        (0,       y_start,  "#e05252"),
+        (y_start, g_start,  "#f5c842"),
+        (g_start, 85,       "#c8e6a0"),
+        (85,      100,      "#5ec48a"),
     ]
 
-    arcs_svg = ""
+    fig = go.Figure()
+
+    # Gray background ring
+    bx, by = arc_points(0, 100, 1.05, 0.62)
+    fig.add_trace(go.Scatter(x=bx, y=by, fill="toself",
+                             fillcolor="#e5e7eb", line=dict(width=0),
+                             hoverinfo="skip", showlegend=False))
+
+    # Colored zones
     for start, end, color in zones:
-        arcs_svg += f'<path d="{arc_path(start, end, 105, 72)}" fill="{color}"/>\n'
+        ax, ay = arc_points(start, end)
+        fig.add_trace(go.Scatter(x=ax, y=ay, fill="toself",
+                                 fillcolor=color, line=dict(width=0),
+                                 hoverinfo="skip", showlegend=False))
 
-    # Background ring (gray)
-    arcs_svg = f'<path d="{arc_path(0, 100, 110, 68)}" fill="#e5e7eb"/>\n' + arcs_svg
-
-    # Needle
+    # Needle — thin line from center to arc edge
     needle_pct = (v - min_val) / (max_val - min_val) * 100
-    needle_deg = needle_pct / 100 * 180
-    nx, ny = polar_r(needle_deg, 90)
-    # Base of needle (two points slightly offset from center)
-    base_angle_l = math.radians(180 - needle_deg + 90)
-    base_angle_r = math.radians(180 - needle_deg - 90)
-    bx1 = cx + 7 * math.cos(base_angle_l)
-    by1 = cy - 7 * math.sin(base_angle_l)
-    bx2 = cx + 7 * math.cos(base_angle_r)
-    by2 = cy - 7 * math.sin(base_angle_r)
+    angle = pct_to_rad(needle_pct)
+    nx, ny = 0.88 * math.cos(angle), 0.88 * math.sin(angle)
 
-    needle_svg = (
-        f'<polygon points="{nx:.1f},{ny:.1f} {bx1:.1f},{by1:.1f} {bx2:.1f},{by2:.1f}" '
-        f'fill="#1e293b" opacity="0.9"/>\n'
-        f'<circle cx="{cx}" cy="{cy}" r="8" fill="#1e293b"/>\n'
-        f'<circle cx="{cx}" cy="{cy}" r="4" fill="white"/>\n'
-    )
+    # Needle as a very thin filled triangle
+    perp = angle + math.pi / 2
+    base = 0.04
+    bx1 = base * math.cos(perp)
+    by1 = base * math.sin(perp)
 
-    # Tick labels
-    ticks_svg = ""
+    fig.add_trace(go.Scatter(
+        x=[nx, -bx1, bx1, nx],
+        y=[ny, -by1, by1, ny],
+        fill="toself", fillcolor="#1e293b",
+        line=dict(width=0), hoverinfo="skip", showlegend=False,
+    ))
+
+    # Center cap
+    theta = [i * 2 * math.pi / 40 for i in range(41)]
+    fig.add_trace(go.Scatter(
+        x=[0.07 * math.cos(t) for t in theta],
+        y=[0.07 * math.sin(t) for t in theta],
+        fill="toself", fillcolor="#1e293b",
+        line=dict(width=0), hoverinfo="skip", showlegend=False,
+    ))
+    fig.add_trace(go.Scatter(
+        x=[0.035 * math.cos(t) for t in theta],
+        y=[0.035 * math.sin(t) for t in theta],
+        fill="toself", fillcolor="white",
+        line=dict(width=0), hoverinfo="skip", showlegend=False,
+    ))
+
+    # Tick labels at arc edge
     for label, pct in [("0", 0), ("20", 20), (str(y_start), y_start),
                         (str(g_start), g_start), ("100", 100)]:
-        tx, ty = polar_r(pct / 100 * 180, 120)
-        ticks_svg += (f'<text x="{tx:.1f}" y="{ty:.1f}" text-anchor="middle" '
-                      f'font-size="11" fill="#9ca3af" font-family="Georgia,serif">{label}</text>\n')
+        a = pct_to_rad(pct)
+        tx, ty = 1.18 * math.cos(a), 1.18 * math.sin(a)
+        fig.add_annotation(x=tx, y=ty, text=label, showarrow=False,
+                           font=dict(size=10, color="#9ca3af"))
 
     # Recommendation text
     if v >= g_start:
-        rec = "Full training cleared"
-        rec_bg = "#dcfce7"; rec_color = "#15803d"
+        rec = "✅ Full training cleared"
     elif v >= y_start:
-        rec = "Monitor closely today"
-        rec_bg = "#fef9c3"; rec_color = "#92400e"
+        rec = "👀 Monitor closely today"
     else:
         rec = "🚨 50% volume reduction recommended"
-        rec_bg = "#fff7ed"; rec_color = "#c2410c"
 
-    html = f"""
-<div style="background:white; border:1px solid #e5e7eb; border-radius:16px;
-    padding:20px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-    <div style="font-size:12px; color:#9ca3af; font-weight:600; letter-spacing:0.06em;
-        text-transform:uppercase; margin-bottom:8px;">{title}</div>
-    <svg width="300" height="155" viewBox="0 0 300 155"
-        style="overflow:visible; max-width:100%;">
-        {arcs_svg}
-        {ticks_svg}
-        {needle_svg}
-        <text x="{cx}" y="148" text-anchor="middle"
-            font-size="36" font-weight="800" fill="#111827"
-            font-family="Georgia,serif">{int(v)}</text>
-        <text x="{cx+28}" y="148" text-anchor="middle"
-            font-size="18" font-weight="500" fill="#9ca3af"
-            font-family="Georgia,serif">/100</text>
-    </svg>
-    <div style="margin-top:4px; background:{rec_bg}; color:{rec_color};
-        border-radius:8px; padding:8px 14px; font-size:13px; font-weight:600;">
-        {rec}
-    </div>
-</div>"""
-    return html
+    fig.add_annotation(x=0, y=-0.28, text=f"<b>{int(v)}</b>/100",
+                       showarrow=False,
+                       font=dict(size=28, color="#111827", family="Georgia, serif"))
+    fig.add_annotation(x=0, y=-0.52, text=rec,
+                       showarrow=False,
+                       font=dict(size=11, color="#6b7280"))
+
+    fig.update_layout(
+        xaxis=dict(range=[-1.3, 1.3], visible=False, scaleanchor="y"),
+        yaxis=dict(range=[-0.7, 1.2], visible=False),
+        height=240,
+        margin=dict(l=10, r=10, t=30, b=10),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        title=dict(text=title, font=dict(size=12, color="#9ca3af"), x=0.5),
+    )
+    return fig
+
 
 
 def pill_meter(value, title, max_val=10, good_max=3, warn_max=7, invert=True, suffix=""):
     """
-    Whistle-style pill meter — matches screenshot exactly.
-    Solid filled color up to value, light tint for remainder.
-    Thin dark needle tick. Large bold number top-right.
+    3-band pill meter matching the reference screenshot.
+    Full GREEN→AMBER→RED (or RED→AMBER→GREEN) gradient always visible.
+    Dark needle tick marks the current value position.
     """
     try:
         v = float(value)
@@ -160,81 +167,47 @@ def pill_meter(value, title, max_val=10, good_max=3, warn_max=7, invert=True, su
     v   = max(0.0, min(float(max_val), v))
     pct = (v / float(max_val)) * 100.0
 
-    # Exact colors from screenshot
-    if invert:
-        # low=good (soreness, stress): red zone left, green right
-        # filled color depends on where value sits
-        if v <= good_max:
-            fill_color = "#5ec48a"   # green — low soreness is good
-        elif v <= warn_max:
-            fill_color = "#f5c842"   # amber
-        else:
-            fill_color = "#e05252"   # red
+    g1 = (good_max / max_val) * 100.0
+    g2 = (warn_max / max_val) * 100.0
 
-        # Band colors: green→amber→red left to right
-        band_stops = (
-            f'<stop offset="0%"   stop-color="#5ec48a"/>'
-            f'<stop offset="{(good_max/max_val)*100:.0f}%" stop-color="#5ec48a"/>'
-            f'<stop offset="{(good_max/max_val)*100:.0f}%" stop-color="#f5c842"/>'
-            f'<stop offset="{(warn_max/max_val)*100:.0f}%" stop-color="#f5c842"/>'
-            f'<stop offset="{(warn_max/max_val)*100:.0f}%" stop-color="#e05252"/>'
-            f'<stop offset="100%" stop-color="#e05252"/>'
+    if invert:
+        # Low = good (soreness, stress): GREEN left → AMBER middle → RED right
+        gradient = (
+            f"linear-gradient(to right,"
+            f"#5ec48a 0%,#5ec48a {g1:.1f}%,"
+            f"#f5c842 {g1:.1f}%,#f5c842 {g2:.1f}%,"
+            f"#e05252 {g2:.1f}%,#e05252 100%)"
         )
         left_label, right_label = "Low (better)", "High"
     else:
-        # high=good (mood): red left, green right
-        if v >= warn_max:
-            fill_color = "#5ec48a"
-        elif v >= good_max:
-            fill_color = "#f5c842"
-        else:
-            fill_color = "#e05252"
-
-        band_stops = (
-            f'<stop offset="0%"   stop-color="#e05252"/>'
-            f'<stop offset="{(good_max/max_val)*100:.0f}%" stop-color="#e05252"/>'
-            f'<stop offset="{(good_max/max_val)*100:.0f}%" stop-color="#f5c842"/>'
-            f'<stop offset="{(warn_max/max_val)*100:.0f}%" stop-color="#f5c842"/>'
-            f'<stop offset="{(warn_max/max_val)*100:.0f}%" stop-color="#5ec48a"/>'
-            f'<stop offset="100%" stop-color="#5ec48a"/>'
+        # High = good (mood): RED left → AMBER middle → GREEN right
+        gradient = (
+            f"linear-gradient(to right,"
+            f"#e05252 0%,#e05252 {g1:.1f}%,"
+            f"#f5c842 {g1:.1f}%,#f5c842 {g2:.1f}%,"
+            f"#5ec48a {g2:.1f}%,#5ec48a 100%)"
         )
         left_label, right_label = "Low", "High (better)"
 
     display_val = f"{int(v)}" if v == int(v) else f"{v:.1f}"
-    uid = f"grad_{title.replace(' ','_')}"
 
-    # Pill: filled portion uses solid color, unfilled uses very light tint
-    fill_w   = pct
-    unfill_w = 100 - pct
-    light    = {"#e05252": "#fde8e8", "#f5c842": "#fefce8", "#5ec48a": "#e8f7ef"}
-    light_color = light.get(fill_color, "#f3f4f6")
-
-    html = f"""
-<div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:14px;
-    padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-    <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px;">
-        <span style="font-weight:700; font-size:15px; color:#111827;">{title}</span>
-        <span style="font-weight:800; font-size:26px; color:#111827; font-family:Georgia,serif;
-            line-height:1;">{display_val}<span style="font-size:14px; font-weight:500;
-            color:#9ca3af;">{suffix}</span></span>
-    </div>
-    <div style="position:relative; height:18px; border-radius:999px; overflow:visible;
-        margin-bottom:8px;">
-        <div style="display:flex; height:18px; border-radius:999px; overflow:hidden;">
-            <div style="width:{fill_w:.2f}%; background:{fill_color}; transition:width 0.3s;"></div>
-            <div style="width:{unfill_w:.2f}%; background:{light_color};"></div>
-        </div>
-        <div style="position:absolute; left:calc({pct:.2f}% - 2px); top:-5px;
-            width:4px; height:28px; background:#374151; border-radius:2px;
-            box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
-    </div>
-    <div style="display:flex; justify-content:space-between; font-size:11px;
-        color:#9ca3af; font-weight:500;">
-        <span>{left_label}</span><span>{right_label}</span>
-    </div>
-</div>"""
-    return html
-
+    return (
+        f'<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;'
+        f'padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:0;">'
+        f'<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">'
+        f'<span style="font-weight:700;font-size:15px;color:#111827;">{title}</span>'
+        f'<span style="font-weight:800;font-size:26px;color:#111827;font-family:Georgia,serif;line-height:1;">'
+        f'{display_val}<span style="font-size:14px;font-weight:500;color:#9ca3af;">{suffix}</span>'
+        f'</span></div>'
+        f'<div style="position:relative;height:18px;border-radius:999px;margin-bottom:8px;background:{gradient};">'
+        f'<div style="position:absolute;left:calc({pct:.1f}% - 2px);top:-5px;'
+        f'width:4px;height:28px;background:#374151;border-radius:2px;'
+        f'box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>'
+        f'</div>'
+        f'<div style="display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;font-weight:500;">'
+        f'<span>{left_label}</span><span>{right_label}</span>'
+        f'</div></div>'
+    )
 
 def create_metric_card(label, value, status):
     colors = {
@@ -445,9 +418,9 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
             st.markdown(create_recommendation_box(readiness, context="competition"), unsafe_allow_html=True)
         else:
-            # create_gauge_chart now returns HTML (SVG needle gauge)
-            st.markdown(create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80]),
-                        unsafe_allow_html=True)
+            # create_gauge_chart returns a Plotly figure
+            fig = create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80])
+            st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
 
     with col3:
         st.markdown("**Performance Profile**")
