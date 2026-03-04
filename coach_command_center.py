@@ -92,6 +92,17 @@ def _build_summary(wellness, players, force_plate, training_load, end_date):
                 pl_flag, _ = _gps_flag(pid, "player_load", g["player_load"], training_load, ref)
                 ac_flag, _ = _gps_flag(pid, "accel_count", g["accel_count"], training_load, ref)
 
+        # Plain-English top reason for coach card
+        flags = []
+        if w["sleep_hours"] < 6.5:    flags.append(f"Low sleep ({w['sleep_hours']:.1f}h)")
+        if w["soreness"] >= 7:        flags.append(f"High soreness ({w['soreness']:.0f}/10)")
+        if w["stress"] >= 7:          flags.append(f"High stress ({w['stress']:.0f}/10)")
+        if cmj_flag == "🔴":          flags.append("CMJ drop")
+        if ac_flag  == "🔴":          flags.append("Accel drop")
+        if pl_flag  == "🔴":          flags.append("Low GPS load")
+        if w["mood"] <= 4:            flags.append(f"Low mood ({w['mood']:.0f}/10)")
+        reason = " · ".join(flags[:2]) if flags else "All clear"
+
         rows.append({
             "pid":      pid,
             "name":     p["name"],
@@ -106,9 +117,8 @@ def _build_summary(wellness, players, force_plate, training_load, end_date):
             "cmj":      cmj_flag,
             "load":     pl_flag,
             "accel":    ac_flag,
+            "reason":   reason,
         })
-
-    return sorted(rows, key=lambda r: r["score"])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -383,45 +393,53 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         unsafe_allow_html=True,
     )
 
-    # Sort: red first, then yellow, then green
+    # Red first, then yellow, then green — most urgent top-left
     grid_rows = (
         [r for r in summary if r["score"] < 60] +
         [r for r in summary if 60 <= r["score"] < 80] +
         [r for r in summary if r["score"] >= 80]
     )
 
+    # Color scheme per status
+    STATUS_STYLES = {
+        "red":    {"bg": "#fef2f2", "border": "#ef4444", "score_color": "#dc2626", "badge_bg": "#fecaca", "badge_text": "#991b1b", "label": "PROTECT"},
+        "yellow": {"bg": "#fffbeb", "border": "#f59e0b", "score_color": "#d97706", "badge_bg": "#fef3c7", "badge_text": "#92400e", "label": "MONITOR"},
+        "green":  {"bg": "#f0fdf4", "border": "#22c55e", "score_color": "#16a34a", "badge_bg": "#dcfce7", "badge_text": "#166534", "label": "READY"},
+    }
+
+    def _status_key(score):
+        return "red" if score < 60 else ("yellow" if score < 80 else "green")
+
     cols = st.columns(4)
     for i, r in enumerate(grid_rows):
+        s = STATUS_STYLES[_status_key(r["score"])]
         col = cols[i % 4]
         with col:
             st.markdown(
                 f"""
                 <div style="
-                    background: {r['bg']};
-                    border: 1.5px solid {r['color']}40;
-                    border-left: 4px solid {r['color']};
-                    border-radius: 10px;
-                    padding: 14px 16px;
-                    margin-bottom: 12px;
+                    background:{s['bg']};
+                    border:2px solid {s['border']};
+                    border-radius:12px;
+                    padding:16px 18px;
+                    margin-bottom:12px;
                 ">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div style="font-weight:700; font-size:14px; color:#1e293b;">{r['name']}</div>
-                        <div style="font-size:9px; font-weight:700; color:{r['color']};
-                            letter-spacing:0.1em; background:white;
-                            padding:2px 7px; border-radius:20px;">{r['pos']}</div>
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+                        <div>
+                            <div style="font-weight:800;font-size:15px;color:#0f172a;">{r['name']}</div>
+                            <div style="font-size:11px;color:#64748b;margin-top:1px;">{r['pos']}</div>
+                        </div>
+                        <div style="background:{s['badge_bg']};color:{s['badge_text']};
+                            font-size:10px;font-weight:800;letter-spacing:0.08em;
+                            padding:3px 8px;border-radius:20px;">{s['label']}</div>
                     </div>
-                    <div style="font-size:26px; font-weight:900; color:{r['color']};
-                        font-family:monospace; margin:6px 0 4px;">
-                        {r['score']:.0f}<span style="font-size:14px; font-weight:600;">%</span>
+                    <div style="font-size:42px;font-weight:900;color:{s['score_color']};
+                        font-family:Georgia,serif;line-height:1;margin-bottom:10px;">
+                        {r['score']:.0f}<span style="font-size:18px;font-weight:600;">%</span>
                     </div>
-                    <div style="display:flex; gap:10px; font-size:12px; color:#475569;">
-                        <span>😴 {r['sleep']:.1f}h</span>
-                        <span>💢 {r['soreness']:.0f}/10</span>
-                    </div>
-                    <div style="display:flex; gap:8px; margin-top:8px; font-size:13px;">
-                        <span title="CMJ">🦵{r['cmj']}</span>
-                        <span title="GPS Load">📡{r['load']}</span>
-                        <span title="Accels">⚡{r['accel']}</span>
+                    <div style="font-size:12px;color:#475569;font-weight:600;
+                        border-top:1px solid {s['border']}40;padding-top:8px;">
+                        {r['reason']}
                     </div>
                 </div>
                 """,
@@ -475,6 +493,3 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                     config={"displayModeBar": False},
                     key=f"spark_{field}",
                 )
-
-
-            )

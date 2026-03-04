@@ -31,7 +31,7 @@ generate_database.py  →  waims_demo.db  →  train_models.py  →  models/
 - **GPS / Kinexon Strip** — team avg load AU, team avg accel count, names of high-load and low-accel athletes
 - **4-column Roster Grid** — every player card shows: readiness %, sleep, soreness, and three signal icons (🦵 CMJ · 📡 GPS Load · ⚡ Accels). Sorted red-first
 - **7-day Team Sparklines** — sleep, soreness, mood, stress with delta arrow vs yesterday
-- **Deep Dive nav tiles** — links to each analyst tab
+- **Ends cleanly after sparklines** — no nav footer; tab bar serves analyst navigation
 
 **Key function:** `coach_command_center(wellness, players, force_plate, training_load, acwr, end_date)`
 
