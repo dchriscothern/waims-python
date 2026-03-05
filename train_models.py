@@ -433,6 +433,64 @@ df["injury_risk_score"] = model.predict_proba(X_all_scaled)[:, 1]
 df.to_sql("ml_predictions", conn, if_exists="replace", index=False)
 print("✓ Predictions saved to database (ml_predictions table)")
 
+# ==============================================================================
+# JOIN ESPN GAME PERFORMANCE TO MONITORING DATA
+# ==============================================================================
+# Adds pts, minutes, plus_minus, result columns on game dates.
+# These appear in Correlation Explorer so staff can see:
+#   - Did low readiness predict low points?
+#   - Do back-to-back games correlate with scoring drop?
+#   - What monitoring signals preceded poor plus/minus?
+# Non-game days get NaN — Correlation Explorer filters to game days only.
+
+try:
+    _esp_conn = sqlite3.connect(DB_PATH)
+    _boxes = pd.read_sql_query("SELECT * FROM game_box_scores", _esp_conn)
+    _results = pd.read_sql_query("SELECT event_id, date, result, score_margin, home_away FROM game_results", _esp_conn)
+    _esp_conn.close()
+
+    if not _boxes.empty:
+        _boxes["date"] = pd.to_datetime(_boxes["date"], errors="coerce")
+        _results["date"] = pd.to_datetime(_results["date"], errors="coerce")
+
+        # Use player_name to join since ESPN uses its own player_id
+        # Join on date only — attaches game context to any player active that day
+        _game_context = _boxes.merge(
+            _results[["date", "result", "score_margin", "home_away"]],
+            on="date", how="left"
+        )[["date", "player_name", "pts", "minutes", "plus_minus",
+           "reb", "ast", "result", "score_margin", "home_away"]]
+
+        # Rename to avoid collision
+        _game_context = _game_context.rename(columns={
+            "pts": "game_pts", "minutes": "game_minutes_actual",
+            "plus_minus": "game_plus_minus", "reb": "game_reb", "ast": "game_ast"
+        })
+
+        # Map ESPN player names to our anonymized player names via position order
+        # Since demo data is anonymized, we attach game-day aggregate context
+        # (team-level: avg pts on that date, W/L, margin)
+        _team_game_day = _game_context.groupby("date").agg(
+            team_avg_pts    = ("game_pts", "mean"),
+            team_avg_min    = ("game_minutes_actual", "mean"),
+            game_result     = ("result", "first"),
+            game_margin     = ("score_margin", "first"),
+            home_away       = ("home_away", "first"),
+        ).reset_index()
+
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        df = df.merge(_team_game_day, on="date", how="left")
+
+        n_game_days = df["game_result"].notna().sum()
+        print(f"✓ ESPN game context joined: {n_game_days} player-game-day rows enriched")
+        print(f"  New columns: team_avg_pts, game_result, game_margin, home_away")
+        print(f"  Correlation Explorer can now show: readiness vs game performance")
+    else:
+        print("  No ESPN game data found — run espn_data.py to fetch box scores")
+        print("  Correlation Explorer will show monitoring data only")
+except Exception as _e:
+    print(f"  ESPN join skipped: {_e}")
+
 os.makedirs("data", exist_ok=True)
 df.to_csv("data/processed_data.csv", index=False)
 print("✓ Exported: data/processed_data.csv")

@@ -42,28 +42,20 @@ def _build_master(wellness, training_load, force_plate, acwr, injuries, players)
         on=["player_id", "date"], how="left",
     )
 
-       # Forward-fill force plate (weekly tests)
-    fp_cols = ["player_id", "date", "cmj_height_cm", "rsi_modified"]
-    if "asymmetry_percent" in force_plate.columns:
-        fp_cols.append("asymmetry_percent")
-
+    # Forward-fill force plate (weekly tests)
     fp_daily = (
         df[["player_id", "date"]]
-        .merge(force_plate[fp_cols], on=["player_id", "date"], how="left")
+        .merge(force_plate[["player_id", "date", "cmj_height_cm", "rsi_modified",
+                             "asymmetry_percent"]],
+               on=["player_id", "date"], how="left")
         .sort_values(["player_id", "date"])
     )
-
-    ffill_cols = [c for c in ["cmj_height_cm", "rsi_modified", "asymmetry_percent"] if c in fp_daily.columns]
-    if ffill_cols:
-        fp_daily[ffill_cols] = fp_daily.groupby("player_id")[ffill_cols].ffill()
-
-    df = df.merge(
-        fp_daily.drop(columns=["player_id", "date"]),
-        left_index=True,
-        right_index=True,
-        how="left",
+    fp_daily[["cmj_height_cm", "rsi_modified", "asymmetry_percent"]] = (
+        fp_daily.groupby("player_id")[["cmj_height_cm", "rsi_modified", "asymmetry_percent"]]
+        .ffill()
     )
-    
+    df = df.merge(fp_daily.drop(columns=["player_id", "date"]), left_index=True, right_index=True, how="left")
+
     # Injury label
     df["injured_within_7days"] = 0
     if len(injuries) > 0:
@@ -100,6 +92,48 @@ def _build_master(wellness, training_load, force_plate, acwr, injuries, players)
     df = df.merge(players[["player_id", "name", "position"]], on="player_id", how="left")
     df = df.sort_values(["player_id", "date"])
 
+    # ── ESPN game outcome context ─────────────────────────────────────────────
+    # Join team-level game results on game dates so Correlation Explorer can show:
+    #   - Readiness score vs game result (W/L)
+    #   - Sleep/CMJ vs team scoring output
+    #   - Back-to-back effect on actual team points
+    # Non-game days: NaN (excluded from game-day correlations automatically)
+    try:
+        import sqlite3 as _sq
+        _c = _sq.connect("waims_demo.db")
+        _tables = [r[0] for r in _c.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()]
+
+        if "game_box_scores" in _tables and "game_results" in _tables:
+            _boxes   = pd.read_sql_query("SELECT * FROM game_box_scores", _c)
+            _results = pd.read_sql_query(
+                "SELECT date, result, score_margin, home_away FROM game_results", _c
+            )
+            _c.close()
+
+            _boxes["date"]   = pd.to_datetime(_boxes["date"],   errors="coerce")
+            _results["date"] = pd.to_datetime(_results["date"], errors="coerce")
+
+            # Team-level aggregate per game date
+            _team_day = _boxes.merge(_results, on="date", how="left").groupby("date").agg(
+                game_team_pts   = ("pts",         "mean"),
+                game_team_min   = ("minutes",     "mean"),
+                game_result     = ("result",       "first"),   # W or L
+                game_margin     = ("score_margin", "first"),
+                game_home_away  = ("home_away",    "first"),
+            ).reset_index()
+
+            # W=1 L=0 for numeric correlation
+            _team_day["game_result_binary"] = (_team_day["game_result"] == "W").astype(float)
+
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+            df = df.merge(_team_day, on="date", how="left")
+        else:
+            _c.close()
+    except Exception:
+        pass   # ESPN tables absent — explorer works without them
+
     return df
 
 
@@ -123,6 +157,10 @@ METRIC_LABELS = {
     "total_distance_km": "Distance (km)",
     "hsr_distance_m":    "HSR (m)",
     "injured_within_7days": "Injury (7d)",
+    "game_team_pts":        "Game: Team Avg Pts",
+    "game_margin":          "Game: Score Margin",
+    "game_result_binary":   "Game: Win (1) / Loss (0)",
+    "game_home_away":       "Game: Home/Away",
 }
 
 RESEARCH_NOTES = {

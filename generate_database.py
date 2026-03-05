@@ -137,19 +137,21 @@ print("\n2. Generating player roster...")
 
 players = pd.DataFrame({
     "player_id": [f"P{i:03d}" for i in range(1, 13)],
+    # Anonymized for portfolio demo — positions/ages/injury history reflect
+    # realistic WNBA roster composition but names are not real players
     "name": [
-        "Paige Bueckers",
-        "Arike Ogunbowale",
-        "Satou Sabally",
-        "Teaira McCowan",
-        "Natasha Howard",
-        "Maddy Siegrist",
-        "Jacy Sheldon",
-        "Lou Lopez Senechal",
-        "Stephanie Soares",
-        "Jaelyn Brown",
-        "Kalani Brown",
-        "Monique Billings",
+        "Player G1",
+        "Player G2",
+        "Player F1",
+        "Player C1",
+        "Player F2",
+        "Player F3",
+        "Player G3",
+        "Player G4",
+        "Player C2",
+        "Player G5",
+        "Player F4",
+        "Player F5",
     ],
     "position": ["G", "G", "F", "C", "F", "F", "G", "G", "C", "G", "F", "F"],
     "age":      [23, 28, 27, 28, 32, 24, 24, 23, 26, 22, 29, 31],
@@ -454,7 +456,7 @@ print("✓ Analytical view created")
 # ==============================================================================
 # 10b. SCHEDULE TABLE — 2026 Dallas Wings (real dates + context flags)
 # Reference: wings.wnba.com/news/wings-announce-2026-schedule (Jan 21, 2026)
-# Unrivaled players: Paige Bueckers (Breeze BC), Arike Ogunbowale (Mist BC)
+# Unrivaled players: G1 (Breeze BC), G2 (Mist BC) — anonymized for demo
 # Unrivaled 2026 ran Jan 5 – ~Mar 4; WNBA camp ~Apr 28
 # ==============================================================================
 
@@ -538,7 +540,7 @@ wings_2026 = [
 ]
 
 # Unrivaled 2026 context — players who came in from Unrivaled
-# Paige Bueckers (Breeze BC) and Arike Ogunbowale (Mist BC) played Jan 5 – Mar 4
+# G1 (Breeze BC) and G2 (Mist BC) played Jan 5 – Mar 4 Unrivaled season
 # WNBA camp starts ~Apr 28 — ~55 day gap but different movement demands
 unrivaled_context = [
     # Approximate Unrivaled game dates for tracking (3-on-3, 72ft court, 18s clock)
