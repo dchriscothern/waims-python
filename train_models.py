@@ -26,101 +26,50 @@ print("=" * 60)
 # ==============================================================================
 # 1. LOAD DATA
 # ==============================================================================
-# ==============================================================================
-# 1. LOAD DATA
-# ==============================================================================
 
 print("\n1. Loading data from database...")
 
 conn = sqlite3.connect("waims_demo.db")
 
-def _table_exists(cnx, name: str) -> bool:
-    row = cnx.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1;",
-        (name,),
-    ).fetchone()
-    return row is not None
-
-def _table_cols(cnx, name: str):
-    if not _table_exists(cnx, name):
-        return []
-    return [r[1] for r in cnx.execute(f"PRAGMA table_info({name});").fetchall()]
-
-def _sel(alias: str, col: str, cols_present):
-    # If column exists in that table, select it; otherwise create NULL column with same name
-    return f"{alias}.{col}" if col in cols_present else f"NULL AS {col}"
-
-has_schedule = _table_exists(conn, "schedule")
-
-tcols = _table_cols(conn, "training_load")
-fcols = _table_cols(conn, "force_plate")
-
-select_cols = [
-    "p.player_id, p.name, p.position, p.age, p.injury_history_count",
-    "w.date",
-    "w.sleep_hours, w.sleep_quality, w.soreness, w.stress, w.mood",
-
-    # training_load (GPS/Kinexon-friendly; will become NULL columns if not present)
-    f"{_sel('t','practice_minutes',tcols)}, {_sel('t','practice_rpe',tcols)}, {_sel('t','total_daily_load',tcols)}, {_sel('t','game_minutes',tcols)}",
-    f"{_sel('t','player_load',tcols)}, {_sel('t','accel_count',tcols)}, {_sel('t','decel_count',tcols)}",
-    f"{_sel('t','total_distance_km',tcols)}, {_sel('t','hsr_distance_m',tcols)}, {_sel('t','sprint_distance_m',tcols)}",
-
-    # acwr + force plate
-    "a.acwr",
-    f"{_sel('f','cmj_height_cm',fcols)}, {_sel('f','rsi_modified',fcols)}",
-]
-
-# schedule context (use real table if present; otherwise constants)
-if has_schedule:
-    select_cols += [
-        "COALESCE(s.is_back_to_back, 0) AS is_back_to_back",
-        "COALESCE(s.days_rest, 3)       AS days_rest",
-        "COALESCE(s.travel_flag, 0)     AS travel_flag",
-        "COALESCE(s.time_zone_diff, 0)  AS time_zone_diff",
-        "CASE WHEN s.game_type = 'Unrivaled' THEN 1 ELSE 0 END AS unrivaled_flag",
-    ]
-else:
-    select_cols += [
-        "0 AS is_back_to_back",
-        "3 AS days_rest",
-        "0 AS travel_flag",
-        "0 AS time_zone_diff",
-        "0 AS unrivaled_flag",
-    ]
-
-# IMPORTANT: build the select list OUTSIDE any f-string to avoid the backslash error
-select_list = ",\n        ".join(select_cols)
-
-sql = """
+df = pd.read_sql_query(
+    """
     SELECT
-        {select_list}
+        p.player_id, p.name, p.position, p.age, p.injury_history_count,
+        w.date,
+        w.sleep_hours, w.sleep_quality, w.soreness, w.stress, w.mood,
+        t.practice_minutes, t.practice_rpe, t.total_daily_load, t.game_minutes,
+        t.player_load, t.accel_count, t.decel_count,
+        t.total_distance_km, t.hsr_distance_m, t.sprint_distance_m,
+        a.acwr,
+        f.cmj_height_cm, f.rsi_modified,
+        COALESCE(s.is_back_to_back, 0) AS is_back_to_back,
+        COALESCE(s.days_rest, 3)       AS days_rest,
+        COALESCE(s.travel_flag, 0)     AS travel_flag,
+        COALESCE(s.time_zone_diff, 0)  AS time_zone_diff,
+        CASE WHEN s.game_type = 'Unrivaled' THEN 1 ELSE 0 END AS unrivaled_flag
     FROM players p
     LEFT JOIN wellness w       ON p.player_id = w.player_id
     LEFT JOIN training_load t  ON p.player_id = t.player_id AND w.date = t.date
     LEFT JOIN acwr a           ON p.player_id = a.player_id AND w.date = a.date
     LEFT JOIN force_plate f    ON p.player_id = f.player_id AND w.date = f.date
-""".format(select_list=select_list)
+    LEFT JOIN schedule s       ON w.date = s.date
+    WHERE w.date IS NOT NULL
+    """,
+    conn,
+)
 
-if has_schedule:
-    sql += "\n    LEFT JOIN schedule s       ON w.date = s.date\n"
-
-sql += "    WHERE w.date IS NOT NULL\n"
-
-df = pd.read_sql_query(sql, conn)
-
-injuries = pd.read_sql_query("SELECT * FROM injuries", conn) if _table_exists(conn, "injuries") else pd.DataFrame()
+injuries = pd.read_sql_query("SELECT * FROM injuries", conn)
 
 df["injured_within_7days"] = 0
-if len(injuries) > 0:
-    for _, inj in injuries.iterrows():
-        inj_date = pd.to_datetime(inj["injury_date"])
-        warning_start = inj_date - pd.Timedelta(days=7)
-        mask = (
-            (df["player_id"] == inj["player_id"])
-            & (pd.to_datetime(df["date"]) >= warning_start)
-            & (pd.to_datetime(df["date"]) <= inj_date)
-        )
-        df.loc[mask, "injured_within_7days"] = 1
+for _, inj in injuries.iterrows():
+    inj_date      = pd.to_datetime(inj["injury_date"])
+    warning_start = inj_date - pd.Timedelta(days=7)
+    mask = (
+        (df["player_id"] == inj["player_id"])
+        & (pd.to_datetime(df["date"]) >= warning_start)
+        & (pd.to_datetime(df["date"]) <= inj_date)
+    )
+    df.loc[mask, "injured_within_7days"] = 1
 
 print(f"✓ Loaded {len(df)} records")
 print(f"  Players    : {df['player_id'].nunique()}")
@@ -129,8 +78,8 @@ print(f"  Date range : {df['date'].min()} → {df['date'].max()}")
 # Check GPS coverage
 gps_cols = ["player_load", "accel_count", "decel_count"]
 gps_present = all(c in df.columns and df[c].notna().sum() > 0 for c in gps_cols)
-print(f"  Schedule   : {'✓ available' if has_schedule else '✗ not found — defaults used'}")
 print(f"  GPS data   : {'✓ available' if gps_present else '✗ not found — GPS features will be skipped'}")
+
 # ==============================================================================
 # 2. FEATURE ENGINEERING
 # ==============================================================================
@@ -390,7 +339,9 @@ def calculate_readiness_score(row):
     if row.get("days_rest", 3) <= 1:
         schedule_pts -= 2   # Less than 2 days rest
     if row.get("unrivaled_flag", 0):
-        schedule_pts -= 2   # Unrivaled-to-WNBA transition: different movement demands
+        schedule_pts -= 2   # Unrivaled-to-WNBA transition: clinical estimate only
+                                    # No published research — 72ft court vs 94ft WNBA, 3v3 vs 5v5
+                                    # Flag for prospective validation with actual transition data
     score += max(0, schedule_pts)
 
     # ── PERSONAL DEVIATION MODIFIER (±10 pts) ─────────────────────────────────
