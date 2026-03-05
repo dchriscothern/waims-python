@@ -29,7 +29,8 @@ print("=" * 60)
 
 print("\n1. Loading data from database...")
 
-conn = sqlite3.connect("waims_demo.db")
+DB_PATH = "waims_demo.db"
+conn = sqlite3.connect(DB_PATH)
 
 # Graceful fallback — schedule table exists only when generate_database.py is run.
 # Falls back to zero-filled schedule columns if only generate_demo_data.py was run.
