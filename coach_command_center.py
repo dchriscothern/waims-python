@@ -223,6 +223,46 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
 # GPS SUMMARY STRIP
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _schedule_context(end_date, db_path="waims_demo.db"):
+    """Return today's game/practice context string for header."""
+    import sqlite3
+    try:
+        conn = sqlite3.connect(db_path)
+        import pandas as _pd
+        tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()]
+        if "schedule" not in tables:
+            conn.close()
+            return "Practice Day"
+        sched = _pd.read_sql_query(
+            "SELECT * FROM schedule WHERE date = ?",
+            conn, params=[str(end_date)]
+        )
+        conn.close()
+        if sched.empty:
+            return "Practice Day"
+        row = sched.iloc[0]
+        opp  = row.get("opponent", "")
+        loc  = row.get("location", "home")
+        b2b  = row.get("is_back_to_back", 0)
+        rest = row.get("days_rest", 3)
+        fiba = row.get("fiba_break", 0)
+        if fiba:
+            return "FIBA Break"
+        if opp and str(opp).strip():
+            home_away = "vs" if str(loc).lower() == "home" else "@"
+            context = f"Game Day — {home_away} {opp}"
+            if b2b:
+                context += "  ·  Back-to-Back"
+            elif int(rest) <= 1:
+                context += f"  ·  {rest}d rest"
+            return context
+        return "Practice Day"
+    except Exception:
+        return "Practice Day"
+
+
 def _gps_strip(training_load, players, end_date):
     ref = pd.Timestamp(end_date)
     if "player_load" not in training_load.columns:
@@ -273,48 +313,68 @@ def _sparkline(values, color="#2E86AB"):
 
 def coach_command_center(wellness, players, force_plate, training_load, acwr, end_date):
 
-    summary = _build_summary(wellness, players, force_plate, training_load, end_date)
-    alerts  = _top_alerts(summary, acwr, end_date)
-    gps     = _gps_strip(training_load, players, end_date)
-    ref     = pd.Timestamp(end_date)
+    summary         = _build_summary(wellness, players, force_plate, training_load, end_date)
+    alerts          = _top_alerts(summary, acwr, end_date)
+    gps             = _gps_strip(training_load, players, end_date)
+    game_context    = _schedule_context(end_date)
+    ref             = pd.Timestamp(end_date)
 
-    # ── HEADER ────────────────────────────────────────────────────────────────
+    # ── HEADER: date + game/practice context + traffic light counts ───────────
     n_green  = sum(1 for r in summary if r["score"] >= 80)
     n_yellow = sum(1 for r in summary if 60 <= r["score"] < 80)
     n_red    = sum(1 for r in summary if r["score"] < 60)
+
+    # Game context badge color
+    ctx_is_game = "Game Day" in game_context
+    ctx_color   = "#f59e0b" if ctx_is_game else "#64748b"
+    ctx_bg      = "rgba(245,158,11,0.12)" if ctx_is_game else "rgba(100,116,139,0.10)"
 
     st.markdown(
         f"""
         <div style="
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f3460 100%);
-            border-radius: 16px;
-            padding: 28px 32px 20px;
-            margin-bottom: 20px;
-            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 22px 28px 18px;
+            margin-bottom: 18px;
+            border: 1px solid rgba(255,255,255,0.07);
         ">
-            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;
+                flex-wrap:wrap; gap:12px;">
+
                 <div>
-                    <div style="font-family:'Georgia',serif; font-size:11px; font-weight:600;
-                        letter-spacing:0.25em; text-transform:uppercase; color:#94a3b8; margin-bottom:6px;">
-                        Morning Brief · {end_date.strftime('%A, %B %d')}
+                    <div style="font-size:11px; font-weight:600; letter-spacing:0.22em;
+                        text-transform:uppercase; color:#94a3b8; margin-bottom:4px;">
+                        {end_date.strftime('%A, %B %d')}
                     </div>
-                    <div style="font-family:'Georgia',serif; font-size:28px; font-weight:700;
-                        color:#f8fafc; letter-spacing:-0.02em;">
-                        WAIMS Command Center
+                    <div style="font-size:22px; font-weight:700; color:#f8fafc;
+                        letter-spacing:-0.01em; margin-bottom:6px;">
+                        Command Center
+                    </div>
+                    <div style="display:inline-block; font-size:12px; font-weight:600;
+                        color:{ctx_color}; background:{ctx_bg};
+                        border-radius:6px; padding:3px 10px; letter-spacing:0.04em;">
+                        {game_context}
                     </div>
                 </div>
-                <div style="display:flex; gap:20px;">
+
+                <div style="display:flex; gap:24px; align-items:center;">
                     <div style="text-align:center;">
-                        <div style="font-size:32px; font-weight:800; color:#4ade80; font-family:monospace;">{n_green}</div>
-                        <div style="font-size:11px; color:#86efac; letter-spacing:0.08em; font-weight:600;">READY</div>
+                        <div style="font-size:30px; font-weight:800; color:#4ade80;
+                            font-family:monospace; line-height:1;">{n_green}</div>
+                        <div style="font-size:10px; color:#86efac; letter-spacing:0.1em;
+                            font-weight:700; margin-top:2px;">READY</div>
                     </div>
                     <div style="text-align:center;">
-                        <div style="font-size:32px; font-weight:800; color:#fbbf24; font-family:monospace;">{n_yellow}</div>
-                        <div style="font-size:11px; color:#fde68a; letter-spacing:0.08em; font-weight:600;">MONITOR</div>
+                        <div style="font-size:30px; font-weight:800; color:#fbbf24;
+                            font-family:monospace; line-height:1;">{n_yellow}</div>
+                        <div style="font-size:10px; color:#fde68a; letter-spacing:0.1em;
+                            font-weight:700; margin-top:2px;">MONITOR</div>
                     </div>
                     <div style="text-align:center;">
-                        <div style="font-size:32px; font-weight:800; color:#f87171; font-family:monospace;">{n_red}</div>
-                        <div style="font-size:11px; color:#fca5a5; letter-spacing:0.08em; font-weight:600;">PROTECT</div>
+                        <div style="font-size:30px; font-weight:800; color:#f87171;
+                            font-family:monospace; line-height:1;">{n_red}</div>
+                        <div style="font-size:10px; color:#fca5a5; letter-spacing:0.1em;
+                            font-weight:700; margin-top:2px;">PROTECT</div>
                     </div>
                 </div>
             </div>
@@ -417,87 +477,89 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         else:
             st.info("GPS data not available — run generate_database.py")
 
-    # ── ROW 2: Roster Grid ────────────────────────────────────────────────────
-    st.markdown("<div style='margin-top:24px;'></div>", unsafe_allow_html=True)
+    # ── ROW 2: Roster Status ─────────────────────────────────────────────────
+    # Cards show: name | position | status badge | readiness % | 2 reasons max
+    # Sorted red → yellow → green (most urgent top-left)
+    # No availability %, no signal icons — badge IS the availability signal
+
+    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
     st.markdown(
-        '<div style="font-family:Georgia,serif; font-size:13px; font-weight:700; '
-        'letter-spacing:0.12em; text-transform:uppercase; color:#64748b; margin-bottom:12px;">'
-        'Roster Status</div>',
+        '<div style="font-size:11px; font-weight:700; letter-spacing:0.18em; '
+        'text-transform:uppercase; color:#94a3b8; margin-bottom:10px;">Roster Status</div>',
         unsafe_allow_html=True,
     )
 
-    # Red first, then yellow, then green — most urgent top-left
     grid_rows = (
         [r for r in summary if r["score"] < 60] +
         [r for r in summary if 60 <= r["score"] < 80] +
         [r for r in summary if r["score"] >= 80]
     )
 
-    # Color scheme per status
-    STATUS_STYLES = {
-        "red":    {"bg": "#fef2f2", "border": "#ef4444", "score_color": "#dc2626", "badge_bg": "#fecaca", "badge_text": "#991b1b", "label": "PROTECT"},
-        "yellow": {"bg": "#fffbeb", "border": "#f59e0b", "score_color": "#d97706", "badge_bg": "#fef3c7", "badge_text": "#92400e", "label": "MONITOR"},
-        "green":  {"bg": "#f0fdf4", "border": "#22c55e", "score_color": "#16a34a", "badge_bg": "#dcfce7", "badge_text": "#166534", "label": "READY"},
+    CARD = {
+        "red":    {"bg": "#fde8e8", "border": "#ef4444", "score": "#dc2626",
+                   "badge_bg": "#fecaca", "badge_fg": "#991b1b", "label": "PROTECT"},
+        "yellow": {"bg": "#fef9c3", "border": "#f59e0b", "score": "#d97706",
+                   "badge_bg": "#fef3c7", "badge_fg": "#92400e", "label": "MONITOR"},
+        "green":  {"bg": "#dcfce7", "border": "#22c55e", "score": "#16a34a",
+                   "badge_bg": "#bbf7d0", "badge_fg": "#166534", "label": "READY"},
     }
 
-    def _status_key(score):
+    def _key(score):
         return "red" if score < 60 else ("yellow" if score < 80 else "green")
 
-    # Render each card as a Plotly figure — bypasses Streamlit HTML sanitiser
-    # so background colors are guaranteed to show
-    def _player_card(r):
-        key   = _status_key(r["score"])
-        s     = STATUS_STYLES[key]
-        score = r["score"]
-
-        BG    = {"red": "#fde8e8", "yellow": "#fef9c3", "green": "#dcfce7"}[key]
-        BDCLR = {"red": "#ef4444", "yellow": "#f59e0b", "green": "#22c55e"}[key]
-        SCLR  = {"red": "#dc2626", "yellow": "#d97706", "green": "#16a34a"}[key]
-        LBL   = {"red": "PROTECT", "yellow": "MONITOR", "green": "READY"}[key]
-        LBLCLR= {"red": "#991b1b", "yellow": "#92400e", "green": "#166534"}[key]
-
+    def _card(r):
+        k  = _key(r["score"])
+        c  = CARD[k]
         fig = go.Figure()
 
-        # Background fill
+        # Card background + border
         fig.add_shape(type="rect", x0=0, y0=0, x1=1, y1=1,
-                      fillcolor=BG, line=dict(color=BDCLR, width=2),
+                      fillcolor=c["bg"], line=dict(color=c["border"], width=2),
                       xref="paper", yref="paper", layer="below")
 
-        # Player name
-        fig.add_annotation(x=0.06, y=0.88, text=f"<b>{r['name']}</b>",
-                           xref="paper", yref="paper", showarrow=False,
-                           font=dict(size=14, color="#0f172a"), xanchor="left")
-        # Position
-        fig.add_annotation(x=0.06, y=0.74, text=r["pos"],
-                           xref="paper", yref="paper", showarrow=False,
-                           font=dict(size=11, color="#64748b"), xanchor="left")
-        # Status badge
-        fig.add_annotation(x=0.94, y=0.88, text=f"<b>{LBL}</b>",
-                           xref="paper", yref="paper", showarrow=False,
-                           font=dict(size=10, color=LBLCLR), xanchor="right",
-                           bgcolor=s["badge_bg"], borderpad=4)
-        # Score
-        fig.add_annotation(x=0.06, y=0.46,
-                           text=f"<b>{score:.0f}<span style='font-size:16px'>%</span></b>",
-                           xref="paper", yref="paper", showarrow=False,
-                           font=dict(size=38, color=SCLR, family="Georgia, serif"),
-                           xanchor="left")
-        # Reason line
-        fig.add_annotation(x=0.06, y=0.12, text=r["reason"],
-                           xref="paper", yref="paper", showarrow=False,
-                           font=dict(size=11, color="#475569"), xanchor="left")
-        # Divider line
-        fig.add_shape(type="line", x0=0.04, y0=0.22, x1=0.96, y1=0.22,
+        # Name (top-left)
+        fig.add_annotation(
+            x=0.07, y=0.87, xref="paper", yref="paper", showarrow=False,
+            text=f"<b>{r['name']}</b>",
+            font=dict(size=13, color="#0f172a"), xanchor="left")
+
+        # Position (below name)
+        fig.add_annotation(
+            x=0.07, y=0.72, xref="paper", yref="paper", showarrow=False,
+            text=r["pos"],
+            font=dict(size=11, color="#64748b"), xanchor="left")
+
+        # Status badge (top-right) — this IS the availability signal
+        fig.add_annotation(
+            x=0.93, y=0.87, xref="paper", yref="paper", showarrow=False,
+            text=f"<b>{c['label']}</b>",
+            font=dict(size=10, color=c["badge_fg"]),
+            bgcolor=c["badge_bg"], borderpad=4, xanchor="right")
+
+        # Readiness % (large, left) — kept per design decision
+        fig.add_annotation(
+            x=0.07, y=0.45, xref="paper", yref="paper", showarrow=False,
+            text=f"<b>{r['score']:.0f}%</b>",
+            font=dict(size=34, color=c["score"], family="Georgia, serif"),
+            xanchor="left")
+
+        # Divider
+        fig.add_shape(type="line", x0=0.05, y0=0.22, x1=0.95, y1=0.22,
                       xref="paper", yref="paper",
-                      line=dict(color=BDCLR, width=1, dash="solid"))
+                      line=dict(color=c["border"], width=1))
+
+        # 2-reason line (bottom) — max 2 signals, plain English
+        fig.add_annotation(
+            x=0.07, y=0.10, xref="paper", yref="paper", showarrow=False,
+            text=r["reason"],
+            font=dict(size=10, color="#475569"), xanchor="left")
 
         fig.update_layout(
-            height=150,
+            height=140,
             margin=dict(l=0, r=0, t=0, b=0),
-            paper_bgcolor=BG,
-            plot_bgcolor=BG,
-            xaxis=dict(visible=False, range=[0,1]),
-            yaxis=dict(visible=False, range=[0,1]),
+            paper_bgcolor=c["bg"], plot_bgcolor=c["bg"],
+            xaxis=dict(visible=False, range=[0, 1]),
+            yaxis=dict(visible=False, range=[0, 1]),
             showlegend=False,
         )
         return fig
@@ -506,56 +568,9 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     for i, r in enumerate(grid_rows):
         with cols[i % 4]:
             st.plotly_chart(
-                _player_card(r),
+                _card(r),
                 use_container_width=True,
                 config={"displayModeBar": False},
                 key=f"card_{r['pid']}",
             )
-
-    # ── ROW 3: Team Wellness Sparklines ───────────────────────────────────────
-    st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
-    st.markdown(
-        '<div style="font-family:Georgia,serif; font-size:13px; font-weight:700; '
-        'letter-spacing:0.12em; text-transform:uppercase; color:#64748b; margin-bottom:10px;">'
-        '7-Day Team Trends</div>',
-        unsafe_allow_html=True,
-    )
-
-    cutoff = ref - pd.Timedelta(days=7)
-    week_w = wellness[wellness["date"] >= cutoff].copy()
-
-    sp1, sp2, sp3, sp4 = st.columns(4)
-    spark_cfg = [
-        (sp1, "sleep_hours",  "Avg Sleep (hrs)",    "#2E86AB"),
-        (sp2, "soreness",     "Avg Soreness /10",   "#A23B72"),
-        (sp3, "mood",         "Avg Mood /10",       "#44BBA4"),
-        (sp4, "stress",       "Avg Stress /10",     "#F18F01"),
-    ]
-    for col_widget, field, label, color in spark_cfg:
-        daily = week_w.groupby("date")[field].mean().sort_index()
-        with col_widget:
-            st.markdown(
-                f'<div style="font-size:12px; font-weight:700; color:#475569; margin-bottom:2px;">'
-                f'{label}</div>',
-                unsafe_allow_html=True,
-            )
-            last_val = daily.iloc[-1] if len(daily) > 0 else 0
-            delta    = daily.iloc[-1] - daily.iloc[-2] if len(daily) > 1 else 0
-            arrow    = "↑" if delta > 0 else ("↓" if delta < 0 else "→")
-            d_color  = "#16a34a" if (
-                (field in ("sleep_hours","mood") and delta > 0) or
-                (field in ("soreness","stress") and delta < 0)
-            ) else "#dc2626"
-            st.markdown(
-                f'<div style="font-size:18px; font-weight:800; color:#1e293b;">'
-                f'{last_val:.1f} <span style="font-size:13px; color:{d_color};">{arrow}{abs(delta):.1f}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            if len(daily) > 1:
-                st.plotly_chart(
-                    _sparkline(daily.values, color),
-                    use_container_width=True,
-                    config={"displayModeBar": False},
-                    key=f"spark_{field}",
-                )
+    # Sparklines removed — belong in Trends tab, not command center
