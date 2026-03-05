@@ -122,16 +122,21 @@ def _build_summary(wellness, players, force_plate, training_load, end_date):
                 pl_flag, _ = _gps_flag(pid, "player_load", g["player_load"], training_load, ref)
                 ac_flag, _ = _gps_flag(pid, "accel_count", g["accel_count"], training_load, ref)
 
-        # Plain-English top reason for coach card
+        # Coach-language reason lines — decision-ready, no raw numbers
+        # Priority: safety signals first, then performance signals
         flags = []
-        if w["sleep_hours"] < 7.0:    flags.append(f"Low sleep ({w['sleep_hours']:.1f}h)")
-        if w["soreness"] >= 7:        flags.append(f"High soreness ({w['soreness']:.0f}/10)")
-        if w["stress"] >= 7:          flags.append(f"High stress ({w['stress']:.0f}/10)")
-        if cmj_flag == "🔴":          flags.append("CMJ drop")
-        if ac_flag  == "🔴":          flags.append("Accel drop")
-        if pl_flag  == "🔴":          flags.append("Low GPS load")
-        if w["mood"] <= 4:            flags.append(f"Low mood ({w['mood']:.0f}/10)")
-        reason = " · ".join(flags[:2]) if flags else "All clear"
+        if w["sleep_hours"] < 6.0:    flags.append("Poor sleep — recovery compromised")
+        elif w["sleep_hours"] < 7.0:  flags.append("Short sleep last night")
+        if w["soreness"] >= 9:        flags.append("Body very sore — protect today")
+        elif w["soreness"] >= 7:      flags.append("High soreness reported")
+        if w["stress"] >= 9:          flags.append("High stress — limit demands")
+        elif w["stress"] >= 7:        flags.append("Elevated stress reported")
+        if cmj_flag == "🔴":          flags.append("Power output down — legs not ready")
+        if ac_flag  == "🔴":          flags.append("Movement quality reduced")
+        if pl_flag  == "🔴":          flags.append("Below normal physical output")
+        if w["mood"] <= 3:            flags.append("Low mood — check in before session")
+        elif w["mood"] <= 4:          flags.append("Low mood today")
+        reason = " · ".join(flags[:2]) if flags else "Cleared for full training"
 
         rows.append({
             "pid":      pid,
@@ -167,44 +172,52 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
         pid = r["pid"]
 
         if r["score"] < 60:
+            # Build a coach-readable why from the same reason logic
+            why_parts = []
+            if r["sleep"] < 6.0:   why_parts.append("didn't sleep well")
+            elif r["sleep"] < 7.0: why_parts.append("short sleep")
+            if r["soreness"] >= 9: why_parts.append("body very sore")
+            elif r["soreness"] >= 7: why_parts.append("high soreness")
+            if r["stress"] >= 7:   why_parts.append("high stress")
+            why = " and ".join(why_parts[:2]) if why_parts else "multiple signals flagged"
             alerts.append({
-                "level": "🔴 CRITICAL",
-                "name":  r["name"],
-                "msg":   f"Readiness {r['score']:.0f}% — Sleep {r['sleep']:.1f}h · Soreness {r['soreness']:.0f}/10",
-                "action": "Protect — modified session only",
+                "level":  "🔴 CRITICAL",
+                "name":   r["name"],
+                "msg":    f"Not ready — {why}",
+                "action": "Modified session only — no contact, no max effort",
             })
         elif r["score"] < 75 and r["soreness"] >= 7:
             alerts.append({
-                "level": "🟡 MONITOR",
-                "name":  r["name"],
-                "msg":   f"Soreness {r['soreness']:.0f}/10 with readiness {r['score']:.0f}%",
-                "action": "Reduce contact load today",
+                "level":  "🟡 MONITOR",
+                "name":   r["name"],
+                "msg":    "Body load is high — watch movement quality in warmup",
+                "action": "Reduce contact and high-speed running today",
             })
 
         if not latest_acwr.empty:
             a = latest_acwr[latest_acwr["player_id"] == pid]
             if len(a) > 0 and a.iloc[0]["acwr"] > 1.5:
                 alerts.append({
-                    "level": "🟡 WORKLOAD",
-                    "name":  r["name"],
-                    "msg":   f"ACWR {a.iloc[0]['acwr']:.2f} — acute load spike detected",
-                    "action": "Cap practice at 60%",
+                    "level":  "🟡 WORKLOAD",
+                    "name":   r["name"],
+                    "msg":    "Training load has spiked this week relative to recent baseline",
+                    "action": "Cap volume today — full intensity, shorter duration",
                 })
 
         if r["cmj"] == "🔴":
             alerts.append({
-                "level": "🔴 NEURO",
-                "name":  r["name"],
-                "msg":   "CMJ >2σ below personal baseline — neuromuscular fatigue",
-                "action": "No explosive loading today",
+                "level":  "🔴 NEURO",
+                "name":   r["name"],
+                "msg":    "Legs not responding — jump power significantly below her normal",
+                "action": "No sprinting or jumping today — active recovery only",
             })
 
         if r["accel"] == "🔴":
             alerts.append({
-                "level": "🟡 GPS",
-                "name":  r["name"],
-                "msg":   "Accel count >2σ below baseline — protective movement pattern",
-                "action": "Monitor direction-change load",
+                "level":  "🟡 GPS",
+                "name":   r["name"],
+                "msg":    "Moving protectively — avoiding explosive cuts and changes of direction",
+                "action": "Watch warmup closely — may need to pull from drills",
             })
 
     # Deduplicate by name, keep highest severity
