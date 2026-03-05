@@ -182,7 +182,7 @@ class WNBAStatsClient:
                 player_id=str(player_id),
                 season=season,
                 season_type_all_star=season_type,
-                league_id=WNBA_LEAGUE_ID,
+                league_id_nullable=WNBA_LEAGUE_ID,
                 headers=HEADERS,
                 timeout=30,
             )
@@ -212,7 +212,7 @@ class WNBAStatsClient:
                 team_id=str(DALLAS_WINGS_ID),
                 season=season,
                 season_type_all_star=season_type,
-                league_id=WNBA_LEAGUE_ID,
+                league_id_nullable=WNBA_LEAGUE_ID,
                 headers=HEADERS,
                 timeout=30,
             )
@@ -256,8 +256,8 @@ class WNBAStatsClient:
             # Try both names gracefully
             stats = LeagueDashPlayerStats(
                     season=season,
-                    per_mode_detailed=per_mode,   # confirmed param name for this nba_api version
-                    league_id=WNBA_LEAGUE_ID,
+                    per_mode_detailed=per_mode,
+                    league_id_nullable=WNBA_LEAGUE_ID,
                     season_type_all_star="Regular Season",
                     headers=HEADERS,
                     timeout=60,
