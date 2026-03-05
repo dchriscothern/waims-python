@@ -6,29 +6,40 @@ Step-by-step installation and configuration.
 
 ## Requirements
 
-- Python 3.12+
+- Python 3.11+
 - pip
-- ~50 MB disk space (database + models)
+- ~100 MB disk space (database + models + ESPN data)
 
 ---
 
 ## Installation
 
 ```bash
-# 1. Clone or download the repo
-git clone https://github.com/yourname/waims.git
-cd waims
+# 1. Clone repo
+git clone https://github.com/dchriscothern/waims-python.git
+cd waims-python
 
-# 2. Install dependencies
+# 2. Create virtual environment (recommended)
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1   # Windows PowerShell
+# source .venv/bin/activate     # Mac/Linux
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# 3. Generate database (creates waims_demo.db with GPS columns)
+# 4. Generate demo database
 python generate_database.py
 
-# 4. Train ML models
+# 5. (Optional but recommended) Fetch real ESPN game data
+python espn_data.py
+# Then in Python:
+# from espn_data import fetch_wings_all_time
+# fetch_wings_all_time(seasons=[2024, 2025])
+
+# 6. Train models
 python train_models.py
 
-# 5. Launch dashboard
+# 7. Launch dashboard
 streamlit run dashboard.py
 ```
 
@@ -45,94 +56,61 @@ numpy>=1.24.0
 plotly>=5.18.0
 scikit-learn>=1.4.0
 scipy>=1.11.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+anthropic>=0.20.0
 ```
 
-Optional (real WNBA data):
+---
+
+## Environment Variables (Optional)
+
+Create a `.env` file in the project root for API integrations:
+
 ```
-wehoop>=1.8.0
+# Claude API — enables Ask the Watchlist generative AI tab
+ANTHROPIC_API_KEY=your_key_here
+
+# balldontlie — enables live WNBA benchmarks (paid tier required for stats)
+BALLDONTLIE_API_KEY=your_key_here
 ```
+
+Never commit `.env` to GitHub — add to `.gitignore`.
+
+For Streamlit Cloud deployment: Settings → Secrets → add same key/value pairs.
 
 ---
 
 ## File Structure
 
 ```
-waims/
-├── dashboard.py               # Main app — 10 tabs
-├── coach_command_center.py    # Tab 1: Coach morning brief
-├── correlation_explorer.py    # Tab 10: Hidden signal discovery
-├── athlete_profile_tab.py     # Tab 3: Per-athlete deep-dive
-├── generate_database.py       # DB creation + GPS synthetic data
-├── train_models.py            # RF injury model + readiness scorer
-├── smart_query.py             # Standalone NL query interface
-├── improved_gauges.py         # Chart components (optional)
-├── z_score_module.py          # Shared z-score helpers (optional)
-├── research_citations.py      # Research modal (optional)
-├── research_context.py        # Risk context box (optional)
+waims-python/
+├── dashboard.py                 # Main app — 10 tabs
+├── coach_command_center.py      # Tab 1: Coach morning brief
+├── athlete_profile_tab.py       # Tab 3: Per-athlete deep-dive
+├── correlation_explorer.py      # Tab 10: Signal discovery + ESPN correlations
+├── generate_database.py         # DB creation — 12 players, 90 days, schedule
+├── train_models.py              # RF model + readiness scorer + Section 8 validation
+├── espn_data.py                 # ESPN WNBA box scores 2019–2025 (no API key)
+├── wnba_api.py                  # WNBA positional benchmarks (static 2025)
+├── smart_query.py               # Generative AI natural-language query
+├── improved_gauges.py           # Gauge/pill chart components (optional)
+├── z_score_module.py            # Shared z-score helpers (optional)
+├── research_citations.py        # Research modal (optional)
+├── research_context.py          # Risk context box (optional)
+├── .env                         # API keys — never commit (in .gitignore)
+├── .env.example                 # Template — safe to commit
 ├── requirements.txt
-├── models/                    # Created by train_models.py
+├── models/                      # Created by train_models.py
 │   ├── injury_risk_model.pkl
 │   └── readiness_scorer.pkl
-├── data/                      # Created by train_models.py
-│   └── processed_data.csv
+├── data/                        # Created by train_models.py
+│   └── processed_data.csv       # All player-days with injury_risk_score
 ├── assets/
 │   ├── branding/
 │   │   └── waims_run_man_logo.png
-│   └── photos/                # Optional athlete photos
-└── waims_demo.db              # Created by generate_database.py
-```
-
----
-
-## Tab Overview
-
-| # | Tab | File | Audience |
-|---|-----|------|----------|
-| 1 | 🏀 Command Center | `coach_command_center.py` | Coach |
-| 2 | 📊 Today's Readiness | `dashboard.py` | Analyst |
-| 3 | 👤 Athlete Profiles | `athlete_profile_tab.py` | Analyst |
-| 4 | 📈 Trends | `dashboard.py` | Analyst |
-| 5 | 💪 Jump Testing | `dashboard.py` | Analyst |
-| 6 | 🚨 Availability & Injuries | `dashboard.py` | GM / Medical |
-| 7 | 📡 GPS & Load | `dashboard.py` | Analyst |
-| 8 | 🤖 Forecast | `dashboard.py` | GM |
-| 9 | 🔍 Ask the Watchlist | `dashboard.py` | All |
-| 10 | 🔬 Correlations | `correlation_explorer.py` | Analyst |
-
----
-
-## Database Tables
-
-| Table | Key Columns |
-|-------|-------------|
-| `players` | player_id, name, position, age, injury_history_count |
-| `wellness` | player_id, date, sleep_hours, sleep_quality, soreness, stress, mood |
-| `training_load` | player_id, date, practice_minutes, practice_rpe, total_daily_load, **player_load, accel_count, decel_count**, total_distance_km, hsr_distance_m, sprint_distance_m |
-| `force_plate` | player_id, date, cmj_height_cm, asymmetry_percent, rsi_modified |
-| `acwr` | player_id, date, acwr, acute_load, chronic_load |
-| `injuries` | player_id, injury_date, injury_type, severity, days_missed |
-| `availability` | player_id, date, status, practice_status |
-
----
-
-## Optional Enhancements
-
-### Athlete Photos
-Place image files in `assets/photos/` named by player key:
-```
-assets/photos/ath_001.jpg   # for player_id P001
-assets/photos/ath_002.jpg
-```
-
-### Real WNBA Data (wehoop)
-```bash
-pip install wehoop
-python fetch_real_data.py   # if you've built this module
-```
-
-### Standalone Query Interface
-```bash
-streamlit run smart_query.py --server.port 8502
+│   └── photos/                  # Optional athlete photos
+└── waims_demo.db                # Created by generate_database.py
 ```
 
 ---
@@ -140,15 +118,38 @@ streamlit run smart_query.py --server.port 8502
 ## Run Order (Always)
 
 ```
-1. python generate_database.py    # must run first — creates DB with GPS
-2. python train_models.py         # must run after DB exists
-3. streamlit run dashboard.py     # run last
+1. python generate_database.py     # must run first
+2. python espn_data.py             # optional — run once, re-run for new seasons
+3. python train_models.py          # must run after generate_database.py
+4. streamlit run dashboard.py
 ```
 
-If you modify `generate_database.py` (e.g. add columns), always retrain:
+If you modify `generate_database.py`, always retrain:
 ```bash
 python generate_database.py && python train_models.py
 ```
+
+---
+
+## Database Tables
+
+| Table | Created by | Key columns |
+|-------|-----------|-------------|
+| `players` | generate_database.py | player_id, name, position, age |
+| `wellness` | generate_database.py | player_id, date, sleep_hours, soreness, stress, mood, hrv |
+| `training_load` | generate_database.py | player_id, date, player_load, accel_count, decel_count, total_distance_km |
+| `force_plate` | generate_database.py | player_id, date, cmj_height_cm, rsi_modified, asymmetry_percent |
+| `acwr` | generate_database.py | player_id, date, acwr, acute_load, chronic_load |
+| `schedule` | generate_database.py | date, opponent, is_back_to_back, days_rest, travel_flag, game_type |
+| `injuries` | generate_database.py | player_id, injury_date, injury_type, severity, days_missed |
+| `availability` | generate_database.py | player_id, date, status, practice_status |
+| `game_results` | espn_data.py | date, opponent, result, score_margin, home_away |
+| `game_box_scores` | espn_data.py | player_name, date, pts, minutes, plus_minus, reb, ast |
+| `wnba_benchmarks` | wnba_api.py | position_group, metric, mean, std, n_players |
+| `ml_predictions` | train_models.py | player_id, date, injury_risk_score, readiness_score |
+| `back_to_back_analysis` | train_models.py | rest_category, pts_mean, min_mean, games |
+| `pre_injury_patterns` | train_models.py | player_id, injury_date, pre_inj_avg_sleep, pre_inj_avg_cmj |
+| `readiness_validation` | train_models.py | date, readiness_score, pts, plus_minus — r values |
 
 ---
 
@@ -156,23 +157,26 @@ python generate_database.py && python train_models.py
 
 | Symptom | Fix |
 |---------|-----|
-| `waims_demo.db not found` | Run `python generate_database.py` first |
-| `models/injury_risk_model.pkl not found` | Run `python train_models.py` |
-| GPS sections blank / hidden | GPS columns missing — regenerate DB |
+| `no such table: schedule` | Run `python generate_database.py` first |
+| `models/*.pkl not found` | Run `python train_models.py` |
+| GPS sections blank | Regenerate DB — GPS columns missing |
 | `ModuleNotFoundError: scipy` | `pip install scipy` |
-| Correlation tab empty | Need ≥ 10 records — ensure DB generated correctly |
-| `ImportError: coach_command_center` | Ensure `coach_command_center.py` is in same directory as `dashboard.py` |
-| `ImportError: correlation_explorer` | Ensure `correlation_explorer.py` is in same directory |
-| Accel/decel flags never fire | Check `player_load` column exists: `sqlite3 waims_demo.db ".schema training_load"` |
+| Correlation tab empty | Need ≥ 10 records — ensure DB generated |
+| NaN in game correlations | Demo dates don't overlap game dates — expected with synthetic data |
+| ESPN fetch returns no games | Check network — ESPN API works from local machine |
+| `[Model Improvement] Skipped` | See error message — usually missing import or table |
 | Port already in use | `streamlit run dashboard.py --server.port 8502` |
 
 ---
 
-## Privacy / Sharing
+## Streamlit Cloud Deployment
 
-Before any public demo or GitHub push:
-```bash
-python anonymize_players.py   # replaces names with ATH_001 etc.
-```
-
-The demo DB uses public WNBA player names for realism in portfolio presentations — confirm consent before sharing in professional contexts.
+1. Push repo to GitHub (ensure `.env` is in `.gitignore`)
+2. Connect repo at share.streamlit.io
+3. Settings → Secrets → add:
+   ```
+   ANTHROPIC_API_KEY = "your_key"
+   BALLDONTLIE_API_KEY = "your_key"
+   ```
+4. Note: `waims_demo.db` must be committed to repo for cloud deployment  
+   (or add DB generation to app startup)

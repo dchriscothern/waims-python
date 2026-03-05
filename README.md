@@ -1,9 +1,10 @@
-# WAIMS — Readiness Watchlist
+# WAIMS — Wellness & Athlete Injury Management System
 
 **Professional Athlete Monitoring Dashboard**  
-Built with Python · Streamlit · SQLite · Plotly
+Built with Python · Streamlit · SQLite · Plotly · Random Forest · Generative AI
 
-> Dallas Wings-inspired demo — 90 days · 12 players · 10,000+ data points
+> Dallas Wings-inspired demo — 90 days · 12 players · anonymized roster  
+> Live ESPN game data (2019–2025) · Evidence-based thresholds · Walsh 2021 · Gabbett 2016
 
 ---
 
@@ -11,12 +12,32 @@ Built with Python · Streamlit · SQLite · Plotly
 
 ```bash
 pip install -r requirements.txt
-python generate_database.py   # creates DB with GPS columns
-python train_models.py        # trains injury risk + readiness models
+python generate_database.py   # creates DB with schedule, GPS, wellness
+python train_models.py        # trains injury risk model + readiness scorer
 streamlit run dashboard.py
 ```
 
 Dashboard opens at `http://localhost:8501`
+
+---
+
+## What Type of AI/ML Does WAIMS Use?
+
+WAIMS combines three distinct layers:
+
+**1. Random Forest Classifier** (`train_models.py`)  
+Supervised ML model trained on monitoring data to predict injury risk within 7 days.  
+Features: sleep z-score, CMJ deviation, ACWR, player load, schedule context (back-to-back, travel, rest).  
+Output: `injury_risk_score` (0–1 probability) per player per day.
+
+**2. Evidence-Based Readiness Scorer** (`train_models.py → calculate_readiness_score`)  
+Rule-based weighted formula — not ML. Deterministic and fully explainable.  
+Weights: Sleep 15pts · Soreness 10pts · Mood 5pts · Stress 5pts · CMJ 15pts · RSI 10pts · Schedule 10pts.  
+Preferred for daily operational decisions because every flag has a traceable reason.
+
+**3. Generative AI Query Layer** (`smart_query.py`, Ask tab)  
+Calls Claude API to answer natural-language questions about your monitoring data.  
+Does not make clinical decisions — translates data into plain English for coaches and GMs.
 
 ---
 
@@ -26,147 +47,87 @@ Dashboard opens at `http://localhost:8501`
 
 | Tab | Audience | Purpose |
 |-----|----------|---------|
-| 🏀 Command Center | **Coach** | 30-second morning brief — traffic light roster grid, priority alerts, GPS strip, team sparklines |
-| 📊 Today's Readiness | Analyst | Z-score status, wellness + force plate + GPS flags per player |
-| 👤 Athlete Profiles | Analyst | Full per-player deep-dive with radar chart, GPS trends, baseline comparisons |
-| 📈 Trends | Analyst | 7-day rolling averages for sleep, soreness, mood, stress |
-| 💪 Jump Testing | Analyst | CMJ & RSI vs personal baseline; 7-day team trend |
+| 🏀 Command Center | Coach | Morning brief — status badges, priority alerts, GPS strip, roster cards |
+| 📊 Today's Readiness | Analyst | Z-score flags, wellness + force plate + GPS per player |
+| 👤 Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, baseline comparisons |
+| 📈 Trends | Analyst | 7-day rolling averages — sleep, soreness, mood, stress |
+| 💪 Jump Testing | Analyst | CMJ & RSI vs personal baseline, 7-day team trend |
 | 🚨 Availability & Injuries | GM / Medical | Daily availability board, season %, injury log |
 | 📡 GPS & Load | Analyst | Kinexon metrics, 14-day trends, player load ACWR |
 | 🤖 Forecast | GM | Multi-signal 7-day injury risk watchlist |
-| 🔍 Ask the Watchlist | All | Natural-language query shortcuts incl. GPS queries |
-| 🔬 Correlations | Analyst | Hidden signal discovery — heatmap, lag analysis, conditional risk |
+| 🔍 Ask + Insights | All | Natural-language queries + correlation analysis combined |
+| 🔬 Correlations | Analyst | Heatmap, lag analysis, ESPN game outcome correlations |
 
 ### Monitoring Signals
 
-- **Wellness** — Sleep, soreness, stress, mood (subjective daily)
-- **Force Plate** — CMJ height, RSI-Modified (neuromuscular)
-- **GPS / Kinexon** — Player load, accel count, decel count, distance, HSR, sprint
-- **ACWR** — Acute:Chronic Workload Ratio (training load)
+- **Wellness** — Sleep (hrs + quality), soreness, stress, mood, HRV
+- **Force Plate** — CMJ height, RSI-Modified, asymmetry %
+- **GPS / Kinexon** — Player load AU, accel/decel count, distance, HSR, sprint
+- **Schedule** — Back-to-back, days rest, travel, timezone, Unrivaled transition flag
+- **Game Data** — ESPN box scores 2019–2025 (pts, min, +/-, W/L, margin)
+
+### Status Badges
+
+Every player card shows one of three badges based on readiness score:
+
+| Badge | Score | Meaning |
+|-------|-------|---------|
+| READY (green) | ≥ 80 | Full training — no restrictions |
+| MONITOR (amber) | 60–79 | Modified load — watch closely |
+| PROTECT (red) | < 60 | Restricted session — flag for medical |
+
+Badges appear on: Command Center roster cards, Priority Alerts panel, Forecast tab.
 
 ### Classification Engine
 
-All player flags use **personal z-scores** (deviation from individual 30-day baseline), not population averages. Hard safety floors apply regardless of baseline:
+Personal z-scores (30-day rolling baseline) + hard safety floors:
 
-- Sleep < 6.5 hrs → immediate flag
+- Sleep < 7.0 hrs → yellow (Walsh et al. 2021 BJSM consensus)
+- Sleep < 6.0 hrs → red
 - Soreness or Stress > 7/10 → immediate flag
-- CMJ/RSI drops weighted 1.5× vs subjective metrics
-- GPS load/accel/decel drops flagged when > 1σ below personal norm
-
-### Correlation Explorer
-
-Surfaces hidden relationships the standard dashboard doesn't show:
-
-- **Heatmap** — Pearson r across all metrics including injury label
-- **Lag Analysis** — which lag (0–7 days prior) gives the strongest predictive signal
-- **Conditional Risk** — P(injury within 7 days | metric flagged) vs baseline rate
-- **Per-Player Fingerprints** — individual sleep→soreness correlations
-- **Model Audit** — RF feature importance split across wellness / GPS / force plate
+- CMJ/RSI weighted 1.5× vs subjective metrics
+- ACWR: contextual flag only (Impellizzeri 2020)
 
 ---
 
-## Database
+## Data Sources
 
-**File:** `waims_demo.db` (SQLite)
-
-| Table | Rows | Description |
-|-------|------|-------------|
-| `players` | 12 | Roster — name, position, age, injury history |
-| `wellness` | ~1,080 | Daily sleep, soreness, stress, mood |
-| `training_load` | ~1,080 | Practice/game minutes, RPE, **GPS metrics** |
-| `force_plate` | ~84 | CMJ height, RSI-Modified (weekly tests) |
-| `acwr` | ~600 | Acute:Chronic Workload Ratio |
-| `injuries` | ~5 | Injury events with dates and severity |
-| `availability` | ~1,080 | Daily AVAILABLE / QUESTIONABLE / OUT status |
-
-### training_load GPS Columns
-
-| Column | Unit | Description |
-|--------|------|-------------|
-| `player_load` | AU | Kinexon tri-axial composite |
-| `accel_count` | events | Accelerations above threshold |
-| `decel_count` | events | Decelerations above threshold |
-| `total_distance_km` | km | Total session distance |
-| `hsr_distance_m` | m | High-speed running distance |
-| `sprint_distance_m` | m | Sprint distance |
+| Source | How accessed | Tables created |
+|--------|-------------|----------------|
+| Synthetic demo data | `generate_database.py` | players, wellness, training_load, force_plate, acwr, injuries, availability, schedule |
+| ESPN WNBA (free) | `espn_data.py` | game_results, game_box_scores |
+| WNBA benchmarks | `wnba_api.py` (static 2025) | wnba_benchmarks |
+| Model outputs | `train_models.py` | ml_predictions, back_to_back_analysis, pre_injury_patterns, readiness_validation |
 
 ---
 
-## Machine Learning
-
-**Injury Risk Predictor** — RandomForest Classifier  
-**Readiness Scorer** — Composite 0–100 with personal deviation modifier
-
-Features include: sleep z-score, soreness z-score, stress z-score, CMJ z-score, RSI z-score, GPS player load, accel/decel deviations, ACWR, injury history, age, 7-day rolling averages, and GPS drop flags.
-
-```bash
-python train_models.py
-# Outputs: models/injury_risk_model.pkl
-#          models/readiness_scorer.pkl
-```
-
----
-
-## File Structure
+## Pipeline
 
 ```
-waims/
-├── dashboard.py               # Main Streamlit app (10 tabs)
-├── coach_command_center.py    # Tab 1 — Coach morning brief
-├── correlation_explorer.py    # Tab 10 — Hidden signal discovery
-├── athlete_profile_tab.py     # Tab 3 — Per-athlete deep-dive
-├── generate_database.py       # Synthetic data + GPS generation
-├── train_models.py            # RF injury model + readiness scorer
-├── smart_query.py             # NL query interface (standalone)
-├── improved_gauges.py         # Gauge / battery chart components
-├── z_score_module.py          # Shared z-score calculation helpers
-├── research_citations.py      # Research foundation modal
-├── models/
-│   ├── injury_risk_model.pkl
-│   └── readiness_scorer.pkl
-├── data/
-│   └── processed_data.csv
-└── waims_demo.db
+1. python generate_database.py     # always first
+2. python espn_data.py             # optional, one-time ESPN fetch
+3. python train_models.py          # always after generate
+4. streamlit run dashboard.py
 ```
 
 ---
 
 ## Research Foundation
 
-| Metric | Source |
-|--------|--------|
-| ACWR thresholds (0.8–1.3 optimal) | Gabbett (2016) — 2,000+ citations |
-| Sleep < 6.5 hrs injury risk 1.7× | Milewski (2014) — 500+ citations |
-| Asymmetry thresholds (women) | Bishop (2018), Hewett (2006) |
-| WNBA knee injury risk factors | Menon et al. (2026) |
-| Subjective > objective monitoring | Saw et al. (2016) |
-| Accel/decel drop → injury | Jaspers et al. (2018) |
-| CMJ as fatigue marker | Gathercole et al. (2015) |
+| Signal | Citation | Threshold |
+|--------|----------|-----------|
+| Sleep | Walsh et al. 2021 BJSM | < 7 hrs yellow, < 6 hrs red |
+| Sleep | 2025 meta-analysis | OR = 1.34 per hr lost |
+| CMJ | Gathercole et al. 2015 | > 2 SD drop = neuromuscular fatigue |
+| ACWR | Impellizzeri et al. 2020 | Flag only — not weighted |
+| Back-to-back | Condensed schedule lit. | -4pt readiness (data-validated via ESPN) |
+| Unrivaled | Clinical estimate | -2pt (no published research — flagged) |
 
----
-
-## Tech Stack
-
-- **Python 3.12+**
-- **Streamlit** — web framework
-- **Plotly** — interactive charts
-- **pandas / numpy** — data manipulation
-- **SQLite** — database
-- **scikit-learn** — ML models
-- **scipy** — Pearson correlation + p-values (Correlation Explorer)
-- **wehoop** *(optional)* — real WNBA game data via ESPN API
+Full citations in `RESEARCH_FOUNDATION.md`.
 
 ---
 
 ## Privacy
 
-- All demo data uses anonymized athlete IDs (`ATH_001`, `ATH_002`, …)
-- No real protected health information in this repository
-- Run `python anonymize_players.py` before any public sharing
-
----
-
-## License
-
-MIT — Portfolio demonstration project  
-*Built by Chris Cothern, Sport Scientist*
+All player names anonymized (Player G1, Player F1, etc.).  
+Safe for GitHub, portfolio, and professional presentations.

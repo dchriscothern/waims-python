@@ -945,17 +945,16 @@ start_date = end_date
 st.title("🏀 WAIMS READINESS WATCHLIST")
 st.markdown(f"**Date:** {end_date.strftime('%B %d, %Y')}")
 
-tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
-    "🏀 Command Center",
-    "📊 Today's Readiness",
-    "👤 Athlete Profiles",
-    "📈 Trends",
-    "💪 Jump Testing",
-    "🚨 Availability & Injuries",
-    "📡 GPS & Load",
-    "🤖 Forecast",
-    "🔍 Ask the Watchlist",
-    "🔬 Correlations",
+tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    "Command Center",
+    "Today's Readiness",
+    "Athlete Profiles",
+    "Trends",
+    "Jump Testing",
+    "Availability & Injuries",
+    "GPS & Load",
+    "Forecast",
+    "Insights",
 ])
 
 # ==============================================================================
@@ -1357,19 +1356,37 @@ with tab7:
 # TAB 8: ASK THE WATCHLIST
 # ==============================================================================
 
+# ==============================================================================
+# TAB 9 — INSIGHTS (Ask + Correlations combined)
+# ==============================================================================
+# One destination for all analytical questions — natural language at top,
+# correlation analysis below. Same data, different lenses.
+
 with tab8:
-    st.header("🔍 Ask the Watchlist")
-    st.markdown("Ask questions about your players — instant answers.")
+
+    # ── SECTION A: ASK ────────────────────────────────────────────────────────
+    st.markdown(
+        """
+        <div style="margin-bottom:6px;">
+            <div style="font-family:Georgia,serif; font-size:20px; font-weight:700;
+                color:#0f172a; letter-spacing:-0.01em;">Ask a Question</div>
+            <div style="font-size:13px; color:#64748b; margin-top:2px;">
+                Natural-language queries about your roster — powered by AI
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if "query_to_run" not in st.session_state:
         st.session_state.query_to_run = ""
 
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        st.markdown("**How to use:** Type `poor sleep`, `high risk`, `readiness`, or `compare positions`")
+    ask_col, btn_col = st.columns([3, 1])
+
+    with ask_col:
         user_query = st.text_input(
             "Ask a question",
-            placeholder="e.g., 'poor sleep' or 'high risk players'",
+            placeholder="e.g., 'who had poor sleep?' · 'high risk players' · 'does readiness correlate with game margin?'",
             key="smart_query_input",
             label_visibility="collapsed",
         )
@@ -1388,20 +1405,41 @@ with tab8:
                     file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv",
                 )
-    with c2:
-        st.markdown("### Quick Buttons")
-        if st.button("Poor Sleep", use_container_width=True):
-            st.session_state.query_to_run = "poor sleep"; st.rerun()
-        if st.button("High Risk",  use_container_width=True):
-            st.session_state.query_to_run = "high risk";  st.rerun()
-        if st.button("Readiness",  use_container_width=True):
-            st.session_state.query_to_run = "readiness";  st.rerun()
 
-# ==============================================================================
-# TAB 9 — CORRELATION EXPLORER
-# ==============================================================================
+    with btn_col:
+        st.markdown(
+            '<div style="font-size:12px; font-weight:600; color:#64748b; '
+            'letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">Quick queries</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Poor Sleep",     use_container_width=True, key="qs_sleep"):
+            st.session_state.query_to_run = "poor sleep";    st.rerun()
+        if st.button("High Risk",      use_container_width=True, key="qs_risk"):
+            st.session_state.query_to_run = "high risk";     st.rerun()
+        if st.button("Readiness",      use_container_width=True, key="qs_ready"):
+            st.session_state.query_to_run = "readiness";     st.rerun()
+        if st.button("Back-to-Backs",  use_container_width=True, key="qs_b2b"):
+            st.session_state.query_to_run = "back to back";  st.rerun()
 
-with tab9:
+    # ── DIVIDER ───────────────────────────────────────────────────────────────
+    st.markdown(
+        '<hr style="border:none; border-top:1px solid #e2e8f0; margin:28px 0 20px;">',
+        unsafe_allow_html=True,
+    )
+
+    # ── SECTION B: CORRELATIONS ───────────────────────────────────────────────
+    st.markdown(
+        """
+        <div style="margin-bottom:16px;">
+            <div style="font-family:Georgia,serif; font-size:20px; font-weight:700;
+                color:#0f172a; letter-spacing:-0.01em;">Signal Correlations</div>
+            <div style="font-size:13px; color:#64748b; margin-top:2px;">
+                Hidden relationships across all monitoring metrics — including ESPN game outcomes
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players)
 
 # ==============================================================================

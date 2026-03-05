@@ -124,7 +124,7 @@ def _build_summary(wellness, players, force_plate, training_load, end_date):
 
         # Plain-English top reason for coach card
         flags = []
-        if w["sleep_hours"] < 6.5:    flags.append(f"Low sleep ({w['sleep_hours']:.1f}h)")
+        if w["sleep_hours"] < 7.0:    flags.append(f"Low sleep ({w['sleep_hours']:.1f}h)")
         if w["soreness"] >= 7:        flags.append(f"High soreness ({w['soreness']:.0f}/10)")
         if w["stress"] >= 7:          flags.append(f"High stress ({w['stress']:.0f}/10)")
         if cmj_flag == "🔴":          flags.append("CMJ drop")
