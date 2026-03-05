@@ -329,153 +329,153 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     ctx_color   = "#f59e0b" if ctx_is_game else "#64748b"
     ctx_bg      = "rgba(245,158,11,0.12)" if ctx_is_game else "rgba(100,116,139,0.10)"
 
-    st.markdown(
-        f"""
-        <div style="
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f3460 100%);
-            border-radius: 14px;
-            padding: 22px 28px 18px;
-            margin-bottom: 18px;
-            border: 1px solid rgba(255,255,255,0.07);
-        ">
-            <div style="display:flex; align-items:center; justify-content:space-between;
-                flex-wrap:wrap; gap:12px;">
+    # Build header HTML as a plain string — avoids f-string + rgba() conflicts
+    # that cause Streamlit to render raw HTML instead of rendering it
+    date_str   = end_date.strftime("%A, %B %d")
+    header_html = (
+        '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f3460 100%);'
+        'border-radius:14px;padding:22px 28px 18px;margin-bottom:18px;'
+        'border:1px solid rgba(255,255,255,0.07);">'
+        '<div style="display:flex;align-items:center;justify-content:space-between;'
+        'flex-wrap:wrap;gap:12px;">'
 
-                <div>
-                    <div style="font-size:11px; font-weight:600; letter-spacing:0.22em;
-                        text-transform:uppercase; color:#94a3b8; margin-bottom:4px;">
-                        {end_date.strftime('%A, %B %d')}
-                    </div>
-                    <div style="font-size:22px; font-weight:700; color:#f8fafc;
-                        letter-spacing:-0.01em; margin-bottom:6px;">
-                        Command Center
-                    </div>
-                    <div style="display:inline-block; font-size:12px; font-weight:600;
-                        color:{ctx_color}; background:{ctx_bg};
-                        border-radius:6px; padding:3px 10px; letter-spacing:0.04em;">
-                        {game_context}
-                    </div>
-                </div>
+        # Left — date, title, context badge
+        '<div>'
+        f'<div style="font-size:11px;font-weight:600;letter-spacing:0.22em;'
+        f'text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">{date_str}</div>'
+        '<div style="font-size:22px;font-weight:700;color:#f8fafc;'
+        'letter-spacing:-0.01em;margin-bottom:6px;">Command Center</div>'
+        f'<div style="display:inline-block;font-size:12px;font-weight:600;'
+        f'color:{ctx_color};background:{ctx_bg};'
+        f'border-radius:6px;padding:3px 10px;letter-spacing:0.04em;">{game_context}</div>'
+        '</div>'
 
-                <div style="display:flex; gap:24px; align-items:center;">
-                    <div style="text-align:center;">
-                        <div style="font-size:30px; font-weight:800; color:#4ade80;
-                            font-family:monospace; line-height:1;">{n_green}</div>
-                        <div style="font-size:10px; color:#86efac; letter-spacing:0.1em;
-                            font-weight:700; margin-top:2px;">READY</div>
-                    </div>
-                    <div style="text-align:center;">
-                        <div style="font-size:30px; font-weight:800; color:#fbbf24;
-                            font-family:monospace; line-height:1;">{n_yellow}</div>
-                        <div style="font-size:10px; color:#fde68a; letter-spacing:0.1em;
-                            font-weight:700; margin-top:2px;">MONITOR</div>
-                    </div>
-                    <div style="text-align:center;">
-                        <div style="font-size:30px; font-weight:800; color:#f87171;
-                            font-family:monospace; line-height:1;">{n_red}</div>
-                        <div style="font-size:10px; color:#fca5a5; letter-spacing:0.1em;
-                            font-weight:700; margin-top:2px;">PROTECT</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+        # Right — traffic light counts
+        '<div style="display:flex;gap:24px;align-items:center;">'
+
+        f'<div style="text-align:center;">'
+        f'<div style="font-size:30px;font-weight:800;color:#4ade80;'
+        f'font-family:monospace;line-height:1;">{n_green}</div>'
+        '<div style="font-size:10px;color:#86efac;letter-spacing:0.1em;'
+        'font-weight:700;margin-top:2px;">READY</div>'
+        '</div>'
+
+        f'<div style="text-align:center;">'
+        f'<div style="font-size:30px;font-weight:800;color:#fbbf24;'
+        f'font-family:monospace;line-height:1;">{n_yellow}</div>'
+        '<div style="font-size:10px;color:#fde68a;letter-spacing:0.1em;'
+        'font-weight:700;margin-top:2px;">MONITOR</div>'
+        '</div>'
+
+        f'<div style="text-align:center;">'
+        f'<div style="font-size:30px;font-weight:800;color:#f87171;'
+        f'font-family:monospace;line-height:1;">{n_red}</div>'
+        '<div style="font-size:10px;color:#fca5a5;letter-spacing:0.1em;'
+        'font-weight:700;margin-top:2px;">PROTECT</div>'
+        '</div>'
+
+        '</div>'  # end right
+        '</div>'  # end flex row
+        '</div>'  # end outer div
     )
+    st.markdown(header_html, unsafe_allow_html=True)
 
     # ── ROW 1: Alerts + GPS Strip ─────────────────────────────────────────────
     left, right = st.columns([3, 2])
 
     with left:
         st.markdown(
-            '<div style="font-family:Georgia,serif; font-size:13px; font-weight:700; '
-            'letter-spacing:0.12em; text-transform:uppercase; color:#64748b; margin-bottom:10px;">'
+            '<div style="font-size:11px; font-weight:700; letter-spacing:0.18em; '
+            'text-transform:uppercase; color:#94a3b8; margin-bottom:10px;">'
             'Priority Alerts</div>',
             unsafe_allow_html=True,
         )
 
         if not alerts:
             st.markdown(
-                '<div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; '
-                'padding:16px 20px; color:#15803d; font-weight:600; font-size:15px;">'
-                '✅ All systems green — no priority alerts today</div>',
+                '<div style="background:#f0fdf4; border-left:4px solid #22c55e; '
+                'border-radius:0 8px 8px 0; padding:14px 18px; '
+                'color:#15803d; font-weight:600; font-size:14px;">'
+                'All clear — no priority alerts today</div>',
                 unsafe_allow_html=True,
             )
         else:
-            for a in alerts:
-                is_red = a["level"].startswith("🔴")
-                border = "#fca5a5" if is_red else "#fde68a"
-                bg     = "#fff5f5" if is_red else "#fffbeb"
-                icon   = "🔴" if is_red else "🟡"
-                st.markdown(
-                    f"""
-                    <div style="background:{bg}; border-left:4px solid {border};
-                        border-radius:0 10px 10px 0; padding:14px 18px; margin-bottom:10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                            <div>
-                                <span style="font-weight:800; font-size:14px; color:#1e293b;">
-                                    {icon} {a['name']}
-                                </span>
-                                <span style="font-size:11px; font-weight:600; color:#64748b;
-                                    background:rgba(0,0,0,0.06); border-radius:4px;
-                                    padding:2px 8px; margin-left:8px;">
-                                    {a['level'].split(' ',1)[1]}
-                                </span>
-                                <div style="font-size:13px; color:#475569; margin-top:4px;">{a['msg']}</div>
-                            </div>
-                        </div>
-                        <div style="margin-top:8px; font-size:12px; font-weight:700;
-                            color:#1e40af; letter-spacing:0.04em;">
-                            ➤ {a['action']}
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+            for a in alerts[:3]:   # hard cap at 3
+                is_red  = a["level"].startswith("🔴")
+                border  = "#ef4444" if is_red else "#f59e0b"
+                bg      = "#fff5f5" if is_red else "#fffbeb"
+                # Plain label — strip emoji from level string
+                lbl_raw = a["level"].split(" ", 1)[-1] if " " in a["level"] else a["level"]
+                lbl     = lbl_raw.replace("🔴","").replace("🟡","").strip()
+                lbl_color = "#dc2626" if is_red else "#d97706"
+                html = (
+                    f'<div style="background:{bg};border-left:4px solid {border};'
+                    f'border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:8px;">'
+                    # Name + label on one line
+                    f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+                    f'<span style="font-weight:800;font-size:14px;color:#0f172a;">{a["name"]}</span>'
+                    f'<span style="font-size:10px;font-weight:700;color:{lbl_color};'
+                    f'letter-spacing:0.08em;">{lbl}</span>'
+                    f'</div>'
+                    # Why
+                    f'<div style="font-size:12px;color:#475569;margin-bottom:6px;">{a["msg"]}</div>'
+                    # What to do
+                    f'<div style="font-size:12px;font-weight:700;color:#1e40af;">'
+                    f'&#9658; {a["action"]}</div>'
+                    f'</div>'
                 )
+                st.markdown(html, unsafe_allow_html=True)
 
     with right:
         st.markdown(
-            '<div style="font-family:Georgia,serif; font-size:13px; font-weight:700; '
-            'letter-spacing:0.12em; text-transform:uppercase; color:#64748b; margin-bottom:10px;">'
+            '<div style="font-size:11px; font-weight:700; letter-spacing:0.18em; '
+            'text-transform:uppercase; color:#94a3b8; margin-bottom:10px;">'
             'GPS / Kinexon Strip</div>',
             unsafe_allow_html=True,
         )
 
         if gps:
+            avg_load = gps["team_avg_load"]
+            avg_acc  = int(round(gps["team_avg_acc"]))
+            hi_names = gps["high_load_names"] or "—"
+            lo_names = gps["low_acc_names"]   or "—"
+            gps_html = (
+                '<div style="background:linear-gradient(135deg,#0ea5e9,#0284c7);'
+                'border-radius:12px;padding:16px 20px;color:#fff;">'
+                # Two stat cells
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+                '<div>'
+                '<div style="font-size:10px;font-weight:600;opacity:0.75;'
+                'letter-spacing:0.1em;text-transform:uppercase;">Team Avg Load</div>'
+                f'<div style="font-size:26px;font-weight:800;font-family:monospace;">{avg_load}</div>'
+                '<div style="font-size:10px;opacity:0.6;">AU</div>'
+                '</div>'
+                '<div>'
+                '<div style="font-size:10px;font-weight:600;opacity:0.75;'
+                'letter-spacing:0.1em;text-transform:uppercase;">Team Avg Accels</div>'
+                f'<div style="font-size:26px;font-weight:800;font-family:monospace;">{avg_acc}</div>'
+                '<div style="font-size:10px;opacity:0.6;">events above threshold</div>'
+                '</div>'
+                '</div>'
+                # High load / low accels names
+                '<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.2);'
+                'padding-top:10px;">'
+                '<div style="font-size:10px;font-weight:700;opacity:0.8;margin-bottom:3px;">'
+                'HIGH LOAD</div>'
+                f'<div style="font-size:12px;">{hi_names}</div>'
+                '<div style="font-size:10px;font-weight:700;opacity:0.8;'
+                'margin-top:8px;margin-bottom:3px;">LOW ACCELS</div>'
+                f'<div style="font-size:12px;">{lo_names}</div>'
+                '</div>'
+                '</div>'
+            )
+            st.markdown(gps_html, unsafe_allow_html=True)
+        else:
             st.markdown(
-                f"""
-                <div style="background:linear-gradient(135deg,#0ea5e9,#0284c7);
-                    border-radius:12px; padding:18px 22px; color:#fff;">
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-                        <div>
-                            <div style="font-size:11px; font-weight:600; opacity:0.75;
-                                letter-spacing:0.1em; text-transform:uppercase;">Team Avg Load</div>
-                            <div style="font-size:28px; font-weight:800; font-family:monospace;">
-                                {gps['team_avg_load']}</div>
-                            <div style="font-size:10px; opacity:0.65;">AU (arbitrary units)</div>
-                        </div>
-                        <div>
-                            <div style="font-size:11px; font-weight:600; opacity:0.75;
-                                letter-spacing:0.1em; text-transform:uppercase;">Team Avg Accels</div>
-                            <div style="font-size:28px; font-weight:800; font-family:monospace;">
-                                {gps['team_avg_acc']:.0f}</div>
-                            <div style="font-size:10px; opacity:0.65;">events above threshold</div>
-                        </div>
-                    </div>
-                    <div style="margin-top:14px; border-top:1px solid rgba(255,255,255,0.2); padding-top:12px;">
-                        <div style="font-size:11px; font-weight:700; opacity:0.8; margin-bottom:4px;">
-                            ⬆ HIGH LOAD</div>
-                        <div style="font-size:12px;">{gps['high_load_names'] or '—'}</div>
-                        <div style="font-size:11px; font-weight:700; opacity:0.8;
-                            margin-top:8px; margin-bottom:4px;">⬇ LOW ACCELS</div>
-                        <div style="font-size:12px;">{gps['low_acc_names'] or '—'}</div>
-                    </div>
-                </div>
-                """,
+                '<div style="background:#f1f5f9;border-radius:8px;padding:16px;'
+                'color:#94a3b8;font-size:13px;">GPS data unavailable</div>',
                 unsafe_allow_html=True,
             )
-        else:
-            st.info("GPS data not available — run generate_database.py")
 
     # ── ROW 2: Roster Status ─────────────────────────────────────────────────
     # Cards show: name | position | status badge | readiness % | 2 reasons max
