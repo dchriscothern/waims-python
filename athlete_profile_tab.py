@@ -231,6 +231,15 @@ def create_metric_card(label, value, status):
 # GPS Z-SCORE HELPER
 # ==============================================================================
 
+# WNBA population benchmarks (static 2025, upgrades to live API when available)
+try:
+    from wnba_api import get_player_zscore_vs_position, _get_static_benchmarks
+    _wnba_benchmarks = _get_static_benchmarks()
+    HAVE_WNBA_BENCHMARKS = True
+except Exception:
+    HAVE_WNBA_BENCHMARKS = False
+    _wnba_benchmarks = None
+
 def _gps_zscore(player_id, col, today_val, training_load_df, ref_date):
     """
     Returns (emoji, z_score_or_None).
@@ -410,6 +419,34 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         inj = athlete_info.get("injury_history_count", 0)
         st.markdown(f"**{pos}** · Age {age}")
         st.caption(f"Injury history: {inj} previous")
+
+        # ── WNBA population context — minutes load vs positional peers ──────
+        # Only shown when player load is meaningfully elevated (z > 1.0)
+        # Uses 7-day avg player_load as proxy for minutes demand
+        # Source: 2025 WNBA positional benchmarks (wnba_api.py)
+        if HAVE_WNBA_BENCHMARKS and pl_z is not None and has_gps:
+            pos_group = "G" if pos in ("G","PG","SG","G-F") else (
+                        "C" if pos in ("C","C-F") else "F")
+            pl_val = gps_row.get("player_load", 0) if gps_row else 0
+            if pl_val > 0:
+                bench = get_player_zscore_vs_position(
+                    pl_val, "min", pos_group, _wnba_benchmarks
+                )
+                z = bench.get("zscore")
+                if z is not None and abs(z) >= 1.0:
+                    if z >= 2.0:
+                        color = "#ef4444"   # red — well above peers
+                        label = f"Load {z:.1f} SD above WNBA {pos_group} avg — monitor cumulative fatigue"
+                    elif z >= 1.0:
+                        color = "#f59e0b"   # amber — moderately above
+                        label = f"Load {z:.1f} SD above WNBA {pos_group} avg"
+                    else:
+                        color = "#94a3b8"   # grey — below average (not flagged)
+                        label = f"Load {abs(z):.1f} SD below WNBA {pos_group} avg"
+                    st.markdown(
+                        f'<p style="font-size:11px;color:{color};margin:4px 0 0 0;">⚑ {label}</p>',
+                        unsafe_allow_html=True
+                    )
 
     with col2:
         st.markdown("**Overall Readiness**")
