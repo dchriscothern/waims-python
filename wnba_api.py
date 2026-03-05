@@ -254,19 +254,9 @@ class WNBAStatsClient:
             # older versions: per_mode_simple
             # newer versions: per_mode_simple still used but some builds differ
             # Try both names gracefully
-            try:
-                stats = LeagueDashPlayerStats(
+            stats = LeagueDashPlayerStats(
                     season=season,
-                    per_mode_simple=per_mode,
-                    league_id=WNBA_LEAGUE_ID,
-                    season_type_all_star="Regular Season",
-                    headers=HEADERS,
-                    timeout=60,
-                )
-            except TypeError:
-                stats = LeagueDashPlayerStats(
-                    season=season,
-                    per_mode=per_mode,
+                    per_mode_detailed=per_mode,   # confirmed param name for this nba_api version
                     league_id=WNBA_LEAGUE_ID,
                     season_type_all_star="Regular Season",
                     headers=HEADERS,
