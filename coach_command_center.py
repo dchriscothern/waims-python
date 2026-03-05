@@ -149,6 +149,7 @@ def _build_summary(wellness, players, force_plate, training_load, end_date):
             "sleep":    w["sleep_hours"],
             "soreness": w["soreness"],
             "mood":     w["mood"],
+            "stress":   w.get("stress", 0),
             "cmj":      cmj_flag,
             "load":     pl_flag,
             "accel":    ac_flag,
