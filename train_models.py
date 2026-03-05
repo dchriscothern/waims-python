@@ -12,6 +12,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import sqlite3
+from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split
@@ -485,6 +486,12 @@ try:
     _game_boxes   = _load_table(_conn2, "game_box_scores")
     _schedule_df  = _load_table(_conn2, "schedule")
     _conn2.close()
+
+    # Ensure date columns are datetime throughout Section 8
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    for _ddf in [_game_results, _game_boxes, _schedule_df]:
+        if not _ddf.empty and "date" in _ddf.columns:
+            _ddf["date"] = pd.to_datetime(_ddf["date"], errors="coerce")
 
     if _game_boxes.empty:
         print("\n[Model Improvement] No game_box_scores table found.")
