@@ -763,7 +763,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
 
     with st.expander("Research References"):
         st.markdown(
-            "- **Sleep:** <6.5 hrs → 1.7× injury risk (Milewski et al. 2014)\n"
+            "- **Sleep:** <7 hrs → elevated injury risk (Walsh et al. 2021 BJSM consensus; 2025 meta-analysis OR=1.34); <6 hrs = red flag. Female athletes: compounded by hormonal variability (Charest & Grandner 2020)\n"
             "- **ACWR ⚠ (contextual flag only):** Gabbett 2016 established >1.5 as high-risk zone, but Impellizzeri et al. 2020 (BJSM) identified statistical coupling flaws and 2025 meta-analysis (22 cohort studies) recommends 'use with caution' — not scored in readiness formula\n"
             "- **Soreness:** >7 requires monitoring (Hulin et al. 2016)\n"
             "- **CMJ/RSI:** Neuromuscular fatigue indicator — Gathercole et al. (2015)\n"

@@ -52,7 +52,13 @@ WINGS_ABBR   = "DAL"
 
 # 2025 WNBA season date range
 SEASON_DATES = {
-    2025: ("20250515", "20251005"),   # approx May 15 – Oct 5
+    2019: ("20190524", "20190914"),   # First season as Dallas Wings (moved from Tulsa)
+    2020: ("20200725", "20200930"),   # Bubble season — shortened
+    2021: ("20210614", "20211019"),   # Full return season
+    2022: ("20220506", "20221016"),
+    2023: ("20230519", "20231022"),   # Playoff season
+    2024: ("20240516", "20241013"),   # 9-31 season — injury-heavy, high value for analysis
+    2025: ("20250515", "20251005"),   # 10-34 season — Bueckers rookie year
     2026: ("20260509", "20260930"),   # Wings opener May 9 vs Indiana
 }
 
@@ -467,6 +473,115 @@ def get_back_to_back_performance_summary(
 # SELF-TEST
 # ==============================================================================
 
+def fetch_wings_all_time(
+    seasons: list = None,
+    db_path: str = "waims_demo.db",
+) -> tuple:
+    """
+    Fetch complete Wings game history across multiple seasons.
+    Defaults to 2019-2025 (all available ESPN data for Dallas Wings).
+
+    This gives the model:
+    - Career performance patterns per player (Ogunbowale, Sabally etc)
+    - Back-to-back performance drop quantified across 6 seasons
+    - Injury-adjacent box score patterns (performance before/after injury)
+    - Longitudinal scoring trends for context
+
+    NOTE: No pre-2025 wellness/monitoring data exists (synthetic only exists
+    for 2025). So this game data informs the outcome validation layer only,
+    not the injury prediction model training directly.
+
+    Args:
+        seasons: List of years e.g. [2023, 2024, 2025]. Default: 2019-2025.
+        db_path: Path to waims_demo.db
+
+    Returns:
+        Tuple of (all_results_df, all_box_scores_df)
+    """
+    if seasons is None:
+        seasons = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+
+    all_results    = []
+    all_box_scores = []
+
+    for season in seasons:
+        print(f"\n{'='*50}")
+        results, boxes = fetch_wings_season(season=season, db_path=db_path, write_to_db=False)
+        if not results.empty:
+            results["season"] = season
+            all_results.append(results)
+        if not boxes.empty:
+            boxes["season"] = season
+            all_box_scores.append(boxes)
+        print(f"Season {season}: {len(results)} games, {len(boxes)} player-game rows")
+
+    combined_results = pd.concat(all_results,    ignore_index=True) if all_results    else pd.DataFrame()
+    combined_boxes   = pd.concat(all_box_scores, ignore_index=True) if all_box_scores else pd.DataFrame()
+
+    # Write combined to DB
+    if not combined_results.empty:
+        try:
+            conn = sqlite3.connect(db_path)
+            combined_results.to_sql("game_results",    conn, if_exists="replace", index=False)
+            combined_boxes.to_sql("game_box_scores",   conn, if_exists="replace", index=False)
+            conn.close()
+            print(f"\n✓ All-time data written to {db_path}")
+            print(f"  game_results:    {len(combined_results)} games ({seasons[0]}-{seasons[-1]})")
+            print(f"  game_box_scores: {len(combined_boxes)} player-game rows")
+        except Exception as e:
+            warnings.warn(f"DB write failed: {e}")
+
+    return combined_results, combined_boxes
+
+
+def get_player_career_summary(
+    db_path: str = "waims_demo.db",
+    player_name: str = None,
+) -> pd.DataFrame:
+    """
+    Career summary stats per player from all-time game data.
+    Useful for athlete profile tab context.
+
+    Returns per-player averages across all seasons with Wings:
+    games_played, seasons, avg_pts, avg_reb, avg_ast, avg_min,
+    avg_pts_back_to_back, avg_pts_normal_rest, b2b_performance_drop
+    """
+    boxes   = load_box_scores(db_path)
+    results = load_game_results(db_path)
+
+    if boxes.empty:
+        return pd.DataFrame()
+
+    if player_name:
+        boxes = boxes[boxes["player_name"].str.contains(player_name, case=False)]
+
+    # Join schedule context
+    if not results.empty:
+        boxes = boxes.merge(
+            results[["event_id", "result", "score_margin", "home_away"]],
+            on="event_id", how="left"
+        )
+
+    # Career averages
+    career = (
+        boxes.groupby("player_name")
+        .agg(
+            games_played   = ("pts", "count"),
+            seasons        = ("season", "nunique"),
+            avg_pts        = ("pts", "mean"),
+            avg_reb        = ("reb", "mean"),
+            avg_ast        = ("ast", "mean"),
+            avg_min        = ("minutes", "mean"),
+            avg_plus_minus = ("plus_minus", "mean"),
+        )
+        .round(2)
+        .reset_index()
+    )
+
+    career = career[career["games_played"] >= 10].sort_values("avg_pts", ascending=False)
+    return career
+
+
 if __name__ == "__main__":
     print("WAIMS ESPN Data Module")
     print("=" * 55)
@@ -505,5 +620,12 @@ if __name__ == "__main__":
     print("Tables written to DB:")
     print("  game_results    — one row per game (W/L, score, margin, home/away)")
     print("  game_box_scores — one row per player per game (pts, reb, ast, min)")
+    print()
+    print("To fetch all-time Wings history (2019-2025, ~15-20 min):")
+    print("  from espn_data import fetch_wings_all_time")
+    print("  fetch_wings_all_time(seasons=[2019,2020,2021,2022,2023,2024,2025])")
+    print()
+    print("To fetch just recent seasons for faster testing:")
+    print("  fetch_wings_all_time(seasons=[2024, 2025])")
     print()
     print("Next step after fetch: run train_models.py to incorporate game outcomes")

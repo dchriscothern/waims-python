@@ -31,8 +31,35 @@ print("\n1. Loading data from database...")
 
 conn = sqlite3.connect("waims_demo.db")
 
+# Graceful fallback — schedule table exists only when generate_database.py is run.
+# Falls back to zero-filled schedule columns if only generate_demo_data.py was run.
+_tables = [r[0] for r in conn.execute(
+    "SELECT name FROM sqlite_master WHERE type='table'"
+).fetchall()]
+_has_schedule = "schedule" in _tables
+
+if _has_schedule:
+    print("  Schedule table found — including back-to-back, travel, rest features")
+    _schedule_join = "LEFT JOIN schedule s ON w.date = s.date"
+    _schedule_cols = """
+        COALESCE(s.is_back_to_back, 0)                        AS is_back_to_back,
+        COALESCE(s.days_rest, 3)                              AS days_rest,
+        COALESCE(s.travel_flag, 0)                            AS travel_flag,
+        COALESCE(s.time_zone_diff, 0)                         AS time_zone_diff,
+        CASE WHEN s.game_type = 'Unrivaled' THEN 1 ELSE 0 END AS unrivaled_flag"""
+else:
+    print("  WARNING: No schedule table — run generate_database.py for full pipeline")
+    print("  Continuing without schedule context (defaulting all to 0)")
+    _schedule_join = ""
+    _schedule_cols = """
+        0 AS is_back_to_back,
+        3 AS days_rest,
+        0 AS travel_flag,
+        0 AS time_zone_diff,
+        0 AS unrivaled_flag"""
+
 df = pd.read_sql_query(
-    """
+    f"""
     SELECT
         p.player_id, p.name, p.position, p.age, p.injury_history_count,
         w.date,
@@ -42,17 +69,13 @@ df = pd.read_sql_query(
         t.total_distance_km, t.hsr_distance_m, t.sprint_distance_m,
         a.acwr,
         f.cmj_height_cm, f.rsi_modified,
-        COALESCE(s.is_back_to_back, 0) AS is_back_to_back,
-        COALESCE(s.days_rest, 3)       AS days_rest,
-        COALESCE(s.travel_flag, 0)     AS travel_flag,
-        COALESCE(s.time_zone_diff, 0)  AS time_zone_diff,
-        CASE WHEN s.game_type = 'Unrivaled' THEN 1 ELSE 0 END AS unrivaled_flag
+        {_schedule_cols}
     FROM players p
     LEFT JOIN wellness w       ON p.player_id = w.player_id
     LEFT JOIN training_load t  ON p.player_id = t.player_id AND w.date = t.date
     LEFT JOIN acwr a           ON p.player_id = a.player_id AND w.date = a.date
     LEFT JOIN force_plate f    ON p.player_id = f.player_id AND w.date = f.date
-    LEFT JOIN schedule s       ON w.date = s.date
+    {_schedule_join}
     WHERE w.date IS NOT NULL
     """,
     conn,
@@ -148,7 +171,11 @@ for col, min_std in Z_COLS.items():
     df[f"{col}_zscore"] = ((df[col] - roll_mean) / roll_std).fillna(0)
 
 # ── Hard-floor binary flags ────────────────────────────────────────────────────
-df["flag_sleep_floor"]   = (df["sleep_hours"] < 6.5).astype(int)
+# Sleep floor: updated from <6.5 (Milewski 2014) to <7.0
+# Walsh et al. 2021 (BJSM expert consensus): 7-9hrs recommended for elite athletes
+# 2025 meta-analysis (OR=1.34): <8hrs associated with elevated injury risk
+# Female athletes: compounded by hormonal variability (Charest & Grandner 2020)
+df["flag_sleep_floor"]   = (df["sleep_hours"] < 7.0).astype(int)
 df["flag_soreness_ceil"] = (df["soreness"] > 7).astype(int)
 df["flag_stress_ceil"]   = (df["stress"] > 7).astype(int)
 df["flag_acwr_spike"]    = (df["acwr"] > 1.5).astype(int)
@@ -427,3 +454,235 @@ print(f"\n  Run: streamlit run dashboard.py")
 
 conn.close()
 print("\n" + "=" * 60)
+
+# ==============================================================================
+# 8. MODEL IMPROVEMENT LOOP — ESPN GAME DATA INTEGRATION
+# ==============================================================================
+# Runs automatically if espn_data.py has been run and game_results /
+# game_box_scores tables exist in the DB. Skips gracefully if not.
+#
+# THREE IMPROVEMENTS:
+#   A. Back-to-back validation — quantify actual performance drop vs assumption
+#   B. Pre-injury pattern detection — what did monitoring look like before injury
+#   C. Readiness score validation — correlate score with actual game performance
+# ==============================================================================
+
+import sqlite3 as _sqlite3
+import warnings as _warnings
+
+def _load_table(conn, table):
+    try:
+        df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
+        df["date"] = pd.to_datetime(df.get("date", pd.Series(dtype="datetime64[ns]")))
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+try:
+    _conn2 = _sqlite3.connect(DB_PATH)
+    _game_results = _load_table(_conn2, "game_results")
+    _game_boxes   = _load_table(_conn2, "game_box_scores")
+    _schedule_df  = _load_table(_conn2, "schedule")
+    _conn2.close()
+
+    if _game_boxes.empty:
+        print("\n[Model Improvement] No game_box_scores table found.")
+        print("  Run: python espn_data.py  then  fetch_wings_all_time()")
+        print("  Skipping outcome validation — model trained on monitoring data only.")
+    else:
+        print(f"\n[Model Improvement] Game data found: {len(_game_boxes)} player-game rows")
+
+        # ── A. BACK-TO-BACK VALIDATION ─────────────────────────────────────────
+        # Quantifies actual performance drop on back-to-backs vs rest days.
+        # Replaces the hardcoded -4pt readiness penalty with data-driven evidence.
+        # If no significant drop found, penalty should be reduced.
+        print("\n  A. Back-to-Back Performance Validation")
+
+        if not _schedule_df.empty and "is_back_to_back" in _schedule_df.columns:
+            _schedule_df["date"] = pd.to_datetime(_schedule_df["date"])
+            _b2b = _game_boxes.merge(
+                _schedule_df[["date", "is_back_to_back", "days_rest"]],
+                on="date", how="left"
+            )
+            _b2b["rest_cat"] = _b2b["days_rest"].fillna(3).apply(
+                lambda x: "back_to_back" if x <= 1 else ("short_rest" if x == 2 else "normal_rest")
+            )
+
+            _b2b_summary = (
+                _b2b.groupby("rest_cat")[["pts", "reb", "ast", "minutes"]]
+                .agg(mean=("pts", "mean"), count=("pts", "count"))
+                .round(2)
+            )
+
+            # Proper aggregation
+            _b2b_agg = _b2b.groupby("rest_cat").agg(
+                pts_mean    = ("pts", "mean"),
+                pts_std     = ("pts", "std"),
+                min_mean    = ("minutes", "mean"),
+                games       = ("pts", "count"),
+            ).round(2).reset_index()
+
+            print("     Rest Category     | Avg Pts | Avg Min | N Games")
+            print("     " + "-" * 50)
+            for _, row in _b2b_agg.iterrows():
+                print(f"     {row['rest_cat']:<20} | {row['pts_mean']:>7.1f} | "
+                      f"{row['min_mean']:>7.1f} | {int(row['games']):>7}")
+
+            # Calculate actual penalty vs assumed
+            _normal = _b2b_agg[_b2b_agg["rest_cat"] == "normal_rest"]["pts_mean"].values
+            _b2b_v  = _b2b_agg[_b2b_agg["rest_cat"] == "back_to_back"]["pts_mean"].values
+
+            if len(_normal) > 0 and len(_b2b_v) > 0:
+                _actual_drop_pct = (_normal[0] - _b2b_v[0]) / _normal[0] * 100
+                print(f"\n     Actual back-to-back performance drop: {_actual_drop_pct:.1f}%")
+                if abs(_actual_drop_pct) < 5:
+                    print("     NOTE: Drop < 5% — consider reducing back-to-back penalty in readiness scorer")
+                elif _actual_drop_pct > 15:
+                    print("     NOTE: Drop > 15% — current -4pt penalty may be too conservative, consider increase")
+                else:
+                    print("     NOTE: 5-15% drop — current -4pt penalty appears reasonable")
+
+            _b2b_agg["source"] = "ESPN game data"
+            _b2b_agg["fetched_at"] = datetime.now().isoformat()
+            try:
+                _c = _sqlite3.connect(DB_PATH)
+                _b2b_agg.to_sql("back_to_back_analysis", _c, if_exists="replace", index=False)
+                _c.close()
+                print("     ✓ Saved to back_to_back_analysis table")
+            except Exception as _e:
+                print(f"     ⚠ Could not save: {_e}")
+        else:
+            print("     ⚠ Schedule table missing days_rest — run generate_database.py first")
+
+        # ── B. PRE-INJURY PATTERN DETECTION ────────────────────────────────────
+        # What did monitoring look like in the 7 days before each injury?
+        # This is the most valuable signal for injury prediction model improvement.
+        print("\n  B. Pre-Injury Pattern Detection")
+
+        try:
+            _inj_conn = _sqlite3.connect(DB_PATH)
+            _injuries = pd.read_sql_query("SELECT * FROM injuries", _inj_conn)
+            _inj_conn.close()
+            _injuries["date"] = pd.to_datetime(_injuries.get("date", _injuries.get("injury_date")))
+        except Exception:
+            _injuries = pd.DataFrame()
+
+        if _injuries.empty:
+            print("     ⚠ No injuries table found — skipping pre-injury analysis")
+        elif df.empty:
+            print("     ⚠ No monitoring data — skipping pre-injury analysis")
+        else:
+            _pre_inj_rows = []
+            _monitoring_cols = [c for c in ["sleep_hours", "soreness_0_10", "mood_0_10",
+                                             "stress_0_10", "cmj_height_cm", "player_load"]
+                                if c in df.columns]
+
+            for _, inj in _injuries.iterrows():
+                pid      = inj.get("player_id")
+                inj_date = inj.get("date")
+                if pd.isna(inj_date) or pd.isna(pid):
+                    continue
+
+                # Get 7-day window before injury
+                window_start = inj_date - pd.Timedelta(days=7)
+                pre_inj = df[
+                    (df["player_id"] == pid) &
+                    (df["date"] >= window_start) &
+                    (df["date"] < inj_date)
+                ]
+
+                if len(pre_inj) < 3:
+                    continue   # Not enough data
+
+                row = {"player_id": pid, "injury_date": inj_date,
+                       "injury_type": inj.get("injury_type", "unknown"),
+                       "days_of_data": len(pre_inj)}
+
+                for col in _monitoring_cols:
+                    row[f"pre_inj_avg_{col}"] = pre_inj[col].mean()
+                    row[f"pre_inj_trend_{col}"] = (
+                        pre_inj[col].iloc[-1] - pre_inj[col].iloc[0]
+                        if len(pre_inj) >= 2 else 0
+                    )
+
+                _pre_inj_rows.append(row)
+
+            if _pre_inj_rows:
+                _pre_inj_df = pd.DataFrame(_pre_inj_rows)
+                print(f"     Found {len(_pre_inj_df)} injuries with 3+ days pre-injury monitoring data")
+
+                # Show key patterns
+                for col in ["sleep_hours", "soreness_0_10", "cmj_height_cm"]:
+                    avg_col = f"pre_inj_avg_{col}"
+                    if avg_col in _pre_inj_df.columns:
+                        print(f"     Avg {col} pre-injury: {_pre_inj_df[avg_col].mean():.2f}")
+
+                try:
+                    _c = _sqlite3.connect(DB_PATH)
+                    _pre_inj_df.to_sql("pre_injury_patterns", _c, if_exists="replace", index=False)
+                    _c.close()
+                    print("     ✓ Saved to pre_injury_patterns table")
+                    print("     NOTE: Use this table to retune model feature weights next season")
+                except Exception as _e:
+                    print(f"     ⚠ Could not save: {_e}")
+            else:
+                print("     Not enough pre-injury monitoring windows (need 3+ days before each injury)")
+                print("     This improves as real monitoring data accumulates over the season")
+
+        # ── C. READINESS SCORE VALIDATION ──────────────────────────────────────
+        # Does our readiness score actually correlate with game performance?
+        # A readiness score of 65 should predict worse performance than 85.
+        # If correlation is weak, formula weights need retuning.
+        print("\n  C. Readiness Score Validation")
+
+        if "readiness_score" not in df.columns:
+            print("     ⚠ No readiness_score in monitoring data — skipping")
+        elif _game_boxes.empty:
+            print("     ⚠ No game data — run espn_data.py first")
+        else:
+            # Join readiness scores to same-day game performance
+            _readiness_on_game_days = df[["player_id", "date", "readiness_score"]].copy()
+            _game_perf = _game_boxes[["player_id", "date", "pts", "minutes",
+                                       "plus_minus", "reb", "ast"]].copy()
+            _game_perf["player_id"] = _game_perf["player_id"].astype(str)
+            _readiness_on_game_days["player_id"] = _readiness_on_game_days["player_id"].astype(str)
+
+            _validated = _game_perf.merge(_readiness_on_game_days, on=["player_id", "date"], how="inner")
+
+            if len(_validated) < 10:
+                print(f"     Only {len(_validated)} game-day readiness matches found")
+                print("     Need more overlapping game + monitoring dates for validation")
+                print("     This improves as real 2026 season data accumulates")
+            else:
+                _corr_pts = _validated["readiness_score"].corr(_validated["pts"])
+                _corr_min = _validated["readiness_score"].corr(_validated["minutes"])
+                _corr_pm  = _validated["readiness_score"].corr(_validated["plus_minus"])
+
+                print(f"     Readiness score correlations with game performance:")
+                print(f"       vs Points:      r = {_corr_pts:.3f}")
+                print(f"       vs Minutes:     r = {_corr_min:.3f}")
+                print(f"       vs Plus/Minus:  r = {_corr_pm:.3f}")
+
+                if abs(_corr_pts) < 0.15:
+                    print("     ⚠ Weak correlation with points — formula may need retuning")
+                    print("       Consider: are force plate weights too high vs wellness?")
+                elif abs(_corr_pts) >= 0.30:
+                    print("     ✓ Meaningful correlation — readiness score has predictive validity")
+                else:
+                    print("     Moderate correlation — acceptable for this sample size")
+
+                try:
+                    _c = _sqlite3.connect(DB_PATH)
+                    _validated.to_sql("readiness_validation", _c, if_exists="replace", index=False)
+                    _c.close()
+                    print("     ✓ Saved to readiness_validation table")
+                except Exception as _e:
+                    print(f"     ⚠ Could not save: {_e}")
+
+        print("\n[Model Improvement] Complete")
+        print("  Tables written: back_to_back_analysis, pre_injury_patterns, readiness_validation")
+        print("  Use these to retune model weights after 2026 season data accumulates")
+
+except Exception as _outer_e:
+    print(f"\n[Model Improvement] Skipped — {_outer_e}")
+    print("  This is non-critical — main model training completed successfully above")

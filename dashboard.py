@@ -227,7 +227,7 @@ def classify_player_full(player_id, today_wellness_row, today_fp_row, wellness_d
         str_z   = wz("stress",      today_wellness_row["stress"],      0.5)
         mood_z  = wz("mood",        today_wellness_row["mood"],        0.5)
 
-        if today_wellness_row["sleep_hours"] < 6.5:
+        if today_wellness_row["sleep_hours"] < 7.0:
             flags += 2
             notes.append(f"Sleep {today_wellness_row['sleep_hours']:.1f} hrs — below safety floor")
         elif sleep_z < -1.5:
@@ -252,7 +252,7 @@ def classify_player_full(player_id, today_wellness_row, today_fp_row, wellness_d
             flags += 1
             notes.append(f"Mood {today_wellness_row['mood']:.0f}/10 — {abs(mood_z):.1f}σ below her norm")
     else:
-        if today_wellness_row["sleep_hours"] < 6.5:
+        if today_wellness_row["sleep_hours"] < 7.0:
             flags += 2; notes.append("Sleep below safety floor (insufficient history for z-score)")
         if today_wellness_row["soreness"] > 7:
             flags += 2; notes.append("Soreness above safety ceiling (insufficient history for z-score)")
@@ -845,7 +845,7 @@ def gps_load_tab(training_load_df, players_df, end_date):
 def get_latest_date():
     return wellness["date"].max()
 
-def query_poor_sleep(threshold=6.5):
+def query_poor_sleep(threshold=7.0):
     latest_date = get_latest_date()
     df = wellness[wellness["date"] == latest_date].copy()
     df = df[df["sleep_hours"] < threshold].merge(players[["player_id", "name"]], on="player_id")
@@ -855,7 +855,7 @@ def query_high_risk():
     latest_date = get_latest_date()
     df = wellness[wellness["date"] == latest_date].copy()
     df = df.merge(players[["player_id", "name", "injury_history_count"]], on="player_id")
-    df["high_risk"] = (df["sleep_hours"] < 6.5) | (df["soreness"] > 7) | (df["stress"] > 7)
+    df["high_risk"] = (df["sleep_hours"] < 7.0) | (df["soreness"] > 7) | (df["stress"] > 7)
     return df[df["high_risk"]][["name", "sleep_hours", "soreness", "stress", "injury_history_count"]]
 
 def query_readiness_scores():
@@ -895,11 +895,11 @@ def generate_smart_response(query_type):
     if query_type == "poor_sleep":
         df = query_poor_sleep()
         if len(df) == 0:
-            return "No players had poor sleep (<6.5 hrs) last night.", None
+            return "No players had poor sleep (<7 hrs) last night.", None
         st.subheader(f"{len(df)} Players with Poor Sleep")
         st.dataframe(df, use_container_width=True)
         response = f"**{len(df)} players** had poor sleep:\n\n" + "".join(f"- {r['name']}: {r['sleep_hours']:.1f} hrs\n" for _, r in df.iterrows())
-        response += "\nResearch: Sleep <6.5 hrs increases injury risk 1.7× (Milewski 2014)"
+        response += "\nResearch: Sleep <7 hrs → elevated injury risk (Walsh 2021 BJSM consensus, 2025 meta-analysis OR=1.34)"
         return response, df
     elif query_type == "high_risk":
         df = query_high_risk()
@@ -1328,11 +1328,11 @@ with tab7:
 
     st.markdown("---")
     st.caption(
-        "Risk scoring: hard safety floors (sleep <6.5 hrs, soreness/stress >7) always flag. "
+        "Risk scoring: hard safety floors (sleep <7 hrs, soreness/stress >7) always flag. "
         "Personal deviations >1.5σ from 30-day baseline add flags. "
         "CMJ/RSI drops weighted ×1.5 vs subjective metrics. "
         "GPS load/accel/decel drops >1σ below personal baseline add flags. "
-        "Gathercole et al. (2015) · Milewski et al. (2014) · Gabbett (2016)"
+        "Gathercole et al. (2015) · Walsh et al. 2021 (BJSM sleep consensus) · Gabbett (2016)"
     )
 
     with st.expander("Model details (staff)"):
