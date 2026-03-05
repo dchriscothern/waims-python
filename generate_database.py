@@ -195,15 +195,17 @@ for pid in players["player_id"]:
 
         player_idx = list(players["player_id"]).index(pid)
 
-        # Sleep bases all above 7.0 — differentiated by player type not threshold breach
-        # Low sleepers still dip below 7 via noise but aren't structurally always flagged
-        sleep_base  = [8.2, 7.8, 7.4, 7.6, 8.5, 7.2, 7.8, 7.3, 8.0, 7.5, 7.1, 7.9][player_idx % 12]
-        stress_base = [3,   4,   5,   4,   2,   6,   4,   5,   3,   6,   7,   4  ][player_idx % 12]
+        # Per-player archetypes: 4 healthy sleepers, 5 moderate, 3 chronically under-recovered
+        # With oscillating fatigue this produces ~4 READY / 5 MONITOR / 3 PROTECT on typical day
+        sleep_base  = [8.5, 8.2, 7.5, 7.8, 8.6, 7.0, 8.0, 7.2, 8.3, 6.8, 6.9, 8.0][player_idx % 12]
+        stress_base = [2,   3,   6,   4,   2,   7,   3,   6,   2,   7,   8,   3  ][player_idx % 12]
+        sore_base   = [1,   2,   5,   3,   1,   6,   2,   5,   1,   4,   6,   2  ][player_idx % 12]
 
-        sleep    = np.clip(sleep_base - fatigue * 1.0 + np.random.normal(0, 0.6), 4.5, 9.5)
-        soreness = int(np.clip(1 + inj_hist * 0.5 + fatigue * 4 + np.random.normal(0, 1.5), 0, 10))
-        stress   = int(np.clip(stress_base + fatigue * 2 + np.random.normal(0, 1.2), 1, 10))
-        mood     = int(np.clip(10 - stress * 0.3 - fatigue * 1.5 + np.random.normal(0, 1.0), 1, 10))
+        # Mild oscillating fatigue — creates day-to-day variation without grinding everyone down
+        sleep    = np.clip(sleep_base - fatigue * 0.5 + np.random.normal(0, 0.5), 4.5, 9.5)
+        soreness = int(np.clip(sore_base + inj_hist * 0.3 + fatigue * 2.0 + np.random.normal(0, 1.0), 0, 10))
+        stress   = int(np.clip(stress_base + fatigue * 1.5 + np.random.normal(0, 1.0), 1, 10))
+        mood     = int(np.clip(10 - stress * 0.3 - fatigue * 1.0 + np.random.normal(0, 0.8), 2, 10))
         wellness_rows.append({
             "player_id":     pid,
             "date":          date.date(),
@@ -314,7 +316,7 @@ print(f"✓ {len(acwr_df)} ACWR records")
 
 print("\n7. Generating force plate data...")
 
-CMJ_BASE = {"G": 35, "F": 31, "C": 27}
+CMJ_BASE = {"G": 38, "F": 34, "C": 30}  # WNBA-appropriate: guards highest, centers lower
 
 fp_rows = []
 for pid in players["player_id"]:

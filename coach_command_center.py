@@ -50,16 +50,39 @@ def _readiness(row):
             return _READINESS_FN(row)
         except Exception:
             pass
-    # Fallback formula (evidence-based weights, no pkl needed)
-    sleep  = min(15, (row.get("sleep_hours", 7) / 8.0) * 10)
-    sore   = ((10 - row.get("soreness", 5)) / 10) * 10
-    mood   = (row.get("mood", 6)            / 10) * 5
-    stress = ((10 - row.get("stress", 5))   / 10) * 5
-    cmj    = row.get("cmj_height_cm", 30)
-    cmj_s  = min(15, (cmj / 32) * 15) if cmj else 10
-    rsi    = row.get("rsi_modified", 0.35)
-    rsi_s  = min(10, (rsi / 0.45) * 10) if rsi else 7
-    return round(max(0, min(100, sleep + sore + mood + stress + cmj_s + rsi_s)), 1)
+    # Fallback formula — mirrors train_models.py calculate_readiness_score weights
+    # Sleep: 15pts | Soreness: 10pts | Mood: 5pts | Stress: 5pts = 35pts wellness
+    # CMJ: 15pts | RSI: 10pts = 25pts force plate
+    # Schedule: 10pts | z-modifier: ±5pts default neutral
+    # Total possible: 100pts
+    sleep_hrs = row.get("sleep_hours", 7.5)
+    sleep_q   = row.get("sleep_quality", 7)
+    sleep_s   = min(15, (sleep_hrs / 8.0) * 10 + (sleep_q / 10) * 5)
+    sore_s    = ((10 - row.get("soreness", 4)) / 10) * 10
+    mood_s    = (row.get("mood", 7)             / 10) * 5
+    stress_s  = ((10 - row.get("stress", 4))    / 10) * 5
+
+    cmj       = row.get("cmj_height_cm")
+    pos       = str(row.get("position", row.get("pos", "F")))
+    cmj_bench = 38 if "G" in pos else (30 if "C" in pos else 34)  # position-matched WNBA baseline
+    cmj_s     = min(15, (cmj / cmj_bench) * 15) if cmj and cmj > 0 else 11
+    rsi       = row.get("rsi_modified")
+    rsi_s     = min(10, (rsi / 0.45) * 10) if rsi and rsi > 0 else 8  # neutral default ~0.36
+
+    # Schedule context
+    sched_s = 10
+    if row.get("is_back_to_back", 0): sched_s -= 4
+    if row.get("days_rest", 3) <= 1:  sched_s -= 2
+    if row.get("travel_flag", 0):     sched_s -= min(3, abs(row.get("time_zone_diff", 0)) * 1.5)
+    if row.get("unrivaled_flag", 0):  sched_s -= 2
+    sched_s = max(0, sched_s)
+
+    # Wellness(35) + Forceplate(25) + Schedule(10) = 70pts max in this fallback.
+    # Full formula in train_models.py adds GPS(20pts) + z-modifier(10pts) = 100pts.
+    # Rescale 70→100 so READY/MONITOR/PROTECT thresholds are correct.
+    raw   = sleep_s + sore_s + mood_s + stress_s + cmj_s + rsi_s + sched_s
+    total = raw * (100 / 70)
+    return round(max(0, min(100, total)), 1)
 
 
 def _traffic(score):

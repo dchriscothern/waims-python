@@ -351,7 +351,9 @@ def calculate_readiness_score(row):
     # ── FORCE PLATE / NEUROMUSCULAR (25 pts) ──────────────────────────────────
     # CMJ height 15 pts — Cormack 2008: established fatigue marker; Labban 2024 SR confirms daily sensitivity
     cmj = row.get("cmj_height_cm", np.nan)
-    score += min(15, (cmj / 32) * 15) if not pd.isna(cmj) else 10  # 32cm = solid baseline for WNBA
+    pos = str(row.get("position", row.get("pos", "F")))
+    cmj_bench = 38 if "G" in pos else (30 if "C" in pos else 34)  # position-matched WNBA baseline
+    score += min(15, (cmj / cmj_bench) * 15) if not pd.isna(cmj) else 11
 
     # RSI-modified 10 pts — Bishop 2023: RSI captures movement strategy (not just height)
     rsi = row.get("rsi_modified", np.nan)
