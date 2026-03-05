@@ -250,14 +250,28 @@ class WNBAStatsClient:
             return self._cache[cache_key]
 
         try:
-            stats = LeagueDashPlayerStats(
-                season=season,
-                per_mode_simple=per_mode,
-                league_id=WNBA_LEAGUE_ID,
-                season_type_all_star="Regular Season",
-                headers=HEADERS,
-                timeout=60,
-            )
+            # nba_api parameter name changed between versions:
+            # older versions: per_mode_simple
+            # newer versions: per_mode_simple still used but some builds differ
+            # Try both names gracefully
+            try:
+                stats = LeagueDashPlayerStats(
+                    season=season,
+                    per_mode_simple=per_mode,
+                    league_id=WNBA_LEAGUE_ID,
+                    season_type_all_star="Regular Season",
+                    headers=HEADERS,
+                    timeout=60,
+                )
+            except TypeError:
+                stats = LeagueDashPlayerStats(
+                    season=season,
+                    per_mode=per_mode,
+                    league_id=WNBA_LEAGUE_ID,
+                    season_type_all_star="Regular Season",
+                    headers=HEADERS,
+                    timeout=60,
+                )
             time.sleep(API_DELAY)
             df = stats.get_data_frames()[0]
             df.columns = df.columns.str.lower()
