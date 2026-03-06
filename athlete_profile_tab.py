@@ -284,7 +284,7 @@ def athlete_photo_block(ath_key: str):
 # RADAR CHART
 # ==============================================================================
 
-def create_radar_chart(athlete_data, athlete_name):
+def create_radar_chart(athlete_data, athlete_name, position='F'):
     sleep_score    = (athlete_data["sleep_hours"] / 8) * 100
     physical_score = ((10 - athlete_data["soreness"]) / 10) * 100
     mental_score   = (athlete_data["mood"] / 10) * 100
@@ -298,7 +298,9 @@ def create_radar_chart(athlete_data, athlete_name):
     load_score = max(0, min(100, rsi_score + load_mod))
 
     cmj         = athlete_data.get("cmj_height_cm", 30)
-    neuro_score = min(100, (cmj / 40) * 100)
+    # Position-matched WNBA baseline — aligns with train_models.py
+    _cmj_bench  = 38 if "G" in str(position) else (30 if "C" in str(position) else 34)
+    neuro_score = min(100, (cmj / _cmj_bench) * 100)
 
     # GPS score — player load normalised to position baseline
     gps_score = min(100, athlete_data.get("gps_load_pct", 75))
@@ -388,18 +390,18 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             ac_emoji, ac_z = _gps_zscore(athlete_id, "accel_count", gps_row["accel_count"], training_load, ref_date)
             dc_emoji, dc_z = _gps_zscore(athlete_id, "decel_count", gps_row["decel_count"], training_load, ref_date)
 
-    # ── READINESS SCORE (wellness + CMJ/RSI modifier) ─────────────────────────
-    readiness = (
-        (latest_wellness["sleep_hours"] / 8) * 30
-        + ((10 - latest_wellness["soreness"]) / 10) * 25
-        + ((10 - latest_wellness["stress"]) / 10) * 25
-        + (latest_wellness["mood"] / 10) * 20
-    )
-    if cmj_z is not None:
-        readiness += max(-5, min(5, cmj_z * 2.5))
-    if rsi_z is not None:
-        readiness += max(-5, min(5, rsi_z * 2.5))
-    readiness = max(0, min(100, readiness))
+    # ── READINESS SCORE — shared formula, identical to Command Center + train_models ──
+    # Passes full row dict including CMJ, RSI, position, schedule context
+    # Uses pkl scorer when available; falls back to same rescaled 70→100 formula
+    _readiness_row = dict(latest_wellness)
+    _readiness_row["position"] = athlete_info.get("position", "F")
+    if latest_cmj is not None: _readiness_row["cmj_height_cm"] = latest_cmj
+    if latest_rsi is not None: _readiness_row["rsi_modified"]  = latest_rsi
+    if cmj_z is not None:      _readiness_row["cmj_height_cm_zscore"] = cmj_z
+    if rsi_z is not None:      _readiness_row["rsi_modified_zscore"]  = rsi_z
+    if pl_z is not None:       _readiness_row["player_load_zscore"]   = pl_z
+    if ac_z is not None:       _readiness_row["accel_count_zscore"]   = ac_z
+    readiness = _calculate_readiness(_readiness_row)
 
     # GPS load % for radar (normalise player_load to 0–100 vs position baseline)
     gps_load_pct = 75  # default
@@ -451,7 +453,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             "cmj_height_cm":  latest_cmj if latest_cmj else 30,
             "gps_load_pct":   gps_load_pct,
         }
-        fig = create_radar_chart(radar_data, selected_athlete)
+        fig = create_radar_chart(radar_data, selected_athlete, position=athlete_info.get('position','F'))
         st.plotly_chart(fig, use_container_width=True, key=f"radar_{athlete_id}")
 
     # ==========================================================================
@@ -464,7 +466,8 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
 
     with c1:
         hrs = latest_wellness["sleep_hours"]
-        s   = "good" if hrs >= 7.5 else ("warning" if hrs >= 6.5 else "bad")
+        # Walsh 2021: ≥7.0 good, 6.0-6.9 warning, <6.0 bad
+        s   = "good" if hrs >= 7.0 else ("warning" if hrs >= 6.0 else "bad")
         st.markdown(create_metric_card("Sleep", f"{hrs:.1f} hrs", s), unsafe_allow_html=True)
 
     with c2:
@@ -668,7 +671,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             alerts = add_z_score_alerts(
                 dict(latest_wellness),
                 baselines,
-                {"sleep": 6.5, "soreness": 7, "acwr": 1.5},
+                {"sleep": 7.0, "soreness": 7, "acwr": 1.5},  # Walsh 2021
             )
             if cmj_z is not None and cmj_z <= -2.0:
                 alerts.append({"type": "critical", "metric": "CMJ",

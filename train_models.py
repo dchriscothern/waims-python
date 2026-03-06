@@ -173,7 +173,7 @@ for col, min_std in Z_COLS.items():
     df[f"{col}_zscore"] = ((df[col] - roll_mean) / roll_std).fillna(0)
 
 # ── Hard-floor binary flags ────────────────────────────────────────────────────
-# Sleep floor: updated from <6.5 (Milewski 2014) to <7.0
+# Sleep floor: <7.0 yellow (Walsh 2021 BJSM), <6.0 red (severe risk)
 # Walsh et al. 2021 (BJSM expert consensus): 7-9hrs recommended for elite athletes
 # 2025 meta-analysis (OR=1.34): <8hrs associated with elevated injury risk
 # Female athletes: compounded by hormonal variability (Charest & Grandner 2020)

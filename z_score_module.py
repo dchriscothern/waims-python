@@ -121,12 +121,16 @@ def add_z_score_alerts(current_wellness, baselines, research_thresholds):
         baselines["sleep_hours"]["mean"],
         baselines["sleep_hours"]["std"],
     )
-    if current_wellness["sleep_hours"] < 6.5:
+    if current_wellness["sleep_hours"] < 7.0:
         alerts.append({
-            "type": "critical",
+            "type": "critical" if current_wellness["sleep_hours"] < 6.0 else "warning",
             "metric": "Sleep",
-            "message": f"Sleep <6.5 hrs — 1.7× injury risk (Milewski 2014)",
-            "color": "#ef4444",
+            "message": (
+                f"Sleep <6.0 hrs — significant injury risk (Walsh 2021 BJSM, OR=1.34)"
+                if current_wellness["sleep_hours"] < 6.0
+                else f"Sleep <7.0 hrs — below recommended minimum (Walsh 2021 BJSM consensus)"
+            ),
+            "color": "#ef4444" if current_wellness["sleep_hours"] < 6.0 else "#f59e0b",
         })
     elif sleep_z < -2.0:
         alerts.append({

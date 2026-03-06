@@ -380,7 +380,7 @@ def _conditional_risk_section(df):
     base_rate   = df["injured_within_7days"].mean() * 100
 
     FLAG_DEFS = [
-        ("sleep_hours",       "lt", 6.5,  "Sleep < 6.5 hrs"),
+        ("sleep_hours",       "lt", 7.0,  "Sleep < 7.0 hrs"),  # Walsh 2021
         ("soreness",          "gt", 7.0,  "Soreness > 7/10"),
         ("stress",            "gt", 7.0,  "Stress > 7/10"),
         ("acwr",              "gt", 1.5,  "ACWR > 1.5"),
