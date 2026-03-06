@@ -107,7 +107,7 @@ def _gps_flag(player_id, col, today_val, tl_df, ref_date):
 # BUILD PLAYER SUMMARY TABLE
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_summary(wellness, players, force_plate, training_load, end_date):
+def _build_summary(wellness, players, force_plate, training_load, end_date, ml_predictions=None):
     ref = pd.Timestamp(end_date)
     rows = []
 
@@ -161,6 +161,16 @@ def _build_summary(wellness, players, force_plate, training_load, end_date):
         elif w["mood"] <= 4:          flags.append("Low mood today")
         reason = " · ".join(flags[:2]) if flags else "Cleared for full training"
 
+        # Injury risk from ML model — loaded from processed_data.csv
+        inj_risk = None
+        if ml_predictions is not None and len(ml_predictions) > 0:
+            _risk_row = ml_predictions[
+                (ml_predictions["player_id"] == pid) &
+                (ml_predictions["date"] == ref.date())
+            ]
+            if len(_risk_row) > 0:
+                inj_risk = round(float(_risk_row.iloc[0]["injury_risk_score"]) * 100, 0)
+
         rows.append({
             "pid":      pid,
             "name":     p["name"],
@@ -177,6 +187,7 @@ def _build_summary(wellness, players, force_plate, training_load, end_date):
             "load":     pl_flag,
             "accel":    ac_flag,
             "reason":   reason,
+            "inj_risk": inj_risk,
         })
 
 
@@ -348,9 +359,9 @@ def _sparkline(values, color="#2E86AB"):
 # MAIN RENDER
 # ─────────────────────────────────────────────────────────────────────────────
 
-def coach_command_center(wellness, players, force_plate, training_load, acwr, end_date):
+def coach_command_center(wellness, players, force_plate, training_load, acwr, end_date, ml_predictions=None):
 
-    summary         = _build_summary(wellness, players, force_plate, training_load, end_date)
+    summary         = _build_summary(wellness, players, force_plate, training_load, end_date, ml_predictions=ml_predictions)
     alerts          = _top_alerts(summary, acwr, end_date)
     gps             = _gps_strip(training_load, players, end_date)
     game_context    = _schedule_context(end_date)
@@ -579,6 +590,17 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             text=f"<b>{r['score']:.0f}%</b>",
             font=dict(size=34, color=c["score"], family="Georgia, serif"),
             xanchor="left")
+
+        # Injury risk badge (top-right, below status badge) — only if available
+        inj_risk = r.get("inj_risk")
+        if inj_risk is not None:
+            risk_color = "#dc2626" if inj_risk >= 60 else ("#d97706" if inj_risk >= 25 else "#16a34a")
+            risk_label = f"7d risk: {int(inj_risk)}%"
+            fig.add_annotation(
+                x=0.93, y=0.68, xref="paper", yref="paper", showarrow=False,
+                text=risk_label,
+                font=dict(size=9, color=risk_color),
+                xanchor="right")
 
         # Divider
         fig.add_shape(type="line", x0=0.05, y0=0.22, x1=0.95, y1=0.22,

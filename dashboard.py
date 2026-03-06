@@ -937,6 +937,15 @@ if len(wellness) > 0:
 else:
     end_date = datetime.today().date()
 
+# Load ML predictions (injury risk scores) — produced by train_models.py
+# Graceful fallback: empty df if not yet trained
+try:
+    _pcsv = pd.read_csv("data/processed_data.csv")
+    _pcsv["date"] = pd.to_datetime(_pcsv["date"]).dt.date
+    ml_predictions = _pcsv[["player_id", "date", "readiness_score", "injury_risk_score"]].copy()
+except Exception:
+    ml_predictions = pd.DataFrame(columns=["player_id", "date", "readiness_score", "injury_risk_score"])
+
 start_date = end_date
 
 # MAIN DASHBOARD
@@ -962,7 +971,7 @@ tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
 # ==============================================================================
 
 with tab0:
-    coach_command_center(wellness, players, force_plate, training_load, acwr, end_date)
+    coach_command_center(wellness, players, force_plate, training_load, acwr, end_date, ml_predictions=ml_predictions)
 
 # ==============================================================================
 # TAB 1 — TODAY'S READINESS (analyst view)
