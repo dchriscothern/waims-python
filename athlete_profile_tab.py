@@ -4,12 +4,14 @@ Includes GPS / Kinexon section (player load, accel count, decel count)
 """
 
 import os
+import pickle
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
+import numpy as np
 
 try:
     from improved_gauges import create_clean_speedometer, create_recommendation_box
@@ -24,8 +26,19 @@ try:
 except ImportError:
     HAVE_ENHANCED_MODULES = False
 
-# athlete_profile_tab.py (near the top, after imports)
+# ── Load shared readiness scorer pkl ─────────────────────────────────────────
+# Same pkl as coach_command_center — single source of truth.
+# Falls back to formula if pkl not yet trained (first run before train_models.py).
 _READINESS_FN = None
+try:
+    _scorer_path = Path("models/readiness_scorer.pkl")
+    if _scorer_path.exists():
+        with open(_scorer_path, "rb") as _f:
+            _scorer_data = pickle.load(_f)
+            _READINESS_FN = _scorer_data.get("function")
+except Exception:
+    _READINESS_FN = None
+
 
 # ==============================================================================
 # SHARED READINESS CALCULATOR — single source of truth
