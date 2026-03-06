@@ -24,6 +24,8 @@ try:
 except ImportError:
     HAVE_ENHANCED_MODULES = False
 
+# athlete_profile_tab.py (near the top, after imports)
+_READINESS_FN = None
 
 # ==============================================================================
 # SHARED READINESS CALCULATOR — single source of truth
