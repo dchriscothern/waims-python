@@ -389,15 +389,15 @@ def generate_html(pubmed_papers, rss_items, days):
 </div>"""
 
     groups = [
-        ("🔴 CANDIDATES — Eligible for threshold review",
+        ("[HIGH] CANDIDATES -- Eligible for threshold review",
          [p for p in pubmed_papers if p["gate_status"] == "CANDIDATE"]),
-        ("🟡 REVIEW — Basketball-specific / high-relevance",
+        ("[REVIEW] REVIEW -- Basketball-specific / high-relevance",
          [p for p in pubmed_papers if p["gate_status"] == "REVIEW"]),
-        ("📰 PRACTITIONER ARTICLES — Expert RSS feeds",
+        ("[PRACTITIONER] ARTICLES -- Expert RSS feeds",
          rss_items),
-        ("⚪ WATCHLIST — Single studies",
+        ("[WATCHLIST] WATCHLIST -- Single studies",
          [p for p in pubmed_papers if p["gate_status"] == "WATCHLIST"]),
-        ("⬜ BACKGROUND",
+        ("[BACKGROUND] Background awareness",
          [p for p in pubmed_papers if p["gate_status"] == "BACKGROUND"]),
     ]
     body = ""
@@ -443,7 +443,7 @@ def generate_html(pubmed_papers, rss_items, days):
 </body>
 </html>"""
 
-    Path(fname).write_text(html)
+    Path(fname).write_text(html, encoding='utf-8')
     print(f"  HTML report: {fname}  (open: {'open' if __import__('sys').platform=='darwin' else 'start'} {fname})\n")
 
 

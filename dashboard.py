@@ -204,10 +204,10 @@ def build_gps_flag_notes(player_id, gps_row, training_load_df, ref_date):
     if decel_val is not None:
         decel_emoji, decel_z = _gps_zscore_flag(player_id, "decel_count", decel_val, training_load_df, ref_date)
         if decel_emoji == "🔴" and decel_z is not None:
-            notes.append(f"DECEL COUNT {decel_val:.0f} -- {abs(decel_z):.1f}σ below baseline "
-                        f"(PRIMARY signal: protective avoidance pattern, ACL risk phase)")
+            notes.append(f"Decel count {decel_val:.0f} -- {abs(decel_z):.1f}σ below personal baseline "
+                        f"(cross-reference CMJ/RSI: if also reduced, combined signal warrants action)")
         elif decel_emoji == "🟡" and decel_z is not None:
-            notes.append(f"Decel count {decel_val:.0f} -- {abs(decel_z):.1f}σ below baseline (monitor)")
+            notes.append(f"Decel count {decel_val:.0f} -- {abs(decel_z):.1f}σ below personal baseline (monitor)")
 
     # Secondary signals
     for col, label in [("player_load", "Player Load"), ("accel_count", "Accel Count")]:
@@ -325,7 +325,7 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
     # Moved to top per coach workflow: download or alert before digging into details
     _qa1, _qa2, _qa3 = st.columns(3)
     with _qa1:
-        if st.button("Email At-Risk Players", use_container_width=True, key="qa_email_top"):
+        if st.button("Email At-Risk Players", width='stretch', key="qa_email_top"):
             st.info("At-risk player list will populate once data loads below.")
     with _qa2:
         st.download_button(
@@ -333,11 +333,11 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
             data="name,status\nLoading...",
             file_name=f"readiness_{pd.Timestamp(end_date).strftime('%Y%m%d')}.csv",
             mime="text/csv",
-            use_container_width=True,
+            width='stretch',
             key="qa_export_top"
         )
     with _qa3:
-        if st.button("Create Training Alert", use_container_width=True, key="qa_alert_top"):
+        if st.button("Create Training Alert", width='stretch', key="qa_alert_top"):
             st.info("Training alert will populate once data loads below.")
     st.markdown("---")
 
@@ -628,7 +628,7 @@ def availability_injuries_tab(availability_df, injuries_df, players_df, end_date
                 "days_questionable": (x["status"] == "QUESTIONABLE").sum(),
                 "days_out":          (x["status"] == "OUT").sum(),
                 "total_days":        len(x),
-            }))
+            }), include_groups=False)
             .reset_index()
             .merge(players_df[["player_id", "name", "position"]], on="player_id")
         )
@@ -654,7 +654,7 @@ def availability_injuries_tab(availability_df, injuries_df, players_df, end_date
             xaxis=dict(range=[0, 110], title="Availability %"),
             yaxis=dict(title=""),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     # ── INJURY LOG ────────────────────────────────────────────────────
     st.markdown("---")
@@ -692,7 +692,7 @@ def availability_injuries_tab(availability_df, injuries_df, players_df, end_date
                         yaxis2=dict(title="Soreness", overlaying="y", side="right"),
                         height=260, hovermode="x unified",
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
     else:
         st.success("No injuries recorded this season")
 
@@ -803,13 +803,13 @@ def gps_load_tab(training_load_df, players_df, end_date):
 
         t1, t2 = st.columns(2)
         with t1:
-            st.plotly_chart(gps_chart("total_distance_km", "Total Distance (km)", "km"), use_container_width=True)
+            st.plotly_chart(gps_chart("total_distance_km", "Total Distance (km)", "km"), width='stretch')
         with t2:
-            st.plotly_chart(gps_chart("hsr_distance_m", "High-Speed Running (m, >18 km/h)", "m"), use_container_width=True)
+            st.plotly_chart(gps_chart("hsr_distance_m", "High-Speed Running (m, >18 km/h)", "m"), width='stretch')
 
         t3, t4 = st.columns(2)
         with t3:
-            st.plotly_chart(gps_chart("player_load", "Player Load", "AU"), use_container_width=True)
+            st.plotly_chart(gps_chart("player_load", "Player Load", "AU"), width='stretch')
         with t4:
             fig = go.Figure()
             for i, name in enumerate(sel):
@@ -824,7 +824,7 @@ def gps_load_tab(training_load_df, players_df, end_date):
                 margin=dict(l=10, r=10, t=40, b=10),
                 legend=dict(orientation="h", y=-0.3),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
     # ── PLAYER LOAD ACWR ──────────────────────────────────────────────
     st.markdown("---")
@@ -863,7 +863,7 @@ def gps_load_tab(training_load_df, players_df, end_date):
             yaxis=dict(title="Player Load ACWR", range=[0, 2.2]),
             margin=dict(l=10, r=10, t=20, b=10),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 # ==============================================================================
 # SMART QUERY FUNCTIONS
@@ -924,7 +924,7 @@ def generate_smart_response(query_type):
         if len(df) == 0:
             return "No players had poor sleep (<7 hrs) last night.", None
         st.subheader(f"{len(df)} Players with Poor Sleep")
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='stretch')
         response = f"**{len(df)} players** had poor sleep:\n\n" + "".join(f"- {r['name']}: {r['sleep_hours']:.1f} hrs\n" for _, r in df.iterrows())
         response += "\nResearch: Sleep <7 hrs → elevated injury risk (Walsh 2021 BJSM consensus, 2025 meta-analysis OR=1.34)"
         return response, df
@@ -933,13 +933,13 @@ def generate_smart_response(query_type):
         if len(df) == 0:
             return "No players currently showing high injury risk indicators.", None
         st.subheader(f"{len(df)} Players at Elevated Risk")
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='stretch')
         response = f"**{len(df)} players** showing elevated risk:\n\n" + "".join(f"- {r['name']}: Sleep {r['sleep_hours']:.1f} hrs, Soreness {r['soreness']}/10\n" for _, r in df.iterrows())
         return response, df
     elif query_type == "readiness":
         df = query_readiness_scores()
         st.subheader("Readiness Scores")
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='stretch')
         green  = len(df[df["readiness_score"] >= 80])
         yellow = len(df[(df["readiness_score"] >= 60) & (df["readiness_score"] < 80)])
         red    = len(df[df["readiness_score"] < 60])
@@ -948,8 +948,8 @@ def generate_smart_response(query_type):
         df = query_position_comparison()
         st.subheader("Position Comparison")
         fig = px.bar(df, x="position", y=["avg_sleep", "avg_soreness"], barmode="group", title="Metrics by Position")
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(df, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
+        st.dataframe(df, width='stretch')
         return "Position comparison complete", df
     else:
         return "Try: 'poor sleep', 'high risk', 'readiness', or 'compare positions'", None
@@ -1107,14 +1107,14 @@ with tab3:
             st.caption("Saw et al. 2016 (56-study SR): sleep and soreness are strongest daily wellness predictors.")
             r1, r2 = st.columns(2)
             with r1:
-                st.plotly_chart(dual_trace_chart(trend_w, "sleep_hours","sleep_roll","Sleep Hours",[4,10]), use_container_width=True)
+                st.plotly_chart(dual_trace_chart(trend_w, "sleep_hours","sleep_roll","Sleep Hours",[4,10]), width='stretch')
             with r2:
-                st.plotly_chart(dual_trace_chart(trend_w, "soreness","soreness_roll","Soreness (0–10)",[0,10]), use_container_width=True)
+                st.plotly_chart(dual_trace_chart(trend_w, "soreness","soreness_roll","Soreness (0–10)",[0,10]), width='stretch')
             r3, r4 = st.columns(2)
             with r3:
-                st.plotly_chart(dual_trace_chart(trend_w, "mood","mood_roll","Mood (0–10)",[0,10]), use_container_width=True)
+                st.plotly_chart(dual_trace_chart(trend_w, "mood","mood_roll","Mood (0–10)",[0,10]), width='stretch')
             with r4:
-                st.plotly_chart(dual_trace_chart(trend_w, "stress","stress_roll","Stress (0–10)",[0,10]), use_container_width=True)
+                st.plotly_chart(dual_trace_chart(trend_w, "stress","stress_roll","Stress (0–10)",[0,10]), width='stretch')
 
             # ── Row 2: CMJ + Player Load (objective signals) ─────────────────
             st.markdown("#### 💪 Objective Load Signals")
@@ -1122,12 +1122,12 @@ with tab3:
             r5, r6 = st.columns(2)
             with r5:
                 if len(trend_fp) > 0:
-                    st.plotly_chart(dual_trace_chart(trend_fp, "cmj_height_cm","cmj_roll","CMJ Height (cm)",[15,45]), use_container_width=True)
+                    st.plotly_chart(dual_trace_chart(trend_fp, "cmj_height_cm","cmj_roll","CMJ Height (cm)",[15,45]), width='stretch')
                 else:
                     st.info("No force plate data in selected window.")
             with r6:
                 if len(trend_gps) > 0:
-                    st.plotly_chart(dual_trace_chart(trend_gps, "player_load","load_roll","Player Load (AU)",[0,None]), use_container_width=True)
+                    st.plotly_chart(dual_trace_chart(trend_gps, "player_load","load_roll","Player Load (AU)",[0,None]), width='stretch')
                 else:
                     st.info("No GPS data in selected window.")
 
@@ -1153,7 +1153,7 @@ with tab3:
                     margin=dict(l=10,r=10,t=40,b=20), hovermode="x unified",
                     yaxis=dict(range=[0, 2.5]),
                     legend=dict(orientation="h", y=-0.3))
-                st.plotly_chart(fig_acwr, use_container_width=True)
+                st.plotly_chart(fig_acwr, width='stretch')
             else:
                 st.info("No ACWR data available.")
         else:
@@ -1241,7 +1241,7 @@ with tab4:
                 fig = px.line(trend_df, x="date", y="cmj_height_cm", color="name", markers=True,
                               title="CMJ Height (cm) -- Personal Trend",
                               labels={"cmj_height_cm": "CMJ (cm)", "name": "Athlete"})
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
     else:
         st.info("No force plate data available.")
 
@@ -1663,7 +1663,7 @@ with tab7:
 
         if mins_rows:
             mins_df = pd.DataFrame(mins_rows).sort_values("Min (8d)", ascending=False)
-            st.dataframe(mins_df, use_container_width=True, hide_index=True)
+            st.dataframe(mins_df, width='stretch', hide_index=True)
             st.caption("Thresholds: 4d >120 min = high; 8d >220 min = high. "
                        "Clinical estimates -- no published WNBA-specific cumulative load thresholds. "
                        "Adjust based on team's historical injury-load relationship.")
@@ -1755,13 +1755,13 @@ with tab8:
             'letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">Quick queries</div>',
             unsafe_allow_html=True,
         )
-        if st.button("Poor Sleep",     use_container_width=True, key="qs_sleep"):
+        if st.button("Poor Sleep",     width='stretch', key="qs_sleep"):
             st.session_state.query_to_run = "poor sleep";    st.rerun()
-        if st.button("High Risk",      use_container_width=True, key="qs_risk"):
+        if st.button("High Risk",      width='stretch', key="qs_risk"):
             st.session_state.query_to_run = "high risk";     st.rerun()
-        if st.button("Readiness",      use_container_width=True, key="qs_ready"):
+        if st.button("Readiness",      width='stretch', key="qs_ready"):
             st.session_state.query_to_run = "readiness";     st.rerun()
-        if st.button("Back-to-Backs",  use_container_width=True, key="qs_b2b"):
+        if st.button("Back-to-Backs",  width='stretch', key="qs_b2b"):
             st.session_state.query_to_run = "back to back";  st.rerun()
 
     # ── DIVIDER ───────────────────────────────────────────────────────────────

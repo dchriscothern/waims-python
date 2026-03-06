@@ -332,11 +332,11 @@ def athlete_photo_block(ath_key: str):
     for ext in (".jpg", ".jpeg", ".png"):
         path = f"{PHOTOS_DIR}/{ath_key}{ext}"
         if os.path.exists(path):
-            st.image(path, use_container_width=True)
+            st.image(path, width='stretch')
             return
     st.image(
         f"https://via.placeholder.com/200x250/2E86AB/FFFFFF?text={ath_key.replace('_', '+')}",
-        use_container_width=True,
+        width='stretch',
     )
 
 
@@ -568,11 +568,11 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         st.markdown("**Overall Readiness**")
         if HAVE_ENHANCED_MODULES:
             fig = create_clean_speedometer(readiness, "Readiness Score", thresholds=[60, 80])
-            st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
+            st.plotly_chart(fig, width='stretch', key=f"gauge_readiness_{athlete_id}")
             st.markdown(create_recommendation_box(readiness, context="competition"), unsafe_allow_html=True)
         else:
             fig = create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80])
-            st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
+            st.plotly_chart(fig, width='stretch', key=f"gauge_readiness_{athlete_id}")
 
         # 7-day risk shown in col1 (under Age) — no duplicate here
 
@@ -591,7 +591,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             "decel_count_zscore":  dc_z,  # PRIMARY signal — see radar docstring
         }
         fig = create_radar_chart(radar_data, selected_athlete, position=athlete_info.get('position','F'))
-        st.plotly_chart(fig, use_container_width=True, key=f"radar_{athlete_id}")
+        st.plotly_chart(fig, width='stretch', key=f"radar_{athlete_id}")
 
     # ==========================================================================
     # KEY METRIC CARDS  (8 across: wellness + force plate + GPS)
@@ -853,7 +853,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
                 margin=dict(l=10, r=10, t=20, b=20),
                 legend=dict(orientation="h", y=-0.25),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("Insufficient GPS history for trend chart.")
 
@@ -998,7 +998,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             yaxis2=dict(title="Force Plate", overlaying="y", side="right"),
             height=320, hovermode="x unified",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
         st.info("Insufficient data for 7-day trends")
 
@@ -1139,7 +1139,12 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             "- **CMJ/RSI:** Neuromuscular fatigue indicator, weighted highest in readiness formula — Gathercole et al. 2015\n"
             "- **ACWR ⚠ (contextual flag only):** Gabbett 2016 established >1.5 high-risk zone; Impellizzeri et al. 2020 identified statistical flaws; 2025 meta (22 cohort studies) recommends use with caution — not scored in readiness formula\n"
             "- **Soreness:** >7 requires monitoring (Hulin et al. 2016)\n"
-            "- **Accels/Decels:** Direction-change load; drops may indicate protective movement strategies\n"
+            "- **Accels/Decels:** GPS exposure indicator; drops below personal baseline warrant CMJ/RSI cross-reference before action (Clubb 2025)\n"
             "- **Post-match recovery (female):** Pernigoni et al. 2024 (44-study basketball SR); no CMJ drop at 24h in female players (Delextrat); Goulart 2022 female meta-analysis\n"
-            "- **B2B fatigue:** Charest et al. 2021 JCSM (NBA travel/circadian); Clark et al. 2025 PLOS One (108-study indoor sports SR)"
+            "- **B2B fatigue:** Charest et al. 2021 JCSM (NBA travel/circadian); Clark et al. 2025 PLOS One (108-study indoor sports SR)\n"
+            "\n"
+            "**-- Evidence monitor 2026-03-06: 3 CANDIDATES under formal review --**\n"
+            "- ACL prevention: Watson et al. 2026 Am J Sports Med SR+meta-analysis (check female basketball applicability)\n"
+            "- CMJ calculation methods: Eythorsdottir et al. 2026 Eur J Sport Sci SR (may affect CMJ thresholds)\n"
+            "- ML injury prediction: Yuan et al. 2026 J Sports Sci Med SR (relevant to V2 ML model)"
         )
