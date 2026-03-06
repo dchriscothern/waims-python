@@ -410,8 +410,14 @@ def calculate_readiness_score(row):
     if acwr > 1.8:   modifier -= 3  # Extreme spike only
     elif acwr < 0.6: modifier -= 2  # Extreme underload (detraining signal)
 
-    score = max(0, min(100, score + modifier))
-    return round(score, 1)
+    # Base score (wellness 35 + force plate 25 + schedule 10) = 70pts max
+    # z-modifier adds up to ±10pts, GPS modifier up to ±6pts
+    # Still peaks around 70 for healthy players without extreme positive z-scores.
+    # Rescale to 0-100 so READY(>=80) / MONITOR(60-79) / PROTECT(<60) work correctly.
+    # The modifier is applied before rescaling so it has proportional effect.
+    raw_score = score + modifier
+    scaled    = raw_score * (100 / 70)
+    return round(max(0, min(100, scaled)), 1)
 
 df["readiness_score"] = df.apply(calculate_readiness_score, axis=1)
 
