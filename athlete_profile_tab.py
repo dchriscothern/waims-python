@@ -936,15 +936,46 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         mc2.metric("Tomorrow (projected)", f"{tomorrow_score:.0f}%", delta=delta_str_ap)
         mc3.metric("Status", tmr_status)
 
+        # Prescriptive recommendation — specific and actionable
         if tmr_status == "PROTECT":
-            proj_msg = f"After a {load_scenario_ap.lower()}, consider reducing minutes or removing from high-intensity reps tonight."
+            ap_rec_color, ap_rec_bg   = "#dc2626", "#fef2f2"
+            ap_rec_head = "Restrict Tonight"
+            ap_rec_body = (
+                f"Cap at 20–26 minutes tonight depending on game situation. "
+                f"Remove from high-intensity interval work in practice. "
+                f"Check in before session — ask about sleep quality and leg fatigue specifically. "
+                f"Projected readiness tomorrow: {tomorrow_score:.0f}% (PROTECT)."
+            )
         elif tmr_status == "MONITOR":
-            proj_msg = f"After a {load_scenario_ap.lower()}, watch warmup quality tomorrow — be ready to modify session if soreness spikes."
+            ap_rec_color, ap_rec_bg   = "#d97706", "#fffbeb"
+            ap_rec_head = "Monitor Closely"
+            ap_rec_body = (
+                f"Standard minutes available but watch warmup movement quality. "
+                f"If soreness ≥7/10 or movement looks laboured, reduce early. "
+                f"Prioritise skill work over high-intensity conditioning reps. "
+                f"Projected readiness tomorrow: {tomorrow_score:.0f}% (MONITOR)."
+            )
         else:
-            proj_msg = f"Expected to recover well from a {load_scenario_ap.lower()} and be ready for full training tomorrow."
-        st.info(proj_msg)
-        st.caption("Projections: Pernigoni 2024 (basketball SR, female-specific CMJ recovery); "
-                   "Goulart 2022 (female meta-analysis); Charest 2021 JCSM (B2B sleep/travel).")
+            ap_rec_color, ap_rec_bg   = "#16a34a", "#f0fdf4"
+            ap_rec_head = "Clear for Full Load"
+            ap_rec_body = (
+                f"No restrictions needed. Full minutes and full training available. "
+                f"Projected readiness tomorrow: {tomorrow_score:.0f}% ({tmr_status})."
+            )
+
+        st.markdown(
+            f'<div style="background:{ap_rec_bg};border-left:4px solid {ap_rec_color};'
+            f'border-radius:0 8px 8px 0;padding:12px 16px;margin-top:6px;">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.1em;'
+            f'text-transform:uppercase;color:{ap_rec_color};margin-bottom:4px;">Staff Recommendation</div>'
+            f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">{ap_rec_head}</div>'
+            f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{ap_rec_body}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+        st.caption("Projections: Pernigoni 2024 (44-study basketball SR, female-specific CMJ recovery); "
+                   "Goulart 2022 (female meta-analysis); Charest 2021 JCSM (B2B sleep/travel). "
+                   "Minutes thresholds: Orlando Magic sport science framework (NBA practitioner 2024).")
 
     with st.expander("Research References"):
         st.markdown(

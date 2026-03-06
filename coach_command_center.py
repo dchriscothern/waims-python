@@ -27,6 +27,38 @@ if _SCORER_PATH.exists():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# SHARED READINESS CALCULATOR
+# Identical to athlete_profile_tab.py — single formula, both files self-contained.
+# Uses pkl scorer when available, falls back to deterministic formula.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _calculate_readiness(row_dict):
+    if _READINESS_FN is not None:
+        try:
+            return _READINESS_FN(row_dict)
+        except Exception:
+            pass
+    sleep_hrs = row_dict.get("sleep_hours", 7.5)
+    sleep_q   = row_dict.get("sleep_quality", 7)
+    sleep_s   = min(15, (sleep_hrs / 8.0) * 10 + (sleep_q / 10) * 5)
+    sore_s    = ((10 - row_dict.get("soreness", 4)) / 10) * 10
+    mood_s    = (row_dict.get("mood", 7) / 10) * 5
+    stress_s  = ((10 - row_dict.get("stress", 4)) / 10) * 5
+    cmj       = row_dict.get("cmj_height_cm")
+    pos       = str(row_dict.get("position", row_dict.get("pos", "F")))
+    bench     = 38 if "G" in pos else (30 if "C" in pos else 34)
+    cmj_s     = min(15, (cmj / bench) * 15) if cmj and cmj > 0 else 11
+    rsi       = row_dict.get("rsi_modified")
+    rsi_s     = min(10, (rsi / 0.45) * 10) if rsi and rsi > 0 else 8
+    sched_s   = 10
+    if row_dict.get("is_back_to_back", 0): sched_s -= 4
+    if row_dict.get("days_rest", 3) <= 1:  sched_s -= 2
+    sched_s   = max(0, sched_s)
+    raw = sleep_s + sore_s + mood_s + stress_s + cmj_s + rsi_s + sched_s
+    return round(min(100, raw * (100 / 70)), 1)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -115,7 +147,7 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
         pid = p["player_id"]
 
         # ── Wellness ──────────────────────────────────────────────────────────
-        w_today = wellness[(wellness["player_id"] == pid) & (wellness["date"] == ref)]
+        w_today = wellness[(wellness["player_id"] == pid) & (pd.to_datetime(wellness["date"]) == pd.Timestamp(ref))]
         if len(w_today) == 0:
             continue
         w = w_today.iloc[0]
@@ -123,12 +155,12 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
         emoji, color, bg = _traffic(score)
 
         # ── CMJ z-score ───────────────────────────────────────────────────────
-        fp_today = force_plate[(force_plate["player_id"] == pid) & (force_plate["date"] == ref)]
+        fp_today = force_plate[(force_plate["player_id"] == pid) & (pd.to_datetime(force_plate["date"]) == pd.Timestamp(ref))]
         cmj_flag = "—"
         if len(fp_today) > 0:
             cmj_val = fp_today.iloc[0]["cmj_height_cm"]
             hist_cmj = force_plate[
-                (force_plate["player_id"] == pid) & (force_plate["date"] < ref)
+                (force_plate["player_id"] == pid) & (pd.to_datetime(force_plate["date"]) < pd.Timestamp(ref))
             ].tail(30)["cmj_height_cm"]
             z = _zscore(cmj_val, hist_cmj, min_std=0.5)
             cmj_flag = "🔴" if z <= -2 else ("🟡" if z <= -1 else "🟢")
@@ -166,10 +198,30 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
         if ml_predictions is not None and len(ml_predictions) > 0:
             _risk_row = ml_predictions[
                 (ml_predictions["player_id"] == pid) &
-                (ml_predictions["date"] == ref.date())
+                (pd.to_datetime(ml_predictions["date"]) == pd.Timestamp(ref))
             ]
             if len(_risk_row) > 0:
                 inj_risk = round(float(_risk_row.iloc[0]["injury_risk_score"]) * 100, 0)
+
+        # ── Cumulative minutes — 4-day and 8-day rolling ────────────────────
+        # Per Orlando Magic sport science: coaches think in minutes, not scores.
+        # "Minutes played in last 4 or 8 days — that's how coaches live."
+        # (NBA practitioner interview, 2024)
+        mins_4d = mins_8d = None
+        if "practice_minutes" in training_load.columns:
+            tl_hist = training_load[
+                (training_load["player_id"] == pid) &
+                (pd.to_datetime(training_load["date"]) > pd.Timestamp(ref) - pd.Timedelta(days=8)) &
+                (pd.to_datetime(training_load["date"]) <= pd.Timestamp(ref))
+            ].copy()
+            if len(tl_hist) > 0:
+                tl_hist["total_min"] = (
+                    tl_hist.get("game_minutes", pd.Series([0]*len(tl_hist))).fillna(0) +
+                    tl_hist.get("practice_minutes", pd.Series([0]*len(tl_hist))).fillna(0)
+                )
+                last4 = tl_hist[pd.to_datetime(tl_hist["date"]) > pd.Timestamp(ref) - pd.Timedelta(days=4)]
+                mins_4d = round(last4["total_min"].sum(), 0) if len(last4) > 0 else 0
+                mins_8d = round(tl_hist["total_min"].sum(), 0)
 
         rows.append({
             "pid":      pid,
@@ -188,6 +240,8 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
             "accel":    ac_flag,
             "reason":   reason,
             "inj_risk": inj_risk,
+            "mins_4d":  mins_4d,
+            "mins_8d":  mins_8d,
         })
 
 
@@ -618,24 +672,27 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         c = CARD[k]
 
         inj_risk = r.get("inj_risk")
-        if inj_risk is not None:
-            if inj_risk >= 60:
-                risk_txt, risk_color, risk_bg = "Injury watch", "#dc2626", "#fee2e2"
-            elif inj_risk >= 30:
-                risk_txt, risk_color, risk_bg = "Watch closely", "#d97706", "#fef3c7"
-            else:
-                risk_txt, risk_color, risk_bg = "Low risk", "#16a34a", "#f0fdf4"
+        # Risk indicator — only show when elevated (≥30%). 
+        # "Low risk" adds noise without adding decision value for a coach.
+        # Coaches act on alerts, not confirmations. (Kitman Labs design principle 2024)
+        if inj_risk is not None and inj_risk >= 60:
+            risk_txt, risk_color, risk_bg = "Injury watch this week", "#dc2626", "#fee2e2"
             risk_badge = (
                 f'<span style="background:{risk_bg};color:{risk_color};font-size:10px;'
                 f'font-weight:700;padding:2px 7px;border-radius:4px;'
-                f'border:1px solid {risk_color}33;white-space:nowrap;">{risk_txt}</span>'
+                f'border:1px solid {risk_color}44;white-space:nowrap;">{risk_txt}</span>'
             )
-            risk_tooltip = {
-                "Injury watch": "7-day injury risk ≥ 60% — based on wellness, CMJ, and load trends",
-                "Watch closely": "7-day injury risk 30–60% — monitor closely this week",
-                "Low risk":      "7-day injury risk < 30% — no elevated concern",
-            }[risk_txt]
+            risk_tooltip = "7-day injury risk ≥60% — limit max-effort reps, monitor warmup"
+        elif inj_risk is not None and inj_risk >= 30:
+            risk_txt, risk_color, risk_bg = "Watch closely", "#d97706", "#fef3c7"
+            risk_badge = (
+                f'<span style="background:{risk_bg};color:{risk_color};font-size:10px;'
+                f'font-weight:700;padding:2px 7px;border-radius:4px;'
+                f'border:1px solid {risk_color}44;white-space:nowrap;">{risk_txt}</span>'
+            )
+            risk_tooltip = "7-day injury risk 30–60% — monitor closely this week"
         else:
+            # No badge when low risk — absence of alert IS the signal
             risk_badge   = ""
             risk_tooltip = ""
 
@@ -677,24 +734,34 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             f'  <div title="{risk_tooltip}">{risk_badge}</div>'
             f'</div>'
 
+            # Row 3: cumulative minutes — Orlando Magic framework: coaches think in minutes
+            + (
+                f'<div style="font-size:11px;color:#64748b;margin-top:3px;">'
+                f'<b style="color:#334155;">{r["mins_4d"]:.0f} min</b> last 4 days'
+                + (f' &nbsp;·&nbsp; <b style="color:#334155;">{r["mins_8d"]:.0f}</b> last 8'
+                   if r.get("mins_8d") is not None else "")
+                + '</div>'
+                if r.get("mins_4d") is not None else ""
+            )
+
             # Divider
-            f'<div style="border-top:1px solid {c["border"]}55;margin:2px 0;"></div>'
+            + f'<div style="border-top:1px solid {c["border"]}55;margin:4px 0;"></div>'
 
-            # Row 3: reason — what changed / why this flag
-            f'<div style="font-size:11px;color:#475569;line-height:1.4;">{r["reason"]}</div>'
+            # Row 4: reason — plain English, coach-decision language only (no raw numbers)
+            + f'<div style="font-size:11px;color:#475569;line-height:1.4;">{r["reason"]}</div>'
 
-            f'</div>'
+            + f'</div>'
         )
 
     # Build overnight deltas for all players
     yesterday_scores = {}
-    w_yest_all = wellness[wellness["date"] == ref - pd.Timedelta(days=1)]
+    w_yest_all = wellness[pd.to_datetime(wellness["date"]) == pd.Timestamp(ref - pd.Timedelta(days=1))]
     for _, py in players.iterrows():
         wy = w_yest_all[w_yest_all["player_id"] == py["player_id"]]
         if len(wy) > 0:
             wy_row = dict(wy.iloc[0]) | {"position": py.get("position", "F")}
             fp_y = force_plate[force_plate["player_id"] == py["player_id"]].sort_values("date")
-            fp_y = fp_y[fp_y["date"] <= (ref - pd.Timedelta(days=1)).date()]
+            fp_y = fp_y[pd.to_datetime(fp_y["date"]) <= pd.Timestamp(ref - pd.Timedelta(days=1))]
             if len(fp_y) > 0:
                 wy_row["cmj_height_cm"] = fp_y.iloc[-1]["cmj_height_cm"]
                 wy_row["rsi_modified"]  = fp_y.iloc[-1]["rsi_modified"]
@@ -722,10 +789,11 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         '<span style="margin-right:16px;">'
         '<b style="color:#dc2626;">PROTECT</b> &lt;60% — restricted session, flag for medical</span>'
         '<span style="display:block;margin-top:6px;">'
-        '<b>Injury watch</b> = 7-day injury risk ≥60% &nbsp;·&nbsp; '
+        '<b>Injury watch</b> = 7-day risk ≥60% &nbsp;·&nbsp; '
         '<b>Watch closely</b> = 30–60% &nbsp;·&nbsp; '
-        '<b>Low risk</b> &lt;30% &nbsp;·&nbsp; '
-        '<b>▲/▼ overnight</b> = readiness change vs yesterday</span>'
+        'No badge = low risk (&lt;30%) &nbsp;·&nbsp; '
+        '<b>▲/▼ overnight</b> = readiness change vs yesterday &nbsp;·&nbsp; '
+        '<b>min last 4/8 days</b> = practice + game minutes combined</span>'
         '</div>',
         unsafe_allow_html=True,
     )

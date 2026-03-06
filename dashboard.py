@@ -943,9 +943,10 @@ def generate_smart_response(query_type):
 # ==============================================================================
 
 if len(wellness) > 0:
-    end_date = wellness["date"].max().date()
+    # Keep as Timestamp throughout — avoids datetime64 vs date comparison errors
+    end_date = pd.Timestamp(wellness["date"].max())
 else:
-    end_date = datetime.today().date()
+    end_date = pd.Timestamp(datetime.today())
 
 # Load ML predictions (injury risk scores) — produced by train_models.py
 # Graceful fallback: empty df if not yet trained
@@ -1278,7 +1279,7 @@ with tab7:
         recent_data = (
             wellness[wellness["date"] == latest_date]
             .copy()
-            .merge(players[["player_id", "name", "age", "injury_history_count"]], on="player_id", how="left")
+            .merge(players[["player_id", "name", "position", "age", "injury_history_count"]], on="player_id", how="left")
         )
 
         if len(recent_data) > 0:
@@ -1342,7 +1343,7 @@ with tab7:
                 # Expander title: name + risk level + top flag
                 top_flag = str(player["flag_notes"][0]) if len(player["flag_notes"]) > 0 else "multiple signals"
                 expander_title = (
-                    f"{player['risk_emoji']} **{player['name']}** ({player['position']})  —  "
+                    f"{player['risk_emoji']} **{player['name']}** ({player.get('position','')})  —  "
                     f"{player['risk_level']} risk ({player['risk_score']:.0f}/100)  ·  {top_flag}"
                 )
                 with st.expander(expander_title):
@@ -1392,7 +1393,7 @@ with tab7:
         st.caption("Random Forest model trained on 90-day monitoring history. "
                    "Combines wellness z-scores, CMJ/RSI deviations, GPS load, and schedule context.")
 
-        ml_today = ml_predictions[ml_predictions["date"] == end_date].merge(
+        ml_today = ml_predictions[pd.to_datetime(ml_predictions["date"]).dt.date == end_date].merge(
             players[["player_id","name","position"]], on="player_id", how="left"
         ).sort_values("injury_risk_score", ascending=False)
 
@@ -1426,6 +1427,56 @@ with tab7:
                 with ml_cols[i % 4]:
                     st.markdown(card_html, unsafe_allow_html=True)
 
+    # ── ROLLING MINUTES TABLE ─────────────────────────────────────────────────
+    # Orlando Magic framework: minutes played in 4/8 days is the metric coaches
+    # respond to most (NBA sport science practitioner interview 2024)
+    if "practice_minutes" in training_load.columns:
+        st.markdown("---")
+        st.markdown("### Minutes Load — Last 8 Days")
+        st.caption("Practice + game minutes combined. Coaches use 4-day and 8-day windows "
+                   "to gauge cumulative load. High values (>120 min/4d or >220 min/8d) "
+                   "warrant minutes restrictions regardless of wellness scores.")
+
+        mins_rows = []
+        for _, p in players.iterrows():
+            pid_m = p["player_id"]
+            tl_8  = training_load[
+                (training_load["player_id"] == pid_m) &
+                (pd.to_datetime(training_load["date"]) > pd.Timestamp(end_date) - pd.Timedelta(days=8)) &
+                (pd.to_datetime(training_load["date"]) <= pd.Timestamp(end_date))
+            ].copy()
+            tl_4  = tl_8[pd.to_datetime(tl_8["date"]) > pd.Timestamp(end_date) - pd.Timedelta(days=4)]
+
+            if len(tl_8) > 0:
+                total_8 = (tl_8.get("game_minutes", pd.Series([0]*len(tl_8))).fillna(0).sum() +
+                           tl_8.get("practice_minutes", pd.Series([0]*len(tl_8))).fillna(0).sum())
+                total_4 = (tl_4.get("game_minutes", pd.Series([0]*len(tl_4))).fillna(0).sum() +
+                           tl_4.get("practice_minutes", pd.Series([0]*len(tl_4))).fillna(0).sum()) if len(tl_4) > 0 else 0
+                games_8 = int((tl_8.get("game_minutes", pd.Series([0]*len(tl_8))).fillna(0) > 5).sum())
+
+                load_4_flag = "🔴 High" if total_4 > 120 else ("🟡 Mod" if total_4 > 80 else "🟢 OK")
+                load_8_flag = "🔴 High" if total_8 > 220 else ("🟡 Mod" if total_8 > 160 else "🟢 OK")
+
+                # Get today's readiness score
+                today_r = next((r["score"] for r in summary if r["pid"] == pid_m), None) if "summary" in dir() else None
+
+                mins_rows.append({
+                    "Player":       p["name"],
+                    "Pos":          p.get("position", ""),
+                    "Min (4d)":     f"{total_4:.0f}",
+                    "4d Load":      load_4_flag,
+                    "Min (8d)":     f"{total_8:.0f}",
+                    "8d Load":      load_8_flag,
+                    "Games (8d)":   games_8,
+                })
+
+        if mins_rows:
+            mins_df = pd.DataFrame(mins_rows).sort_values("Min (8d)", ascending=False)
+            st.dataframe(mins_df, use_container_width=True, hide_index=True)
+            st.caption("Thresholds: 4d >120 min = high; 8d >220 min = high. "
+                       "Clinical estimates — no published WNBA-specific cumulative load thresholds. "
+                       "Adjust based on team's historical injury-load relationship.")
+
     # ── LOAD PROJECTION — "What happens to readiness if she plays tonight?" ───
     st.markdown("---")
     st.markdown("### Load Projection")
@@ -1449,7 +1500,7 @@ with tab7:
 
     # Get today's wellness
     w_proj = wellness[(wellness["player_id"] == proj_pid) &
-                       (wellness["date"] == wellness["date"].max())]
+                       (pd.to_datetime(wellness["date"]) == pd.to_datetime(wellness["date"]).max())]
     if len(w_proj) > 0:
         wp = w_proj.iloc[0]
 
@@ -1517,19 +1568,81 @@ with tab7:
         tmr_color  = "#16a34a" if tomorrow_score >= 80 else ("#d97706" if tomorrow_score >= 60 else "#dc2626")
 
         p1, p2, p3 = st.columns(3)
-        p1.metric("Today's Readiness",    f"{today_score:.0f}%")
-        p2.metric("Projected Tomorrow",   f"{tomorrow_score:.0f}%", delta=delta_str)
-        p3.metric("Tomorrow Status",      tmr_status)
+        p1.metric("Today's Readiness",   f"{today_score:.0f}%")
+        p2.metric("Projected Tomorrow",  f"{tomorrow_score:.0f}%", delta=delta_str)
+        p3.metric("Tomorrow Status",     tmr_status)
 
-        # Plain-English interpretation
+        # ── Prescriptive recommendation — specific, actionable, coach-ready ─
+        # Framework: Catapult 2024 trends report — "real-time training adjustments"
+        # as most transformative AI application; Orlando Magic — minutes prescription
+        # is the most digestible metric for coaches
+        mins_4d_proj = None
+        if "practice_minutes" in training_load.columns:
+            tl_4d = training_load[
+                (training_load["player_id"] == proj_pid) &
+                (pd.to_datetime(training_load["date"]) > pd.Timestamp(end_date) - pd.Timedelta(days=4))
+            ]
+            if len(tl_4d) > 0:
+                mins_4d_proj = round(
+                    tl_4d.get("game_minutes", pd.Series([0]*len(tl_4d))).fillna(0).sum() +
+                    tl_4d.get("practice_minutes", pd.Series([0]*len(tl_4d))).fillna(0).sum(), 0
+                )
+
+        # Build prescriptive minutes cap based on projected status + current load
         if tmr_status == "PROTECT":
-            interp = f"After a {load_scenario.lower()}, {proj_player} is projected to be on protect tomorrow — consider reducing her minutes or pulling from certain drills tonight."
+            if mins_4d_proj and mins_4d_proj > 90:
+                min_cap = "20–24 minutes maximum"
+                drill_note = "Remove from full-court sprints and late-game crunch situations"
+            else:
+                min_cap = "22–26 minutes"
+                drill_note = "Limit explosive acceleration drills in warmup"
+            rec_color = "#dc2626"
+            rec_bg    = "#fef2f2"
+            rec_icon  = "⚠"
+            rec_head  = "Restrict Tonight"
+            rec_body  = (f"Cap {proj_player} at {min_cap} tonight. "
+                        f"{drill_note}. "
+                        f"Check in individually before practice — ask about sleep and leg fatigue. "
+                        f"Projected readiness tomorrow: {tomorrow_score:.0f}% (PROTECT).")
         elif tmr_status == "MONITOR":
-            interp = f"After a {load_scenario.lower()}, {proj_player} should be monitored tomorrow — watch warmup quality and be ready to modify if soreness spikes further."
+            if mins_4d_proj and mins_4d_proj > 100:
+                min_cap = "26–30 minutes"
+                drill_note = "Reduce high-intensity interval reps in practice; prioritise skill work"
+            else:
+                min_cap = "standard minutes with close monitoring"
+                drill_note = "Watch warmup quality — if movement looks laboured, reduce early"
+            rec_color = "#d97706"
+            rec_bg    = "#fffbeb"
+            rec_icon  = "◑"
+            rec_head  = "Monitor Closely"
+            rec_body  = (f"{proj_player}: {drill_note}. "
+                        f"Target {min_cap} tonight. "
+                        f"Re-check soreness in warmup — if ≥7/10, pull back further. "
+                        f"Projected readiness tomorrow: {tomorrow_score:.0f}% (MONITOR).")
         else:
-            interp = f"{proj_player} should recover well from a {load_scenario.lower()} and be ready for full training tomorrow."
+            rec_color = "#16a34a"
+            rec_bg    = "#f0fdf4"
+            rec_icon  = "✓"
+            rec_head  = "Clear for Full Load"
+            rec_body  = (f"{proj_player} is projected to recover well. "
+                        f"No restrictions needed tonight — full minutes available. "
+                        f"Projected readiness tomorrow: {tomorrow_score:.0f}% ({tmr_status}).")
 
-        st.info(interp)
+        st.markdown(
+            f'<div style="background:{rec_bg};border-left:4px solid {rec_color};'
+            f'border-radius:0 8px 8px 0;padding:14px 18px;margin-top:8px;">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;'
+            f'text-transform:uppercase;color:{rec_color};margin-bottom:6px;">'
+            f'{rec_icon} Staff Recommendation</div>'
+            f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">'
+            f'{rec_head}</div>'
+            f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{rec_body}</div>'
+            + (f'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">'
+               f'Load context: {mins_4d_proj:.0f} min in last 4 days</div>'
+               if mins_4d_proj is not None else "")
+            + '</div>',
+            unsafe_allow_html=True
+        )
 
     else:
         st.info("No current wellness data for projection.")
