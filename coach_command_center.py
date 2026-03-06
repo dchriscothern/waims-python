@@ -613,91 +613,119 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     def _key(score):
         return "red" if score < 60 else ("yellow" if score < 80 else "green")
 
-    def _card(r):
-        k  = _key(r["score"])
-        c  = CARD[k]
-        fig = go.Figure()
+    def _card_html(r):
+        k = _key(r["score"])
+        c = CARD[k]
 
-        # Card background + border
-        fig.add_shape(type="rect", x0=0, y0=0, x1=1, y1=1,
-                      fillcolor=c["bg"], line=dict(color=c["border"], width=2),
-                      xref="paper", yref="paper", layer="below")
-
-        # Name (top-left)
-        fig.add_annotation(
-            x=0.07, y=0.90, xref="paper", yref="paper", showarrow=False,
-            text=f"<b>{r['name']}</b>",
-            font=dict(size=13, color="#0f172a"), xanchor="left")
-
-        # Position (top-left inline)
-        fig.add_annotation(
-            x=0.07, y=0.76, xref="paper", yref="paper", showarrow=False,
-            text=r["pos"],
-            font=dict(size=11, color="#64748b"), xanchor="left")
-
-        # Status badge (top-right)
-        fig.add_annotation(
-            x=0.93, y=0.90, xref="paper", yref="paper", showarrow=False,
-            text=f"<b>{c['label']}</b>",
-            font=dict(size=10, color=c["badge_fg"]),
-            bgcolor=c["badge_bg"], borderpad=4, xanchor="right")
-
-        # Readiness % — left side, medium size
-        fig.add_annotation(
-            x=0.07, y=0.52, xref="paper", yref="paper", showarrow=False,
-            text=f"<b>{r['score']:.0f}%</b>",
-            font=dict(size=30, color=c["score"], family="Georgia, serif"),
-            xanchor="left")
-
-        # Injury risk — right side, coach language not raw number
         inj_risk = r.get("inj_risk")
         if inj_risk is not None:
             if inj_risk >= 60:
-                risk_txt   = "Injury watch"
-                risk_color = "#dc2626"
-                risk_bg    = "#fee2e2"
+                risk_txt, risk_color, risk_bg = "Injury watch", "#dc2626", "#fee2e2"
             elif inj_risk >= 30:
-                risk_txt   = "Watch closely"
-                risk_color = "#d97706"
-                risk_bg    = "#fef3c7"
+                risk_txt, risk_color, risk_bg = "Watch closely", "#d97706", "#fef3c7"
             else:
-                risk_txt   = "Low risk"
-                risk_color = "#16a34a"
-                risk_bg    = "#dcfce7"
-            fig.add_annotation(
-                x=0.93, y=0.52, xref="paper", yref="paper", showarrow=False,
-                text=f"<b>{risk_txt}</b>",
-                font=dict(size=10, color=risk_color),
-                bgcolor=risk_bg, borderpad=3, xanchor="right")
+                risk_txt, risk_color, risk_bg = "Low risk", "#16a34a", "#f0fdf4"
+            risk_badge = (
+                f'<span style="background:{risk_bg};color:{risk_color};font-size:10px;'
+                f'font-weight:700;padding:2px 7px;border-radius:4px;'
+                f'border:1px solid {risk_color}33;white-space:nowrap;">{risk_txt}</span>'
+            )
+            risk_tooltip = {
+                "Injury watch": "7-day injury risk ≥ 60% — based on wellness, CMJ, and load trends",
+                "Watch closely": "7-day injury risk 30–60% — monitor closely this week",
+                "Low risk":      "7-day injury risk < 30% — no elevated concern",
+            }[risk_txt]
+        else:
+            risk_badge   = ""
+            risk_tooltip = ""
 
-        # Divider
-        fig.add_shape(type="line", x0=0.05, y0=0.28, x1=0.95, y1=0.28,
-                      xref="paper", yref="paper",
-                      line=dict(color=c["border"], width=1))
+        # overnight change — compare yesterday's score if available
+        overnight = r.get("overnight_delta")
+        if overnight is not None and abs(overnight) >= 2:
+            arrow     = "▲" if overnight > 0 else "▼"
+            ov_color  = "#16a34a" if overnight > 0 else "#dc2626"
+            ov_html   = (f'<span style="font-size:11px;color:{ov_color};'
+                         f'margin-left:6px;font-weight:600;">'
+                         f'{arrow}{abs(overnight):.0f}% overnight</span>')
+        else:
+            ov_html = ""
 
-        # Reason line — plain English, max 2 signals
-        fig.add_annotation(
-            x=0.07, y=0.14, xref="paper", yref="paper", showarrow=False,
-            text=r["reason"],
-            font=dict(size=10, color="#475569"), xanchor="left")
+        return (
+            f'<div style="background:{c["bg"]};border:2px solid {c["border"]};'
+            f'border-radius:10px;padding:14px 16px;min-height:140px;'
+            f'display:flex;flex-direction:column;gap:6px;">'
 
-        fig.update_layout(
-            height=150,
-            margin=dict(l=0, r=0, t=0, b=0),
-            paper_bgcolor=c["bg"], plot_bgcolor=c["bg"],
-            xaxis=dict(visible=False, range=[0, 1]),
-            yaxis=dict(visible=False, range=[0, 1]),
-            showlegend=False,
+            # Row 1: name + status badge
+            f'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
+            f'  <div>'
+            f'    <div style="font-weight:800;font-size:14px;color:#0f172a;">{r["name"]}</div>'
+            f'    <div style="font-size:11px;color:#64748b;margin-top:1px;">{r["pos"]}</div>'
+            f'  </div>'
+            f'  <span style="background:{c["badge_bg"]};color:{c["badge_fg"]};font-size:10px;'
+            f'  font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:0.06em;'
+            f'  white-space:nowrap;">{c["label"]}</span>'
+            f'</div>'
+
+            # Row 2: big readiness % + overnight delta + risk badge
+            f'<div style="display:flex;justify-content:space-between;align-items:center;'
+            f'margin-top:4px;">'
+            f'  <div style="display:flex;align-items:baseline;gap:4px;">'
+            f'    <span style="font-size:32px;font-weight:800;color:{c["score"]};'
+            f'    font-family:Georgia,serif;line-height:1;">{r["score"]:.0f}%</span>'
+            f'    {ov_html}'
+            f'  </div>'
+            f'  <div title="{risk_tooltip}">{risk_badge}</div>'
+            f'</div>'
+
+            # Divider
+            f'<div style="border-top:1px solid {c["border"]}55;margin:2px 0;"></div>'
+
+            # Row 3: reason — what changed / why this flag
+            f'<div style="font-size:11px;color:#475569;line-height:1.4;">{r["reason"]}</div>'
+
+            f'</div>'
         )
-        return fig
+
+    # Build overnight deltas for all players
+    yesterday_scores = {}
+    w_yest_all = wellness[wellness["date"] == ref - pd.Timedelta(days=1)]
+    for _, py in players.iterrows():
+        wy = w_yest_all[w_yest_all["player_id"] == py["player_id"]]
+        if len(wy) > 0:
+            wy_row = dict(wy.iloc[0]) | {"position": py.get("position", "F")}
+            fp_y = force_plate[force_plate["player_id"] == py["player_id"]].sort_values("date")
+            fp_y = fp_y[fp_y["date"] <= (ref - pd.Timedelta(days=1)).date()]
+            if len(fp_y) > 0:
+                wy_row["cmj_height_cm"] = fp_y.iloc[-1]["cmj_height_cm"]
+                wy_row["rsi_modified"]  = fp_y.iloc[-1]["rsi_modified"]
+            yesterday_scores[py["player_id"]] = _calculate_readiness(wy_row)
+
+    for r in grid_rows:
+        yest = yesterday_scores.get(r["pid"])
+        r["overnight_delta"] = round(r["score"] - yest, 1) if yest is not None else None
 
     cols = st.columns(4)
     for i, r in enumerate(grid_rows):
         with cols[i % 4]:
-            st.plotly_chart(
-                _card(r),
-                use_container_width=True,
-                config={"displayModeBar": False},
-                key=f"card_{r['pid']}",
-            )
-    # Sparklines removed — belong in Trends tab, not command center
+            st.markdown(_card_html(r), unsafe_allow_html=True)
+
+    # ── LEGEND — scrollable reference at bottom of roster ────────────────────
+    st.markdown("<div style='margin-top:18px;'></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;'
+        'padding:12px 18px;font-size:11px;color:#64748b;">'
+        '<span style="font-weight:700;color:#334155;margin-right:12px;">KEY</span>'
+        '<span style="margin-right:16px;">'
+        '<b style="color:#16a34a;">READY</b> ≥80% — full training, no restrictions</span>'
+        '<span style="margin-right:16px;">'
+        '<b style="color:#d97706;">MONITOR</b> 60–79% — modified load, watch closely</span>'
+        '<span style="margin-right:16px;">'
+        '<b style="color:#dc2626;">PROTECT</b> &lt;60% — restricted session, flag for medical</span>'
+        '<span style="display:block;margin-top:6px;">'
+        '<b>Injury watch</b> = 7-day injury risk ≥60% &nbsp;·&nbsp; '
+        '<b>Watch closely</b> = 30–60% &nbsp;·&nbsp; '
+        '<b>Low risk</b> &lt;30% &nbsp;·&nbsp; '
+        '<b>▲/▼ overnight</b> = readiness change vs yesterday</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )

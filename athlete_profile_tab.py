@@ -824,11 +824,135 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             context.lower(),
         )
 
+    # ── 7-DAY RISK + LOAD PROJECTION ─────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Risk Outlook & Load Projection")
+    st.caption("How is this player trending — and what happens to her readiness if she plays tonight?")
+
+    rp_col1, rp_col2 = st.columns([1, 2])
+
+    with rp_col1:
+        # Build current risk score via classify_player_full if available
+        try:
+            from z_score_module import calculate_athlete_baselines, calculate_z_score
+            from dashboard_helpers import classify_player_full  # may not exist — graceful fallback
+        except ImportError:
+            classify_player_full = None
+
+        # Estimate injury risk from wellness + force plate signals
+        risk_flags = 0
+        risk_reasons = []
+        sleep_v = float(latest_wellness.get("sleep_hours", 7.5))
+        sore_v  = float(latest_wellness.get("soreness", 4))
+        stress_v = float(latest_wellness.get("stress", 4))
+
+        if sleep_v < 6.0:  risk_flags += 2; risk_reasons.append("critically short sleep")
+        elif sleep_v < 7.0: risk_flags += 1; risk_reasons.append("short sleep")
+        if sore_v > 7:      risk_flags += 1; risk_reasons.append("high soreness")
+        if stress_v > 7:    risk_flags += 1; risk_reasons.append("high stress")
+        if cmj_z is not None and cmj_z < -1.5: risk_flags += 2; risk_reasons.append("CMJ well below baseline")
+        elif cmj_z is not None and cmj_z < -1.0: risk_flags += 1; risk_reasons.append("CMJ below baseline")
+        if rsi_z is not None and rsi_z < -1.5: risk_flags += 2; risk_reasons.append("RSI well below baseline")
+        elif rsi_z is not None and rsi_z < -1.0: risk_flags += 1; risk_reasons.append("RSI below baseline")
+
+        profile_risk = min(100, risk_flags * 15)
+        if profile_risk >= 60:
+            risk_color, risk_level, risk_msg = "#dc2626", "HIGH RISK", "Prioritise recovery. Limit high-intensity work this week."
+        elif profile_risk >= 30:
+            risk_color, risk_level, risk_msg = "#d97706", "ELEVATED", "Monitor closely. Be ready to modify session on the fly."
+        else:
+            risk_color, risk_level, risk_msg = "#16a34a", "LOW RISK", "No elevated concern based on current signals."
+
+        st.markdown(
+            f'<div style="background:#f8fafc;border:2px solid {risk_color};border-radius:10px;'
+            f'padding:16px;text-align:center;">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;'
+            f'text-transform:uppercase;color:#64748b;margin-bottom:4px;">7-Day Injury Risk</div>'
+            f'<div style="font-size:42px;font-weight:800;color:{risk_color};line-height:1;">'
+            f'{profile_risk}</div>'
+            f'<div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">out of 100</div>'
+            f'<div style="font-size:11px;font-weight:700;color:{risk_color};'
+            f'letter-spacing:0.08em;">{risk_level}</div>'
+            f'<div style="font-size:11px;color:#475569;margin-top:6px;line-height:1.4;">'
+            f'{risk_msg}</div>'
+            + (f'<div style="font-size:10px;color:#94a3b8;margin-top:8px;">'
+               f'Signals: {", ".join(risk_reasons)}</div>' if risk_reasons else "")
+            + '</div>',
+            unsafe_allow_html=True
+        )
+        st.caption("Score = count of active warning flags × 15. Each flag = one signal "
+                   "outside safe threshold or >1σ below personal baseline. "
+                   "Walsh 2021 · Gathercole 2015 · Gabbett 2016.")
+
+    with rp_col2:
+        st.markdown("**Load Projection — what happens to readiness after tonight?**")
+        load_scenario_ap = st.radio(
+            "Tonight's plan:",
+            ["Rest / Practice only", "Typical game load (~28 min)",
+             "Heavy game load (~36 min)", "Back-to-back game"],
+            horizontal=False, key=f"load_scenario_{athlete_id}",
+        )
+
+        # Evidence-based adjustments — female basketball specific
+        # Pernigoni 2024 (44-study basketball SR); Goulart 2022 (female meta);
+        # Charest 2021 JCSM (B2B); Walsh 2021 BJSM (sleep)
+        load_fx = {
+            "Rest / Practice only":        {"sleep_adj": +0.1, "sore_adj": -0.3, "stress_adj": -0.5, "b2b": 0},
+            "Typical game load (~28 min)": {"sleep_adj": -0.2, "sore_adj": +0.8, "stress_adj": +0.3, "b2b": 0},
+            "Heavy game load (~36 min)":   {"sleep_adj": -0.4, "sore_adj": +1.5, "stress_adj": +0.5, "b2b": 0},
+            "Back-to-back game":           {"sleep_adj": -0.7, "sore_adj": +2.5, "stress_adj": +1.5, "b2b": 1},
+        }
+        cmj_fx = {
+            "Rest / Practice only": 0, "Typical game load (~28 min)": -0.5,
+            "Heavy game load (~36 min)": -1.5, "Back-to-back game": -2.5,
+        }
+        fx = load_fx[load_scenario_ap]
+
+        proj_sleep   = max(4.5, min(9.5, sleep_v + fx["sleep_adj"]))
+        proj_soreness = max(0,  min(10,  sore_v  + fx["sore_adj"]))
+        proj_stress  = max(1,  min(10,  stress_v + fx["stress_adj"]))
+        proj_mood    = max(1,  min(10,  float(latest_wellness.get("mood", 7)) - fx["stress_adj"] * 0.3))
+        proj_cmj     = max(18, latest_cmj + cmj_fx[load_scenario_ap]) if latest_cmj else None
+        proj_rsi     = latest_rsi  # RSI held flat (female players: minimal 24h CMJ/RSI drop)
+
+        ap_player_pos = players[players["player_id"] == athlete_id]["position"].values
+        ap_player_pos = ap_player_pos[0] if len(ap_player_pos) > 0 else "F"
+
+        proj_row = {
+            "sleep_hours": proj_sleep, "sleep_quality": latest_wellness.get("sleep_quality", 7),
+            "soreness": proj_soreness, "stress": proj_stress, "mood": proj_mood,
+            "cmj_height_cm": proj_cmj, "rsi_modified": proj_rsi,
+            "position": ap_player_pos, "is_back_to_back": fx["b2b"], "days_rest": 0 if fx["b2b"] else 1,
+        }
+        today_score_ap = readiness
+        tomorrow_score = _calculate_readiness(proj_row)
+        delta_ap = tomorrow_score - today_score_ap
+        delta_str_ap = f"+{delta_ap:.0f}" if delta_ap > 0 else f"{delta_ap:.0f}"
+        tmr_status = "READY" if tomorrow_score >= 80 else ("MONITOR" if tomorrow_score >= 60 else "PROTECT")
+        tmr_color  = "#16a34a" if tomorrow_score >= 80 else ("#d97706" if tomorrow_score >= 60 else "#dc2626")
+
+        mc1, mc2, mc3 = st.columns(3)
+        mc1.metric("Today", f"{today_score_ap:.0f}%")
+        mc2.metric("Tomorrow (projected)", f"{tomorrow_score:.0f}%", delta=delta_str_ap)
+        mc3.metric("Status", tmr_status)
+
+        if tmr_status == "PROTECT":
+            proj_msg = f"After a {load_scenario_ap.lower()}, consider reducing minutes or removing from high-intensity reps tonight."
+        elif tmr_status == "MONITOR":
+            proj_msg = f"After a {load_scenario_ap.lower()}, watch warmup quality tomorrow — be ready to modify session if soreness spikes."
+        else:
+            proj_msg = f"Expected to recover well from a {load_scenario_ap.lower()} and be ready for full training tomorrow."
+        st.info(proj_msg)
+        st.caption("Projections: Pernigoni 2024 (basketball SR, female-specific CMJ recovery); "
+                   "Goulart 2022 (female meta-analysis); Charest 2021 JCSM (B2B sleep/travel).")
+
     with st.expander("Research References"):
         st.markdown(
             "- **Sleep:** <7 hrs → elevated injury risk (Walsh et al. 2021 BJSM consensus; 2025 meta-analysis OR=1.34); <6 hrs = red flag. Female athletes: compounded by hormonal variability (Charest & Grandner 2020)\n"
             "- **ACWR ⚠ (contextual flag only):** Gabbett 2016 established >1.5 as high-risk zone, but Impellizzeri et al. 2020 (BJSM) identified statistical coupling flaws and 2025 meta-analysis (22 cohort studies) recommends 'use with caution' — not scored in readiness formula\n"
             "- **Soreness:** >7 requires monitoring (Hulin et al. 2016)\n"
             "- **CMJ/RSI:** Neuromuscular fatigue indicator — Gathercole et al. (2015)\n"
-            "- **Accels/Decels:** Direction-change load; drops may indicate protective movement strategies"
+            "- **Accels/Decels:** Direction-change load; drops may indicate protective movement strategies\n"
+            "- **Post-match recovery (female):** Pernigoni et al. 2024 (44-study basketball SR); no CMJ drop at 24h in female players (Delextrat); Goulart 2022 female meta-analysis\n"
+            "- **B2B fatigue:** Charest et al. 2021 JCSM (NBA travel/circadian); Clark et al. 2025 PLOS One (108-study indoor sports SR)"
         )

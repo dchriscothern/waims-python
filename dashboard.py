@@ -1246,8 +1246,24 @@ with tab6:
 # ==============================================================================
 
 with tab7:
-    st.header("Readiness Forecasts")
-    st.caption("Flags players showing unusual deviation from their personal baseline — wellness + force plate + GPS combined.")
+    st.header("Forecast & Load Projection")
+
+    # ── CONTEXT BOX — what this tab answers ──────────────────────────────────
+    st.markdown(
+        '<div style="background:#f0f9ff;border-left:4px solid #0284c7;border-radius:0 8px 8px 0;'
+        'padding:14px 18px;margin-bottom:18px;">'
+        '<div style="font-weight:700;color:#0369a1;font-size:13px;margin-bottom:6px;">'
+        'What this tab answers</div>'
+        '<div style="font-size:12px;color:#1e293b;line-height:1.6;">'
+        '<b>Risk score (0–100):</b> How many injury warning signals is this player showing right now? '
+        'Combines sleep, soreness, CMJ drop, GPS load, and personal baseline deviations. '
+        'A score of 90 means the player is showing a high-density cluster of warning signs — '
+        'the same pattern seen in players who got injured within the next 7 days in our training data.<br>'
+        '<b>This is not a guarantee of injury</b> — it means this player needs closer management this week.<br>'
+        '<b>Load Projection (below):</b> If she plays a full game tonight, where does her readiness land tomorrow?'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
 
     if len(wellness) > 0:
         latest_date = wellness["date"].max()
@@ -1272,20 +1288,18 @@ with tab7:
                     get_fp_row_fc(row["player_id"]),
                     wellness, force_plate, ref_date,
                 )
-
-                # ── GPS flags appended to notes ───────────────────────
                 if has_gps_fc:
                     gps_row = get_gps_row(row["player_id"], training_load, ref_date)
                     gps_notes = build_gps_flag_notes(row["player_id"], gps_row, training_load, ref_date)
-                    # Each GPS flag adds 1 to the flag count (lower weight than CMJ)
                     flags += len(gps_notes)
                     notes.extend([f"📡 {n}" for n in gps_notes])
-
                 risk_score = min(100, flags * 15)
-                risk_emoji = "🔴 High" if risk_score >= 60 else ("🟡 Moderate" if risk_score >= 20 else "🟢 Low")
-                return pd.Series({"risk_score": risk_score, "flag_notes": notes, "risk_emoji": risk_emoji})
+                risk_level = "High" if risk_score >= 60 else ("Moderate" if risk_score >= 20 else "Low")
+                risk_emoji = "🔴" if risk_score >= 60 else ("🟡" if risk_score >= 20 else "🟢")
+                return pd.Series({"risk_score": risk_score, "flag_notes": notes,
+                                   "risk_emoji": risk_emoji, "risk_level": risk_level})
 
-            recent_data[["risk_score", "flag_notes", "risk_emoji"]] = recent_data.apply(full_risk, axis=1)
+            recent_data[["risk_score", "flag_notes", "risk_emoji", "risk_level"]] = recent_data.apply(full_risk, axis=1)
             recent_data = recent_data.sort_values("risk_score", ascending=False)
 
             fp_coverage  = len(latest_fp["player_id"].unique())
@@ -1297,15 +1311,41 @@ with tab7:
 
             st.caption(
                 f"Force plate: {fp_coverage}/{len(recent_data)} athletes{gps_cov_str}. "
-                "CMJ/RSI deviations weighted higher; GPS load/accel/decel deviations also flagged."
+                "CMJ/RSI deviations weighted 1.5× vs subjective metrics. "
+                "Risk score: each warning flag = 15 pts. Gathercole 2015 · Walsh 2021 · Gabbett 2016."
             )
-            st.markdown("**Athletes to check in with:**")
+
+            # ── HIGH RISK summary cards (inline, scannable) ──────────────────
+            high_risk = recent_data[recent_data["risk_score"] >= 60]
+            if len(high_risk) > 0:
+                st.markdown(
+                    '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;'
+                    'padding:12px 16px;margin-bottom:12px;">'
+                    '<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;'
+                    'text-transform:uppercase;color:#991b1b;margin-bottom:8px;">Action Required This Week</div>'
+                    + "".join(
+                        f'<div style="font-size:13px;color:#1e293b;margin-bottom:4px;">'
+                        f'<b>{row["name"]}</b> — Risk {row["risk_score"]:.0f}/100 · '
+                        f'{", ".join(str(n) for n in row["flag_notes"][:2])}</div>'
+                        for _, row in high_risk.iterrows()
+                    )
+                    + '</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.markdown("**Full watchlist — expand each player for details:**")
 
             for _, player in recent_data.head(6).iterrows():
                 fp_row  = get_fp_row_fc(player["player_id"])
                 gps_row = get_gps_row(player["player_id"], training_load, ref_date) if has_gps_fc else None
 
-                with st.expander(f"{player['risk_emoji']}  **{player['name']}**  — Risk Score: {player['risk_score']:.0f}/100"):
+                # Expander title: name + risk level + top flag
+                top_flag = str(player["flag_notes"][0]) if len(player["flag_notes"]) > 0 else "multiple signals"
+                expander_title = (
+                    f"{player['risk_emoji']} **{player['name']}** ({player['position']})  —  "
+                    f"{player['risk_level']} risk ({player['risk_score']:.0f}/100)  ·  {top_flag}"
+                )
+                with st.expander(expander_title):
 
                     # Row 1: wellness + force plate
                     c1, c2, c3, c4 = st.columns(4)

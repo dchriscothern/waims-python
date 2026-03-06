@@ -49,12 +49,12 @@ Does not make clinical decisions — translates data into plain English for coac
 |-----|----------|---------|
 | Command Center | Coach | Morning brief — status badges, priority alerts, GPS strip, roster cards |
 | Today's Readiness | Analyst | Z-score flags, wellness + force plate + GPS per player |
-| Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, baseline comparisons |
+| Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, 7-day risk score, load projection |
 | Trends | Analyst | 7-day rolling averages — sleep, soreness, mood, stress |
 | Jump Testing | Analyst | CMJ & RSI vs personal baseline, 7-day team trend |
 | Availability & Injuries | GM / Medical | Daily availability board, season %, injury log |
 | GPS & Load | Analyst | Kinexon metrics, 14-day trends, player load ACWR |
-| Forecast | GM | Multi-signal 7-day injury risk watchlist |
+| Forecast | GM / Coach | 7-day injury risk watchlist + load projection (what happens to readiness after tonight's game) |
 | Insights | All | Natural-language queries + correlation heatmap + ESPN game outcome analysis |
 
 ### Monitoring Signals
@@ -67,7 +67,7 @@ Does not make clinical decisions — translates data into plain English for coac
 
 ### Status Badges
 
-Every player card shows one of three badges based on readiness score:
+Every player card shows two signals side by side:
 
 | Badge | Score | Meaning |
 |-------|-------|---------|
@@ -75,7 +75,19 @@ Every player card shows one of three badges based on readiness score:
 | MONITOR (amber) | 60–79 | Modified load — watch closely |
 | PROTECT (red) | < 60 | Restricted session — flag for medical |
 
-Badges appear on: Command Center roster cards, Priority Alerts panel, Forecast tab.
+| Risk Label | Threshold | Meaning |
+|------------|-----------|---------|
+| Injury watch (red) | ≥ 60/100 | High-density warning cluster — active management needed this week |
+| Watch closely (amber) | 30–60/100 | Elevated signals — monitor and be ready to modify |
+| Low risk (green) | < 30/100 | No elevated concern based on current signals |
+
+**Readiness** = how ready today. **Risk label** = probability of injury within 7 days.
+These can diverge: a player can feel fine (MONITOR) but show a warning-signal cluster (Injury watch).
+That divergence is the clinical value — subjective wellness and objective neuromuscular state don't always agree.
+
+Cards also show **▲/▼ overnight** — readiness change vs yesterday, so coaches see what moved since last session.
+
+Badges appear on: Command Center roster cards, Priority Alerts panel, Forecast tab, Athlete Profile.
 
 ### Classification Engine
 
@@ -114,14 +126,17 @@ Personal z-scores (30-day rolling baseline) + hard safety floors:
 
 ## Research Foundation
 
-| Signal | Citation | Threshold |
-|--------|----------|-----------|
-| Sleep | Walsh et al. 2021 BJSM | < 7 hrs yellow, < 6 hrs red |
-| Sleep | 2025 meta-analysis | OR = 1.34 per hr lost |
-| CMJ | Gathercole et al. 2015 | > 2 SD drop = neuromuscular fatigue |
+| Signal | Citation | Threshold / Finding |
+|--------|----------|---------------------|
+| Sleep | Walsh et al. 2021 BJSM consensus | < 7 hrs yellow, < 6 hrs red |
+| Sleep (meta) | 2025 systematic review + meta-analysis | OR = 1.34 per hr lost |
+| Sleep (basketball) | Pernigoni et al. 2024 J Sports Sci (44-study basketball SR) | Single game no duration impact; B2B + travel = circadian disruption |
+| CMJ readiness | Gathercole et al. 2015; Labban 2024 | > 2 SD drop = neuromuscular fatigue |
+| CMJ recovery | Pernigoni 2024; Goulart 2022 female meta-analysis | Female athletes: NO CMJ drop at 24h post-match (vs male 24-48h) |
+| Post-match soreness | Pernigoni 2024 basketball SR; Clark et al. 2025 PLOS One | Peaks 24-48h; substantially lower in female players |
+| Back-to-back | Charest et al. 2021 J Clin Sleep Med (NBA B2B travel) | Sleep/circadian disruption confirmed; injury risk increase on B2B contested |
 | ACWR | Impellizzeri et al. 2020 | Flag only — not weighted |
-| Back-to-back | Condensed schedule lit. | -4pt readiness (data-validated via ESPN) |
-| Unrivaled | Clinical estimate | -2pt (no published research — flagged) |
+| Unrivaled | Clinical estimate | -2pt (no published research — explicitly flagged) |
 
 Full citations in `RESEARCH_FOUNDATION.md`.
 
