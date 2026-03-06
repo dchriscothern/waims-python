@@ -26,6 +26,51 @@ except ImportError:
 
 
 # ==============================================================================
+# SHARED READINESS CALCULATOR — single source of truth
+# Mirrors train_models.py calculate_readiness_score exactly.
+# Used by both athlete_profile_tab and coach_command_center via pkl scorer.
+# ==============================================================================
+
+def _calculate_readiness(row_dict):
+    """
+    Single readiness calculation — loads pkl scorer when available,
+    falls back to identical formula. CMJ/RSI/Schedule all included.
+    Rescaled ×100/70 so output spans 0–100 correctly.
+    """
+    if _READINESS_FN is not None:
+        try:
+            return _READINESS_FN(row_dict)
+        except Exception:
+            pass
+
+    # Fallback — mirrors train_models.py calculate_readiness_score
+    sleep_hrs = row_dict.get("sleep_hours", 7.5)
+    sleep_q   = row_dict.get("sleep_quality", 7)
+    sleep_s   = min(15, (sleep_hrs / 8.0) * 10 + (sleep_q / 10) * 5)
+    sore_s    = ((10 - row_dict.get("soreness", 4)) / 10) * 10
+    mood_s    = (row_dict.get("mood", 7) / 10) * 5
+    stress_s  = ((10 - row_dict.get("stress", 4)) / 10) * 5
+
+    cmj   = row_dict.get("cmj_height_cm")
+    pos   = str(row_dict.get("position", row_dict.get("pos", "F")))
+    bench = 38 if "G" in pos else (30 if "C" in pos else 34)
+    cmj_s = min(15, (cmj / bench) * 15) if cmj and cmj > 0 else 11
+    rsi   = row_dict.get("rsi_modified")
+    rsi_s = min(10, (rsi / 0.45) * 10) if rsi and rsi > 0 else 8
+
+    sched_s = 10
+    if row_dict.get("is_back_to_back", 0): sched_s -= 4
+    if row_dict.get("days_rest", 3) <= 1:  sched_s -= 2
+    if row_dict.get("travel_flag", 0):
+        sched_s -= min(3, abs(row_dict.get("time_zone_diff", 0)) * 1.5)
+    if row_dict.get("unrivaled_flag", 0):  sched_s -= 2
+    sched_s = max(0, sched_s)
+
+    raw = sleep_s + sore_s + mood_s + stress_s + cmj_s + rsi_s + sched_s
+    return round(min(100, raw * (100 / 70)), 1)
+
+
+# ==============================================================================
 # GAUGE / CHART HELPERS
 # ==============================================================================
 

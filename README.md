@@ -43,20 +43,19 @@ Does not make clinical decisions — translates data into plain English for coac
 
 ## Features
 
-### 10 Interactive Tabs
+### 9 Interactive Tabs
 
 | Tab | Audience | Purpose |
 |-----|----------|---------|
-| 🏀 Command Center | Coach | Morning brief — status badges, priority alerts, GPS strip, roster cards |
-| 📊 Today's Readiness | Analyst | Z-score flags, wellness + force plate + GPS per player |
-| 👤 Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, baseline comparisons |
-| 📈 Trends | Analyst | 7-day rolling averages — sleep, soreness, mood, stress |
-| 💪 Jump Testing | Analyst | CMJ & RSI vs personal baseline, 7-day team trend |
-| 🚨 Availability & Injuries | GM / Medical | Daily availability board, season %, injury log |
-| 📡 GPS & Load | Analyst | Kinexon metrics, 14-day trends, player load ACWR |
-| 🤖 Forecast | GM | Multi-signal 7-day injury risk watchlist |
-| 🔍 Ask + Insights | All | Natural-language queries + correlation analysis combined |
-| 🔬 Correlations | Analyst | Heatmap, lag analysis, ESPN game outcome correlations |
+| Command Center | Coach | Morning brief — status badges, priority alerts, GPS strip, roster cards |
+| Today's Readiness | Analyst | Z-score flags, wellness + force plate + GPS per player |
+| Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, baseline comparisons |
+| Trends | Analyst | 7-day rolling averages — sleep, soreness, mood, stress |
+| Jump Testing | Analyst | CMJ & RSI vs personal baseline, 7-day team trend |
+| Availability & Injuries | GM / Medical | Daily availability board, season %, injury log |
+| GPS & Load | Analyst | Kinexon metrics, 14-day trends, player load ACWR |
+| Forecast | GM | Multi-signal 7-day injury risk watchlist |
+| Insights | All | Natural-language queries + correlation heatmap + ESPN game outcome analysis |
 
 ### Monitoring Signals
 
@@ -85,8 +84,9 @@ Personal z-scores (30-day rolling baseline) + hard safety floors:
 - Sleep < 7.0 hrs → yellow (Walsh et al. 2021 BJSM consensus)
 - Sleep < 6.0 hrs → red
 - Soreness or Stress > 7/10 → immediate flag
-- CMJ/RSI weighted 1.5× vs subjective metrics
+- CMJ/RSI position-matched benchmarks (G=38cm, F=34cm, C=30cm)
 - ACWR: contextual flag only (Impellizzeri 2020)
+- Scores rescaled 0–100 so READY/MONITOR/PROTECT thresholds are calibrated
 
 ---
 

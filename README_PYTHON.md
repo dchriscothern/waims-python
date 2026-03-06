@@ -56,16 +56,20 @@ Trains two models and runs outcome validation (Section 8).
 
 **Readiness score formula (0–100):**
 ```
-Sleep (hrs)     15 pts    Walsh 2021 BJSM
+Sleep (hrs)     15 pts    Walsh 2021 BJSM  (quality 5pts + quantity 10pts)
 Soreness        10 pts    floor: >7/10 = flag
 Mood             5 pts
 Stress           5 pts    floor: >7/10 = flag
-CMJ             15 pts    Gathercole 2015, Labban 2024
+CMJ             15 pts    Gathercole 2015, Labban 2024 — position-matched (G=38, F=34, C=30cm)
 RSI             10 pts    Bishop 2023
 Schedule        10 pts    back-to-back -4, travel -3 (scaled), rest<2d -2, Unrivaled -2*
 ─────────────────────────────────────
-Total           70 pts base (schedule deducts from 10pt allowance)
-* Unrivaled -2: clinical estimate, no published research
+Base total      70 pts    (schedule deducts from 10pt allowance)
+GPS modifier   ±20 pts    Jaspers 2017, Petway 2020 — player_load, accel, decel z-scores
+Z-score mod    ±10 pts    Cormack 2008 — intra-individual deviation from 30-day baseline
+─────────────────────────────────────
+Rescaled ×100/70 so final output spans 0–100 correctly
+* Unrivaled -2: clinical estimate, no published research — flagged for validation
 ```
 
 ---
@@ -121,14 +125,21 @@ Status badges:
 **Goal:** Full per-player monitoring picture
 
 Components:
-- Readiness gauge (Plotly speedometer)
-- Radar chart — Wellness, CMJ, RSI, Load, Sleep, Soreness
-- GPS metric cards with personal z-score context
-- 7-day trend charts (CMJ, Player Load, ACWR context strip)
+- Readiness gauge (Plotly speedometer) — uses same pkl scorer as Command Center
+- Radar chart — Sleep, Physical, Mental, Load, Neuro, GPS (position-matched CMJ benchmark)
+- 8 metric cards — sleep, soreness, mood, ACWR⚠, CMJ, RSI, Load, Accels
+- GPS / Kinexon section — 14-day trend chart, z-score flags
+- Personal baseline z-score comparison (30-day rolling)
+- 7-day wellness + force plate overlay trend chart
+- Basketball-specific risk context (practice vs competition)
 - Research references with evidence grades
-- WNBA population context line (activates when game minutes data available)
 
-ACWR treatment: displayed as "ACWR ⚠" — contextual flag only, not weighted.  
+Formula alignment: readiness score uses shared _calculate_readiness() function,
+identical to coach_command_center.py — single source of truth via pkl scorer.
+Sleep threshold: <7.0 yellow, <6.0 red (Walsh 2021) — consistent across all tabs.
+CMJ benchmark: position-matched G=38cm, F=34cm, C=30cm — consistent across all tabs.
+
+ACWR treatment: displayed as "ACWR ⚠" — contextual flag only, not weighted.
 Reason: Impellizzeri 2020 statistical coupling critique, 2025 meta-analysis.
 
 ---
@@ -170,6 +181,13 @@ Example queries:
 ---
 
 ## Key Design Decisions
+
+**Single readiness formula across all tabs**  
+All three calculation surfaces (Command Center, Athlete Profile, train_models.py) now use
+the same pkl scorer or identical fallback formula. Prior to audit, athlete_profile_tab.py
+used a different formula (wellness only, no CMJ/RSI/schedule) which caused meaningful
+score divergence — a player with good sleep but fatigued legs could show 90% in profiles
+but correctly 65% in Command Center. Resolved March 2026.
 
 **Personal z-scores over population thresholds**  
 Small rosters (12 players) make population norms unreliable. A guard who normally scores 7/10 on soreness and reports 7/10 today is not flagged — because that's her norm. Personal 30-day rolling baseline is more sensitive and specific.
