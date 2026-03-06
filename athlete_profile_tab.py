@@ -566,47 +566,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             fig = create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80])
             st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
 
-        # ── 7-DAY RISK SCORE — directly under speedometer ────────────────────
-        # Position here so analyst sees risk context immediately with readiness.
-        # Compute flags from signals available at this point in execution.
-        _risk_flags = 0
-        _risk_reasons = []
-        _sleep_v  = float(latest_wellness.get("sleep_hours", 7.5))
-        _sore_v   = float(latest_wellness.get("soreness", 4))
-        _stress_v = float(latest_wellness.get("stress", 4))
-        if _sleep_v < 6.0:   _risk_flags += 2; _risk_reasons.append("critically short sleep")
-        elif _sleep_v < 7.0: _risk_flags += 1; _risk_reasons.append("short sleep")
-        if _sore_v > 7:      _risk_flags += 1; _risk_reasons.append("high soreness")
-        if _stress_v > 7:    _risk_flags += 1; _risk_reasons.append("high stress")
-        if cmj_z is not None and cmj_z < -1.5: _risk_flags += 2; _risk_reasons.append("CMJ well below baseline")
-        elif cmj_z is not None and cmj_z < -1.0: _risk_flags += 1; _risk_reasons.append("CMJ below baseline")
-        if rsi_z is not None and rsi_z < -1.5: _risk_flags += 2; _risk_reasons.append("RSI well below baseline")
-        elif rsi_z is not None and rsi_z < -1.0: _risk_flags += 1; _risk_reasons.append("RSI below baseline")
-
-        _profile_risk = min(100, _risk_flags * 15)
-        if _profile_risk >= 60:
-            _rc, _rl, _rm = "#dc2626", "HIGH RISK", "Prioritise recovery. Limit high-intensity work this week."
-        elif _profile_risk >= 30:
-            _rc, _rl, _rm = "#d97706", "ELEVATED", "Monitor closely. Be ready to modify on the fly."
-        else:
-            _rc, _rl, _rm = "#16a34a", "LOW RISK", "No elevated concern based on current signals."
-
-        st.markdown(
-            f'<div style="background:#f8fafc;border-left:4px solid {_rc};'
-            f'border-radius:0 8px 8px 0;padding:10px 14px;margin-top:4px;">'
-            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.1em;'
-            f'text-transform:uppercase;color:{_rc};">7-Day Injury Risk</div>'
-            f'<div style="font-size:22px;font-weight:800;color:{_rc};line-height:1;">'
-            f'{_profile_risk}<span style="font-size:11px;color:#94a3b8;">/100</span></div>'
-            f'</div>'
-            f'<div style="font-size:11px;font-weight:700;color:{_rc};margin:3px 0;">{_rl}</div>'
-            f'<div style="font-size:11px;color:#475569;line-height:1.4;">{_rm}</div>'
-            + (f'<div style="font-size:10px;color:#94a3b8;margin-top:4px;">'
-               f'Signals: {", ".join(_risk_reasons)}</div>' if _risk_reasons else "")
-            + '</div>',
-            unsafe_allow_html=True
-        )
+        # 7-day risk shown in col1 (under Age) — no duplicate here
 
     with col3:
         st.markdown("**Performance Profile**")
@@ -811,11 +771,31 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     # GPS / KINEXON SECTION
     # ==========================================================================
     st.markdown("---")
-    st.markdown("### GPS / Kinexon")
+    st.markdown("### GPS / Kinexon — External Locomotor Load")
 
     if has_gps and gps_row:
-        st.caption("Kinexon tracking — values vs personal 30-day baseline (z-score). "
-                   "Drops in accels/decels at normal distance may indicate protective movement strategies.")
+        # ── GPS 3.0 framing (Boskovic et al. 2024, Sport Performance & Science Reports) ──
+        # GPS metrics (player load, HSR, speed zones) measure external locomotor load.
+        # They are a WEAK PROXY for internal neuromuscular load — particularly in
+        # multidirectional sports like basketball where direction-change mechanics
+        # (cuts, stops, pivots) can account for ~70% of true mechanical work but are
+        # largely invisible to linear GPS 2.0 metrics.
+        # CORRECT INTERPRETATION: GPS shows session volume context. CMJ/RSI (force plate)
+        # is the actual neuromuscular load RESPONSE measure — the ground truth for fatigue.
+        # Decel count is the most GPS 3.0-compatible metric: captures direction-change
+        # intensity better than distance or player load.
+        st.markdown(
+            '<div style="background:#fefce8;border-left:3px solid #ca8a04;'
+            'border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:10px;">'
+            '<span style="font-size:11px;color:#713f12;">'
+            '<b>GPS = external locomotor load only.</b> Not a direct measure of neuromuscular fatigue. '
+            'Use CMJ/RSI (above) as the true neuromuscular response signal. '
+            'Decel count is the most relevant GPS metric for basketball injury risk — '
+            'drops below baseline indicate protective avoidance before subjective soreness appears. '
+            '<i>(Boskovic et al. 2024 GPS 3.0; Harper et al. 2019; Science of Multi-directional Sport)</i>'
+            '</span></div>',
+            unsafe_allow_html=True
+        )
 
         g1, g2, g3, g4, g5, g6 = st.columns(6)
 
@@ -823,14 +803,16 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             delta = f"{z:+.1f}σ" if z is not None else "—"
             col_widget.metric(label, f"{emoji} {val:.0f}", delta=delta, delta_color="off")
 
-        _gps_metric(g1, "Player Load",      gps_row.get("player_load", 0),      pl_emoji, pl_z)
+        # Decel listed first — primary basketball signal
+        _gps_metric(g1, "Decel Count ★",    gps_row.get("decel_count", 0),      dc_emoji, dc_z)
         _gps_metric(g2, "Accel Count",       gps_row.get("accel_count", 0),      ac_emoji, ac_z)
-        _gps_metric(g3, "Decel Count",       gps_row.get("decel_count", 0),      dc_emoji, dc_z)
+        _gps_metric(g3, "Player Load",       gps_row.get("player_load", 0),      pl_emoji, pl_z)
 
-        # Distance metrics — display only, no z-score flag shown here
+        # Distance metrics — volume context only, no z-score weighting
         g4.metric("Distance (km)",   f"{gps_row.get('total_distance_km', 0):.2f}")
-        g5.metric("HSR (m)",         f"{gps_row.get('hsr_distance_m', 0):.0f}")
-        g6.metric("Sprint (m)",      f"{gps_row.get('sprint_distance_m', 0):.0f}")
+        g5.metric("HSR (m)",         f"~{gps_row.get('hsr_distance_m', 0):.0f}")
+        g6.metric("Sprint (m)",      f"~{gps_row.get('sprint_distance_m', 0):.0f}")
+        st.caption("★ Primary signal  |  HSR/Sprint = volume context only — misses ~70% of multidirectional load (Boskovic et al. 2024)")
 
         # 14-day GPS trend chart for this athlete
         st.markdown("#### 14-Day GPS Trends")
@@ -1018,13 +1000,15 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     # ==========================================================================
     # BASKETBALL-SPECIFIC RISK CONTEXT
     # ==========================================================================
+    # This section surfaces the injury mechanism context that GPS/wellness numbers alone
+    # don't communicate. It uses the same signal data but frames it for clinical decisions.
+    st.markdown("---")
+    st.markdown("### Basketball-Specific Risk Context")
+    context = st.radio(
+        "Next activity:", ["Practice", "Competition"],
+        horizontal=True, key=f"context_{athlete_id}",
+    )
     if HAVE_ENHANCED_MODULES:
-        st.markdown("---")
-        st.markdown("### Basketball-Specific Risk Context")
-        context = st.radio(
-            "Next activity:", ["Practice", "Competition"],
-            horizontal=True, key=f"context_{athlete_id}",
-        )
         injury_mechanism_insight_box(
             {
                 "sleep_hours":    latest_wellness["sleep_hours"],
@@ -1036,18 +1020,40 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
                 "rsi_modified":   latest_rsi,
                 "player_load_z":  pl_z,
                 "accel_count_z":  ac_z,
+                "decel_count_z":  dc_z,
             },
             context.lower(),
         )
+    else:
+        # Fallback when research_context module not loaded — show key clinical flags directly
+        _flags_bsrc = []
+        if cmj_z is not None and cmj_z < -1.0:
+            _flags_bsrc.append(("CMJ below personal baseline", "Neuromuscular fatigue indicator. "
+                "High decel GRF ~2.7x acceleration — athlete may be at elevated ACL risk this session. "
+                "Consider removing from high-intensity deceleration drills."))
+        if dc_z is not None and dc_z < -1.0:
+            _flags_bsrc.append(("Decel count below baseline", "Protective avoidance pattern detected. "
+                "Athlete is unconsciously avoiding high-decel movements — early fatigue signal before "
+                "soreness self-report. ACL injuries occur within first 50ms of foot contact (decel phase)."))
+        if latest_wellness.get("sleep_hours", 8) < 7.0:
+            _flags_bsrc.append(("Sleep below 7h", "Walsh 2021: injury risk elevated. "
+                "Reaction time and decision-making impaired — compounding landing mechanics risk."))
+        if not _flags_bsrc:
+            st.success("No elevated basketball-specific risk signals today. All key indicators within safe range.")
+        else:
+            for flag_title, flag_detail in _flags_bsrc:
+                st.warning(f"**{flag_title}** — {flag_detail}")
 
 
 
     with st.expander("Research References"):
         st.markdown(
-            "- **Sleep:** <7 hrs → elevated injury risk (Walsh et al. 2021 BJSM consensus; 2025 meta-analysis OR=1.34); <6 hrs = red flag. Female athletes: compounded by hormonal variability (Charest & Grandner 2020)\n"
-            "- **ACWR ⚠ (contextual flag only):** Gabbett 2016 established >1.5 as high-risk zone, but Impellizzeri et al. 2020 (BJSM) identified statistical coupling flaws and 2025 meta-analysis (22 cohort studies) recommends 'use with caution' — not scored in readiness formula\n"
+            "- **Sleep:** <7 hrs elevated injury risk (Walsh et al. 2021 BJSM; OR=1.34 in 2025 meta); <6 hrs red flag. Female athletes: hormonal variability compounds risk (Charest & Grandner 2020)\n"
+            "- **Deceleration (PRIMARY GPS signal):** GRF during decel ~2.7x acceleration, ~1.3x max velocity sprinting. ACL injuries within first 50ms foot contact (decel phase). Decel count drop = protective avoidance = early neuromuscular fatigue flag. Harper et al. 2019 IJSPP; Nedergaard et al. 2014; Buckthorpe et al. 2019; Science of Multi-directional Sport framework.\n"
+            "- **GPS 3.0 framing:** GPS metrics = external locomotor load only, weak proxy for internal neuromuscular load. Direction-change mechanics (cuts/stops) can be ~70% of true mechanical work but invisible to linear GPS. CMJ/RSI is the correct neuromuscular response signal. Boskovic et al. 2024, Sport Performance & Science Reports.\n"
+            "- **CMJ/RSI:** Neuromuscular fatigue indicator, weighted highest in readiness formula — Gathercole et al. 2015\n"
+            "- **ACWR ⚠ (contextual flag only):** Gabbett 2016 established >1.5 high-risk zone; Impellizzeri et al. 2020 identified statistical flaws; 2025 meta (22 cohort studies) recommends use with caution — not scored in readiness formula\n"
             "- **Soreness:** >7 requires monitoring (Hulin et al. 2016)\n"
-            "- **CMJ/RSI:** Neuromuscular fatigue indicator — Gathercole et al. (2015)\n"
             "- **Accels/Decels:** Direction-change load; drops may indicate protective movement strategies\n"
             "- **Post-match recovery (female):** Pernigoni et al. 2024 (44-study basketball SR); no CMJ drop at 24h in female players (Delextrat); Goulart 2022 female meta-analysis\n"
             "- **B2B fatigue:** Charest et al. 2021 JCSM (NBA travel/circadian); Clark et al. 2025 PLOS One (108-study indoor sports SR)"
