@@ -501,6 +501,12 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     if gps_row and pl_z is not None:
         gps_load_pct = max(0, min(100, 75 + pl_z * 12))
 
+    # Wellness scalars used in load projection, col1 risk, and Basketball Risk Context.
+    # Defined here (before header row) so they are available regardless of section order.
+    sleep_v  = float(latest_wellness.get("sleep_hours", 7.5))
+    sore_v   = float(latest_wellness.get("soreness", 4))
+    stress_v = float(latest_wellness.get("stress", 4))
+
     # ==========================================================================
     # HEADER ROW
     # ==========================================================================
@@ -518,13 +524,10 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         # Pre-compute flags here (also used in col2 for compact card)
         _risk_flags_c1 = 0
         _risk_reasons_c1 = []
-        _sv  = float(latest_wellness.get("sleep_hours", 7.5))
-        _sov = float(latest_wellness.get("soreness", 4))
-        _stv = float(latest_wellness.get("stress", 4))
-        if _sv < 6.0:   _risk_flags_c1 += 2; _risk_reasons_c1.append("critical sleep")
-        elif _sv < 7.0: _risk_flags_c1 += 1; _risk_reasons_c1.append("short sleep")
-        if _sov > 7:    _risk_flags_c1 += 1; _risk_reasons_c1.append("high soreness")
-        if _stv > 7:    _risk_flags_c1 += 1; _risk_reasons_c1.append("high stress")
+        if sleep_v < 6.0:   _risk_flags_c1 += 2; _risk_reasons_c1.append("critical sleep")
+        elif sleep_v < 7.0: _risk_flags_c1 += 1; _risk_reasons_c1.append("short sleep")
+        if sore_v > 7:      _risk_flags_c1 += 1; _risk_reasons_c1.append("high soreness")
+        if stress_v > 7:    _risk_flags_c1 += 1; _risk_reasons_c1.append("high stress")
         if cmj_z is not None and cmj_z < -1.5: _risk_flags_c1 += 2; _risk_reasons_c1.append("CMJ low")
         elif cmj_z is not None and cmj_z < -1.0: _risk_flags_c1 += 1; _risk_reasons_c1.append("CMJ below baseline")
         if rsi_z is not None and rsi_z < -1.5: _risk_flags_c1 += 2; _risk_reasons_c1.append("RSI low")
@@ -653,10 +656,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     st.caption("If she plays tonight, where does readiness land tomorrow? "
                "Select scenario to see projected status and staff recommendation.")
 
-    # reuse variables computed above for col2 risk score
-    sleep_v  = _sleep_v
-    sore_v   = _sore_v
-    stress_v = _stress_v
+    # sleep_v / sore_v / stress_v defined at top of function
 
     load_col1, load_col2 = st.columns([1, 2])
     with load_col1:
