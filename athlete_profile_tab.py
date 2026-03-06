@@ -346,11 +346,16 @@ def athlete_photo_block(ath_key: str):
 
 def create_radar_chart(athlete_data, athlete_name, position='F'):
     # Radar = most-recent-session data, all axes normalised 0-100 vs personal baseline.
-    # DECEL is the primary basketball injury signal:
-    # GRF during deceleration ~2.7x acceleration, ~1.3x max-velocity sprinting.
-    # ACL mechanisms occur within first 50ms of foot contact (deceleration phase).
-    # Drop in decel count below baseline = protective avoidance = early fatigue flag.
-    # Harper et al. 2019; Nedergaard et al. 2014; Science of Multi-directional Sport.
+    # Decel Load axis: threshold-based GPS count vs personal 30-day baseline (z-score).
+    # Interpretation caveat (Clubb 2025; Pimenta et al. 2026 SCJ):
+    #   - Decel count is an EXPOSURE INDICATOR, not a direct measure of tissue stress.
+    #   - Absolute thresholds are arbitrary; counts are sensitive to dwell time settings.
+    #   - Z-score vs personal baseline (used here) is the correct interpretation approach —
+    #     avoids between-athlete comparison bias from differing capacities.
+    #   - A sustained drop below personal baseline warrants investigation alongside
+    #     CMJ/RSI (the true neuromuscular response signal) before acting on it alone.
+    # Decel is still the most contextually relevant GPS metric for basketball:
+    #   GRF during deceleration ~2.7x acceleration (Science of Multi-directional Sport).
     sleep_score    = (athlete_data["sleep_hours"] / 8) * 100
     physical_score = ((10 - athlete_data["soreness"]) / 10) * 100
     mental_score   = (athlete_data["mood"] / 10) * 100
@@ -804,7 +809,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             col_widget.metric(label, f"{emoji} {val:.0f}", delta=delta, delta_color="off")
 
         # Decel listed first — primary basketball signal
-        _gps_metric(g1, "Decel Count ★",    gps_row.get("decel_count", 0),      dc_emoji, dc_z)
+        _gps_metric(g1, "Decel Count",      gps_row.get("decel_count", 0),      dc_emoji, dc_z)
         _gps_metric(g2, "Accel Count",       gps_row.get("accel_count", 0),      ac_emoji, ac_z)
         _gps_metric(g3, "Player Load",       gps_row.get("player_load", 0),      pl_emoji, pl_z)
 
@@ -1003,53 +1008,133 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     # This section surfaces the injury mechanism context that GPS/wellness numbers alone
     # don't communicate. It uses the same signal data but frames it for clinical decisions.
     st.markdown("---")
-    st.markdown("### Basketball-Specific Risk Context")
+
+    # ==========================================================================
+    # BASKETBALL-SPECIFIC RISK CONTEXT  — V1
+    # V1: Key signal flags with clinical context. Plain language, conservative
+    # thresholds, cross-reference requirement for GPS signals.
+    # V2 (production): full injury_mechanism_insight_box module from
+    # research_context.py — richer basketball mechanism language, position-specific
+    # context, practice vs competition differentiation, and validated against
+    # real team data before deployment. Ghost function (injury_mechanism_insight_box)
+    # removed from V1 to avoid implying a capability that is not yet built.
+    # ==========================================================================
+    col_bsrc_title, col_bsrc_badge = st.columns([3, 1])
+    with col_bsrc_title:
+        st.markdown("### Basketball-Specific Risk Context")
+    with col_bsrc_badge:
+        st.markdown(
+            '<div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;'
+            'padding:4px 10px;margin-top:8px;text-align:center;">'
+            '<span style="font-size:10px;font-weight:700;color:#1e40af;'
+            'letter-spacing:0.1em;">V1 — CORE FLAGS</span></div>',
+            unsafe_allow_html=True
+        )
+
     context = st.radio(
         "Next activity:", ["Practice", "Competition"],
         horizontal=True, key=f"context_{athlete_id}",
     )
-    if HAVE_ENHANCED_MODULES:
-        injury_mechanism_insight_box(
-            {
-                "sleep_hours":    latest_wellness["sleep_hours"],
-                "soreness":       latest_wellness["soreness"],
-                "acwr":           latest_acwr,
-                "cmj_zscore":     cmj_z,
-                "rsi_zscore":     rsi_z,
-                "cmj_height_cm":  latest_cmj,
-                "rsi_modified":   latest_rsi,
-                "player_load_z":  pl_z,
-                "accel_count_z":  ac_z,
-                "decel_count_z":  dc_z,
-            },
-            context.lower(),
+
+    # V1 implementation — clinical flags with correct caveats
+    # Cross-reference requirement enforced: GPS signals never actioned alone
+    _flags_bsrc = []
+
+    if cmj_z is not None and cmj_z < -1.0:
+        severity = "HIGH" if cmj_z < -1.5 else "MODERATE"
+        _flags_bsrc.append((
+            severity,
+            "CMJ below personal baseline",
+            f"z = {cmj_z:.2f} ({abs(cmj_z):.1f}σ below 30-day average). "
+            "Neuromuscular output is reduced. "
+            + ("Consider modifying or removing from high-intensity decel drills today. "
+               if context == "Competition"
+               else "Reduce plyometric and change-of-direction volume in practice. ")
+            + "This is the primary actionable signal."
+        ))
+
+    if rsi_z is not None and rsi_z < -1.0:
+        _flags_bsrc.append((
+            "HIGH" if rsi_z < -1.5 else "MODERATE",
+            "RSI below personal baseline",
+            f"z = {rsi_z:.2f}. Reactive strength index reduced — landing mechanics "
+            "and first-step explosiveness likely impaired. "
+            "Warrants action alongside CMJ flag if both present."
+        ))
+
+    if dc_z is not None and dc_z < -1.0:
+        # GPS signal — requires CMJ/RSI cross-reference per Clubb 2025
+        cmj_also_low = cmj_z is not None and cmj_z < -1.0
+        _flags_bsrc.append((
+            "MODERATE",
+            "Decel count below personal baseline (GPS)",
+            f"z = {dc_z:.2f}. Reduced braking activity vs 30-day average. "
+            + ("CMJ is also reduced — combined signal warrants load modification. "
+               if cmj_also_low
+               else "CMJ is within normal range — monitor but do not act on GPS signal alone. "
+                    "Possible causes: session structure, not fatigue. (Clubb 2025)")
+        ))
+
+    if sleep_v < 7.0:
+        _flags_bsrc.append((
+            "HIGH" if sleep_v < 6.0 else "MODERATE",
+            f"Sleep {sleep_v:.1f}h — below 7h threshold",
+            ("Below 6h: hard floor — PROTECT status applies regardless of other signals. "
+             if sleep_v < 6.0
+             else "Reaction time and neuromuscular coordination impaired at <7h (Walsh 2021 consensus; "
+                  "2025 meta OR=1.34). Compound risk if CMJ is also depressed.")
+        ))
+
+    if sore_v > 7:
+        _flags_bsrc.append((
+            "MODERATE",
+            f"Soreness {sore_v:.0f}/10",
+            "Above threshold for monitoring (Hulin et al. 2016). "
+            "Check location — localised joint soreness warrants medical review "
+            "before high-intensity deceleration work."
+        ))
+
+    if not _flags_bsrc:
+        st.markdown(
+            '<div style="background:#f0fdf4;border-left:4px solid #16a34a;'
+            'border-radius:0 8px 8px 0;padding:10px 14px;">'
+            '<span style="font-size:13px;color:#166534;">'
+            '<b>No elevated risk signals today.</b> All key indicators within personal normal range. '
+            'Cleared for ' + context.lower() + '.</span></div>',
+            unsafe_allow_html=True
         )
     else:
-        # Fallback when research_context module not loaded — show key clinical flags directly
-        _flags_bsrc = []
-        if cmj_z is not None and cmj_z < -1.0:
-            _flags_bsrc.append(("CMJ below personal baseline", "Neuromuscular fatigue indicator. "
-                "High decel GRF ~2.7x acceleration — athlete may be at elevated ACL risk this session. "
-                "Consider removing from high-intensity deceleration drills."))
-        if dc_z is not None and dc_z < -1.0:
-            _flags_bsrc.append(("Decel count below baseline", "Protective avoidance pattern detected. "
-                "Athlete is unconsciously avoiding high-decel movements — early fatigue signal before "
-                "soreness self-report. ACL injuries occur within first 50ms of foot contact (decel phase)."))
-        if latest_wellness.get("sleep_hours", 8) < 7.0:
-            _flags_bsrc.append(("Sleep below 7h", "Walsh 2021: injury risk elevated. "
-                "Reaction time and decision-making impaired — compounding landing mechanics risk."))
-        if not _flags_bsrc:
-            st.success("No elevated basketball-specific risk signals today. All key indicators within safe range.")
-        else:
-            for flag_title, flag_detail in _flags_bsrc:
-                st.warning(f"**{flag_title}** — {flag_detail}")
+        for sev, flag_title, flag_detail in _flags_bsrc:
+            bg   = "#fef2f2" if sev == "HIGH"     else "#fffbeb"
+            bc   = "#dc2626" if sev == "HIGH"     else "#d97706"
+            tc   = "#991b1b" if sev == "HIGH"     else "#92400e"
+            icon = "⚠"       if sev == "HIGH"     else "◑"
+            st.markdown(
+                f'<div style="background:{bg};border-left:4px solid {bc};'
+                f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
+                f'<div style="font-size:11px;font-weight:700;color:{bc};'
+                f'letter-spacing:0.08em;margin-bottom:3px;">{icon} {sev} — {flag_title}</div>'
+                f'<div style="font-size:12px;color:#1e293b;line-height:1.5;">{flag_detail}</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+    st.markdown(
+        '<div style="font-size:10px;color:#94a3b8;margin-top:6px;">'
+        'V1 flags: CMJ/RSI (primary), decel count (GPS — cross-reference required), sleep, soreness. '
+        'V2 will add position-specific mechanism context and richer basketball injury pattern language '
+        'once validated against real team data.'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
 
 
     with st.expander("Research References"):
         st.markdown(
             "- **Sleep:** <7 hrs elevated injury risk (Walsh et al. 2021 BJSM; OR=1.34 in 2025 meta); <6 hrs red flag. Female athletes: hormonal variability compounds risk (Charest & Grandner 2020)\n"
-            "- **Deceleration (PRIMARY GPS signal):** GRF during decel ~2.7x acceleration, ~1.3x max velocity sprinting. ACL injuries within first 50ms foot contact (decel phase). Decel count drop = protective avoidance = early neuromuscular fatigue flag. Harper et al. 2019 IJSPP; Nedergaard et al. 2014; Buckthorpe et al. 2019; Science of Multi-directional Sport framework.\n"
+            "- **Deceleration load monitoring:** Decel count = GPS exposure indicator (threshold-based event counting). Thresholds are inherently arbitrary; counts are sensitive to dwell time settings; absolute thresholds risk between-athlete bias. Z-score vs personal baseline (used here) is the recommended interpretation approach. Sustained drops below baseline warrant cross-referencing with CMJ/RSI before clinical action. Clubb 2025 (Sportsmith); Pimenta et al. 2026 SCJ; Clubb & Gonçalves 2023.\n"
+            "- **Deceleration biomechanics (separate from monitoring):** GRF during decel ~2.7x acceleration, ~1.3x max velocity sprinting. ACL injury mechanisms within first 50ms foot contact. Provides rationale for WHY decel exposure matters -- not a property of the GPS count metric itself. Harper et al. 2019 IJSPP; Science of Multi-directional Sport framework.\n"
             "- **GPS 3.0 framing:** GPS metrics = external locomotor load only, weak proxy for internal neuromuscular load. Direction-change mechanics (cuts/stops) can be ~70% of true mechanical work but invisible to linear GPS. CMJ/RSI is the correct neuromuscular response signal. Boskovic et al. 2024, Sport Performance & Science Reports.\n"
             "- **CMJ/RSI:** Neuromuscular fatigue indicator, weighted highest in readiness formula — Gathercole et al. 2015\n"
             "- **ACWR ⚠ (contextual flag only):** Gabbett 2016 established >1.5 high-risk zone; Impellizzeri et al. 2020 identified statistical flaws; 2025 meta (22 cohort studies) recommends use with caution — not scored in readiness formula\n"

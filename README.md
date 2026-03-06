@@ -49,7 +49,7 @@ Does not make clinical decisions — translates data into plain English for coac
 |-----|----------|---------|
 | Command Center | Coach | Morning brief — status badges, priority alerts, GPS strip, roster cards |
 | Today's Readiness | Analyst | Z-score flags, wellness + force plate + GPS per player |
-| Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, 7-day risk score, load projection |
+| Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, 7-day risk score, load projection, basketball-specific risk context (V1) |
 | Trends | Analyst | 7-day rolling averages — sleep, soreness, mood, stress |
 | Jump Testing | Analyst | CMJ & RSI vs personal baseline, 7-day team trend |
 | Availability & Injuries | GM / Medical | Daily availability board, season %, injury log |
@@ -146,3 +146,19 @@ Full citations in `RESEARCH_FOUNDATION.md`.
 
 All player names anonymized (Player G1, Player F1, etc.).  
 Safe for GitHub, portfolio, and professional presentations.
+
+
+---
+
+## V1 vs V2 — Feature Status
+
+| Feature | V1 Status | V2 (Production) Plan |
+|---|---|---|
+| Basketball-Specific Risk Context | V1: Core flags (CMJ/RSI, decel, sleep, soreness) with clinical caveats. `injury_mechanism_insight_box` not built yet. | V2: Full mechanism language, position-specific context, practice vs competition differentiation. Requires validation on real team data first. |
+| GPS decel monitoring | V1: z-score vs personal baseline, labelled as exposure indicator with cross-reference requirement (Clubb 2025). | V2: Individualised thresholds as % of each player's observed maximum (Pimenta et al. 2026). |
+| Game load integration | V1: Practice minutes only (Kinexon). Game load not tracked. | V2: Second Spectrum optical tracking integration — true week-total load picture across practice + games. WNBA leaguewide data available since 2024. |
+| ML model | V1: Random Forest trained on synthetic demo data. Predictions are illustrative. | V2: Retrained on 90+ days of real athlete data with real injury outcomes. Add menstrual cycle phase as feature. |
+| Data input | V1: SQLite / CSV manual import. | V2: Live API connections — Kinexon, ForceDecks/Vald, wellness app (Smartabase or Teamworks Pulse), Second Spectrum. MCP server architecture. |
+| Notifications | V1: Dashboard only — staff must open the app. | V2: Slack morning brief, SMS alerts for PROTECT-status players (medical staff only). |
+| Athlete view | V1: Staff-facing only. | V2: Simplified athlete-facing readiness + trend view. No injury risk numbers shown to athletes. |
+| Hormonal cycle | V1: Not modelled. | V2: Menstrual phase adjustment to CMJ/RSI thresholds and load recommendations (Bruinvels et al. 2017). Requires athlete consent protocol. |
