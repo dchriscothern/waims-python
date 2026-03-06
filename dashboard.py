@@ -1,9 +1,6 @@
 """
 WAIMS Readiness Watchlist
 Streamlit web application for athlete monitoring data visualization
-
-Usage:
-    streamlit run dashboard.py
 """
 
 import os
@@ -94,7 +91,7 @@ def _html_oneliner(s: str) -> str:
 
 
 def create_mini_battery(value, show_label=True):
-    """Emoji + percentage only — no battery bar."""
+    """Emoji + percentage only -- no battery bar."""
     color = "#10b981" if value >= 80 else ("#f59e0b" if value >= 60 else "#ef4444")
     emoji = "🟢"       if value >= 80 else ("🟡"       if value >= 60 else "🔴")
     if show_label:
@@ -127,7 +124,7 @@ def create_summary_card(label, count, color, icon):
 
 
 def calculate_readiness_score(row):
-    """Unified formula — mirrors train_models.py. Rescaled 0-100. Walsh 2021 thresholds."""
+    """Unified formula -- mirrors train_models.py. Rescaled 0-100. Walsh 2021 thresholds."""
     sleep_hrs = row.get("sleep_hours", 7.5)
     sleep_q   = row.get("sleep_quality", 7)
     sleep_s   = min(15, (sleep_hrs / 8.0) * 10 + (sleep_q / 10) * 5)
@@ -158,7 +155,7 @@ def get_status_color(score):
 
 
 # ==============================================================================
-# GPS HELPER — z-score flag for a single metric
+# GPS HELPER -- z-score flag for a single metric
 # ==============================================================================
 
 def _gps_zscore_flag(player_id, col, today_val, training_load_df, ref_date):
@@ -207,9 +204,9 @@ def build_gps_flag_notes(player_id, gps_row, training_load_df, ref_date):
             continue
         emoji, z = _gps_zscore_flag(player_id, col, val, training_load_df, ref_date)
         if emoji == "🔴" and z is not None:
-            notes.append(f"{label} {val:.0f} — {abs(z):.1f}σ below baseline (high fatigue signal)")
+            notes.append(f"{label} {val:.0f} -- {abs(z):.1f}σ below baseline (high fatigue signal)")
         elif emoji == "🟡" and z is not None:
-            notes.append(f"{label} {val:.0f} — {abs(z):.1f}σ below baseline")
+            notes.append(f"{label} {val:.0f} -- {abs(z):.1f}σ below baseline")
     return notes
 
 
@@ -243,35 +240,35 @@ def classify_player_full(player_id, today_wellness_row, today_fp_row, wellness_d
 
         if today_wellness_row["sleep_hours"] < 7.0:
             flags += 2
-            notes.append(f"Sleep {today_wellness_row['sleep_hours']:.1f} hrs — below safety floor")
+            notes.append(f"Sleep {today_wellness_row['sleep_hours']:.1f} hrs -- below safety floor")
         elif sleep_z < -1.5:
             flags += 1
-            notes.append(f"Sleep {today_wellness_row['sleep_hours']:.1f} hrs — {abs(sleep_z):.1f}σ below her norm")
+            notes.append(f"Sleep {today_wellness_row['sleep_hours']:.1f} hrs -- {abs(sleep_z):.1f}σ below her norm")
 
         if today_wellness_row["soreness"] > 7:
             flags += 2
-            notes.append(f"Soreness {today_wellness_row['soreness']:.0f}/10 — above safety ceiling")
+            notes.append(f"Soreness {today_wellness_row['soreness']:.0f}/10 -- above safety ceiling")
         elif sor_z > 1.5:
             flags += 1
-            notes.append(f"Soreness {today_wellness_row['soreness']:.0f}/10 — {sor_z:.1f}σ above her norm")
+            notes.append(f"Soreness {today_wellness_row['soreness']:.0f}/10 -- {sor_z:.1f}σ above her norm")
 
         if today_wellness_row["stress"] > 7:
             flags += 2
-            notes.append(f"Stress {today_wellness_row['stress']:.0f}/10 — above safety ceiling")
+            notes.append(f"Stress {today_wellness_row['stress']:.0f}/10 -- above safety ceiling")
         elif str_z > 1.5:
             flags += 1
-            notes.append(f"Stress {today_wellness_row['stress']:.0f}/10 — {str_z:.1f}σ above her norm")
+            notes.append(f"Stress {today_wellness_row['stress']:.0f}/10 -- {str_z:.1f}σ above her norm")
 
         if mood_z < -1.5:
             flags += 1
-            notes.append(f"Mood {today_wellness_row['mood']:.0f}/10 — {abs(mood_z):.1f}σ below her norm")
+            notes.append(f"Mood {today_wellness_row['mood']:.0f}/10 -- {abs(mood_z):.1f}σ below her norm")
     else:
         if today_wellness_row["sleep_hours"] < 7.0:
             flags += 2; notes.append("Sleep below safety floor (insufficient history for z-score)")
         if today_wellness_row["soreness"] > 7:
             flags += 2; notes.append("Soreness above safety ceiling (insufficient history for z-score)")
 
-    # ── Force plate z-scores (objective — weighted higher) ────────────
+    # ── Force plate z-scores (objective -- weighted higher) ────────────
     if today_fp_row is not None and len(fp_history) >= 5:
         cmj_val = today_fp_row.get("cmj_height_cm")
         rsi_val = today_fp_row.get("rsi_modified")
@@ -282,10 +279,10 @@ def classify_player_full(player_id, today_wellness_row, today_fp_row, wellness_d
             cmj_z    = (cmj_val - cmj_mean) / cmj_std
             if cmj_z <= -2.0:
                 flags += 3
-                notes.append(f"CMJ {cmj_val:.1f} cm — {abs(cmj_z):.1f}σ below baseline (severe neuromuscular fatigue)")
+                notes.append(f"CMJ {cmj_val:.1f} cm -- {abs(cmj_z):.1f}σ below baseline (severe neuromuscular fatigue)")
             elif cmj_z <= -1.0:
                 flags += 2
-                notes.append(f"CMJ {cmj_val:.1f} cm — {abs(cmj_z):.1f}σ below baseline (neuromuscular fatigue)")
+                notes.append(f"CMJ {cmj_val:.1f} cm -- {abs(cmj_z):.1f}σ below baseline (neuromuscular fatigue)")
 
         if rsi_val is not None:
             rsi_mean = fp_history["rsi_modified"].mean()
@@ -293,13 +290,13 @@ def classify_player_full(player_id, today_wellness_row, today_fp_row, wellness_d
             rsi_z    = (rsi_val - rsi_mean) / rsi_std
             if rsi_z <= -2.0:
                 flags += 3
-                notes.append(f"RSI {rsi_val:.2f} — {abs(rsi_z):.1f}σ below baseline (reduced reactive strength)")
+                notes.append(f"RSI {rsi_val:.2f} -- {abs(rsi_z):.1f}σ below baseline (reduced reactive strength)")
             elif rsi_z <= -1.0:
                 flags += 2
-                notes.append(f"RSI {rsi_val:.2f} — {abs(rsi_z):.1f}σ below baseline")
+                notes.append(f"RSI {rsi_val:.2f} -- {abs(rsi_z):.1f}σ below baseline")
 
     if not notes:
-        notes.append("No flags — within normal range across all metrics including force plate")
+        notes.append("No flags -- within normal range across all metrics including force plate")
 
     status = "green" if flags == 0 else ("yellow" if flags <= 3 else "red")
     return status, flags, notes
@@ -368,7 +365,7 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
     st.caption(" · ".join(coverage_parts) + ". CMJ/RSI deviations weighted higher than subjective wellness.")
     st.markdown("---")
 
-    # Use unified readiness formula — matches train_models.py and coach_command_center
+    # Use unified readiness formula -- matches train_models.py and coach_command_center
     today_wellness["readiness_score"] = today_wellness.apply(calculate_readiness_score, axis=1)
     today_wellness["sleep_pct"]    = (today_wellness["sleep_hours"] / 8 * 100).clip(0, 100)
     today_wellness["physical_pct"] = ((10 - today_wellness["soreness"]) / 10 * 100)
@@ -418,8 +415,8 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
                 fp_row  = get_fp_row(player["player_id"])
                 gps_row = get_gps_row(player["player_id"], training_load_df, ref_date) if has_gps else None
 
-                cmj_str   = f"{fp_row['cmj_height_cm']:.1f} cm"  if fp_row  else "—"
-                rsi_str   = f"{fp_row['rsi_modified']:.2f}"       if fp_row  else "—"
+                cmj_str   = f"{fp_row['cmj_height_cm']:.1f} cm"  if fp_row  else "--"
+                rsi_str   = f"{fp_row['rsi_modified']:.2f}"       if fp_row  else "--"
 
                 # GPS z-score flags for compact badge
                 if gps_row and has_gps:
@@ -430,7 +427,7 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
                     accel_str = f"{accel_emoji} {gps_row.get('accel_count', 0):.0f}"
                     decel_str = f"{decel_emoji} {gps_row.get('decel_count', 0):.0f}"
                 else:
-                    load_str = accel_str = decel_str = "—"
+                    load_str = accel_str = decel_str = "--"
 
                 gps_cells = (
                     f'<div class="battery-item"><div class="battery-label">Load</div>'
@@ -468,7 +465,7 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
             fp_row  = get_fp_row(player["player_id"])
             gps_row = get_gps_row(player["player_id"], training_load_df, ref_date) if has_gps else None
 
-            with st.expander(f"{emoji} **{player['name']}** ({player['position']}) — Score: {player['readiness_score']:.0f}/100"):
+            with st.expander(f"{emoji} **{player['name']}** ({player['position']}) -- Score: {player['readiness_score']:.0f}/100"):
                 colA, colB, colC = st.columns([2, 1, 1])
 
                 with colA:
@@ -506,9 +503,9 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
                         ac_emoji, ac_z = _gps_zscore_flag(player["player_id"], "accel_count", ac_val, training_load_df, ref_date)
                         dc_emoji, dc_z = _gps_zscore_flag(player["player_id"], "decel_count", dc_val, training_load_df, ref_date)
 
-                        pl_delta = f"{pl_z:+.1f}σ" if pl_z is not None else "—"
-                        ac_delta = f"{ac_z:+.1f}σ" if ac_z is not None else "—"
-                        dc_delta = f"{dc_z:+.1f}σ" if dc_z is not None else "—"
+                        pl_delta = f"{pl_z:+.1f}σ" if pl_z is not None else "--"
+                        ac_delta = f"{ac_z:+.1f}σ" if ac_z is not None else "--"
+                        dc_delta = f"{dc_z:+.1f}σ" if dc_z is not None else "--"
 
                         st.metric("Player Load",  f"{pl_emoji} {pl_val:.0f}",  delta=pl_delta, delta_color="off")
                         st.metric("Accel Count",  f"{ac_emoji} {ac_val:.0f}",  delta=ac_delta, delta_color="off")
@@ -516,9 +513,9 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
 
                         # Yesterday's load session note
                         if gps_row.get("game_minutes", 0) > 0:
-                            st.caption(f"Game day — {gps_row['game_minutes']:.0f} min played")
+                            st.caption(f"Game day -- {gps_row['game_minutes']:.0f} min played")
                         elif gps_row.get("practice_minutes", 0) > 0:
-                            st.caption(f"Practice — {gps_row['practice_minutes']:.0f} min @ RPE {gps_row.get('practice_rpe', 0):.1f}")
+                            st.caption(f"Practice -- {gps_row['practice_minutes']:.0f} min @ RPE {gps_row.get('practice_rpe', 0):.1f}")
                     else:
                         st.caption("No GPS data today")
 
@@ -651,7 +648,7 @@ def availability_injuries_tab(availability_df, injuries_df, players_df, end_date
             ret = (inj["return_date"].strftime("%b %d")
                    if "return_date" in inj.index and pd.notna(inj["return_date"]) else "TBD")
             with st.expander(
-                f"🚨 **{inj['name']}** — {inj['injury_type']} · "
+                f"🚨 **{inj['name']}** -- {inj['injury_type']} · "
                 f"{inj['injury_date'].strftime('%b %d, %Y')} · {inj.get('severity', '')}"
             ):
                 c1, c2, c3 = st.columns(3)
@@ -685,7 +682,7 @@ def availability_injuries_tab(availability_df, injuries_df, players_df, end_date
 
 def gps_load_tab(training_load_df, players_df, end_date):
     st.header("GPS & Load Monitoring")
-    st.caption("Kinexon tracking — distance, high-speed running, sprint, accel/decel, player load.")
+    st.caption("Kinexon tracking -- distance, high-speed running, sprint, accel/decel, player load.")
 
     if "total_distance_km" not in training_load_df.columns:
         st.warning("GPS fields not found. Run generate_demo_data.py to populate them.")
@@ -702,7 +699,7 @@ def gps_load_tab(training_load_df, players_df, end_date):
         return
 
     # ── TEAM SUMMARY ──────────────────────────────────────────────────
-    st.subheader("Team Summary — Today")
+    st.subheader("Team Summary -- Today")
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Avg Distance",    f"{today_load['total_distance_km'].mean():.1f} km")
     c2.metric("Avg HSR",         f"{today_load['hsr_distance_m'].mean():.0f} m")
@@ -712,7 +709,7 @@ def gps_load_tab(training_load_df, players_df, end_date):
     st.markdown("---")
 
     # ── PLAYER GPS TABLE ──────────────────────────────────────────────
-    st.subheader("Individual GPS — Today")
+    st.subheader("Individual GPS -- Today")
 
     def gps_flag(player_id, col, today_val):
         hist = training_load_df[
@@ -730,7 +727,7 @@ def gps_load_tab(training_load_df, players_df, end_date):
         h_flag = gps_flag(row["player_id"], "hsr_distance_m",     row["hsr_distance_m"])
 
         with st.expander(
-            f"{l_flag} **{row['name']}** ({row['position']})  —  "
+            f"{l_flag} **{row['name']}** ({row['position']})  --  "
             f"Load: {row['player_load']:.0f}  ·  Dist: {row['total_distance_km']:.1f} km  ·  HSR: {row['hsr_distance_m']:.0f} m"
         ):
             g1, g2, g3, g4, g5, g6 = st.columns(6)
@@ -741,9 +738,9 @@ def gps_load_tab(training_load_df, players_df, end_date):
             g5.metric("Decels",      f"{row['decel_count']}")
             g6.metric("Player Load", f"{row['player_load']:.0f}")
             if row["game_minutes"] > 0:
-                st.caption(f"Game day — {row['game_minutes']:.0f} min played")
+                st.caption(f"Game day -- {row['game_minutes']:.0f} min played")
             else:
-                st.caption(f"Practice — {row['practice_minutes']:.0f} min @ RPE {row['practice_rpe']:.1f}")
+                st.caption(f"Practice -- {row['practice_minutes']:.0f} min @ RPE {row['practice_rpe']:.1f}")
 
     st.markdown("---")
 
@@ -939,16 +936,16 @@ def generate_smart_response(query_type):
 
 
 # ==============================================================================
-# DATE — defaults to latest available date in the database
+# DATE -- defaults to latest available date in the database
 # ==============================================================================
 
 if len(wellness) > 0:
-    # Keep as Timestamp throughout — avoids datetime64 vs date comparison errors
+    # Keep as Timestamp throughout -- avoids datetime64 vs date comparison errors
     end_date = pd.Timestamp(wellness["date"].max())
 else:
     end_date = pd.Timestamp(datetime.today())
 
-# Load ML predictions (injury risk scores) — produced by train_models.py
+# Load ML predictions (injury risk scores) -- produced by train_models.py
 # Graceful fallback: empty df if not yet trained
 try:
     _pcsv = pd.read_csv("data/processed_data.csv")
@@ -985,7 +982,7 @@ with tab0:
     coach_command_center(wellness, players, force_plate, training_load, acwr, end_date, ml_predictions=ml_predictions)
 
 # ==============================================================================
-# TAB 1 — TODAY'S READINESS (analyst view)
+# TAB 1 -- TODAY'S READINESS (analyst view)
 # ==============================================================================
 
 with tab1:
@@ -1115,8 +1112,8 @@ with tab3:
                     st.info("No GPS data in selected window.")
 
             # ── ACWR context strip (flag display only, not scored) ────────────
-            st.markdown("#### ⚠️ ACWR — Contextual Flag Only")
-            st.caption("Impellizzeri et al. 2020 + 2025 meta-analysis (22 cohort studies): ACWR should be used 'with caution as a tool', not as a standalone predictor. Shown here for context only — not used in readiness scoring.")
+            st.markdown("#### ⚠️ ACWR -- Contextual Flag Only")
+            st.caption("Impellizzeri et al. 2020 + 2025 meta-analysis (22 cohort studies): ACWR should be used 'with caution as a tool', not as a standalone predictor. Shown here for context only -- not used in readiness scoring.")
             if len(trend_acwr) > 0:
                 fig_acwr = go.Figure()
                 for i, name in enumerate(selected):
@@ -1163,15 +1160,15 @@ with tab4:
             if len(history) < 5:
                 cmj_status = "🔴" if today_cmj < 25 else ("🟡" if today_cmj < 30 else "🟢")
                 rsi_status = "🔴" if today_rsi < 0.25 else ("🟡" if today_rsi < 0.35 else "🟢")
-                return cmj_status, rsi_status, ["Insufficient history — absolute thresholds used"]
+                return cmj_status, rsi_status, ["Insufficient history -- absolute thresholds used"]
 
             cmj_mean = history["cmj_height_cm"].mean()
             cmj_std  = max(history["cmj_height_cm"].std(), 0.5)
             cmj_z    = (today_cmj - cmj_mean) / cmj_std
             if cmj_z <= -2.0:
-                cmj_status = "🔴"; flags.append(f"CMJ {today_cmj:.1f} cm — {abs(cmj_z):.1f}σ below her norm ({cmj_mean:.1f} cm avg)")
+                cmj_status = "🔴"; flags.append(f"CMJ {today_cmj:.1f} cm -- {abs(cmj_z):.1f}σ below her norm ({cmj_mean:.1f} cm avg)")
             elif cmj_z <= -1.0:
-                cmj_status = "🟡"; flags.append(f"CMJ {today_cmj:.1f} cm — {abs(cmj_z):.1f}σ below her norm ({cmj_mean:.1f} cm avg)")
+                cmj_status = "🟡"; flags.append(f"CMJ {today_cmj:.1f} cm -- {abs(cmj_z):.1f}σ below her norm ({cmj_mean:.1f} cm avg)")
             else:
                 cmj_status = "🟢"
 
@@ -1179,9 +1176,9 @@ with tab4:
             rsi_std  = max(history["rsi_modified"].std(), 0.01)
             rsi_z    = (today_rsi - rsi_mean) / rsi_std
             if rsi_z <= -2.0:
-                rsi_status = "🔴"; flags.append(f"RSI {today_rsi:.2f} — {abs(rsi_z):.1f}σ below her norm ({rsi_mean:.2f} avg)")
+                rsi_status = "🔴"; flags.append(f"RSI {today_rsi:.2f} -- {abs(rsi_z):.1f}σ below her norm ({rsi_mean:.2f} avg)")
             elif rsi_z <= -1.0:
-                rsi_status = "🟡"; flags.append(f"RSI {today_rsi:.2f} — {abs(rsi_z):.1f}σ below her norm ({rsi_mean:.2f} avg)")
+                rsi_status = "🟡"; flags.append(f"RSI {today_rsi:.2f} -- {abs(rsi_z):.1f}σ below her norm ({rsi_mean:.2f} avg)")
             else:
                 rsi_status = "🟢"
 
@@ -1200,7 +1197,7 @@ with tab4:
         st.markdown("---")
 
         for _, row in today_fp.iterrows():
-            with st.expander(f"{row['cmj_status']} {row['rsi_status']}  **{row['name']}**  — CMJ {row['cmj_height_cm']:.1f} cm  ·  RSI {row['rsi_modified']:.2f}"):
+            with st.expander(f"{row['cmj_status']} {row['rsi_status']}  **{row['name']}**  -- CMJ {row['cmj_height_cm']:.1f} cm  ·  RSI {row['rsi_modified']:.2f}"):
                 ca, cb = st.columns(2)
                 ca.metric("CMJ Height",   f"{row['cmj_height_cm']:.1f} cm")
                 cb.metric("RSI-Modified", f"{row['rsi_modified']:.2f}")
@@ -1211,7 +1208,7 @@ with tab4:
                     st.write(f"• {note}")
 
         st.markdown("---")
-        st.subheader("Team CMJ — 7-Day Trend")
+        st.subheader("Team CMJ -- 7-Day Trend")
         athlete_list = sorted(players["name"].tolist())
         sel_jump = st.multiselect("Select athletes", athlete_list, default=athlete_list[:3], key="jump_trend_select")
         if sel_jump:
@@ -1222,7 +1219,7 @@ with tab4:
             ].merge(players[["player_id", "name"]], on="player_id")
             if len(trend_df) > 0:
                 fig = px.line(trend_df, x="date", y="cmj_height_cm", color="name", markers=True,
-                              title="CMJ Height (cm) — Personal Trend",
+                              title="CMJ Height (cm) -- Personal Trend",
                               labels={"cmj_height_cm": "CMJ (cm)", "name": "Athlete"})
                 st.plotly_chart(fig, use_container_width=True)
     else:
@@ -1243,29 +1240,244 @@ with tab6:
     gps_load_tab(training_load, players, end_date)
 
 # ==============================================================================
-# TAB 7: FORECAST
-# ==============================================================================
-
 with tab7:
     st.header("Forecast & Load Projection")
 
-    # ── CONTEXT BOX — what this tab answers ──────────────────────────────────
+    # ── CONTEXT BOX -- brief, action-oriented ─────────────────────────────────
     st.markdown(
         '<div style="background:#f0f9ff;border-left:4px solid #0284c7;border-radius:0 8px 8px 0;'
-        'padding:14px 18px;margin-bottom:18px;">'
-        '<div style="font-weight:700;color:#0369a1;font-size:13px;margin-bottom:6px;">'
-        'What this tab answers</div>'
+        'padding:12px 18px;margin-bottom:16px;">'
         '<div style="font-size:12px;color:#1e293b;line-height:1.6;">'
-        '<b>Risk score (0–100):</b> How many injury warning signals is this player showing right now? '
-        'Combines sleep, soreness, CMJ drop, GPS load, and personal baseline deviations. '
-        'A score of 90 means the player is showing a high-density cluster of warning signs — '
-        'the same pattern seen in players who got injured within the next 7 days in our training data.<br>'
-        '<b>This is not a guarantee of injury</b> — it means this player needs closer management this week.<br>'
-        '<b>Load Projection (below):</b> If she plays a full game tonight, where does her readiness land tomorrow?'
+        '<b>Load Projection:</b> Select a player and scenario -- see projected readiness '
+        'tomorrow and a specific staff recommendation. &nbsp;|&nbsp; '
+        '<b>7-Day Risk:</b> ML model flags players showing injury warning patterns from the last 90 days. '
+        'Not a guarantee -- a signal to act on. &nbsp;|&nbsp; '
+        '<b>Risk score 90/100</b> means high-density warning cluster, same pattern seen before '
+        'injuries in training data.'
         '</div></div>',
         unsafe_allow_html=True,
     )
 
+    # ── LOAD PROJECTION -- "What happens to readiness if she plays tonight?" ───
+    st.markdown("---")
+    st.markdown("### Load Projection")
+    st.caption(
+        "If a player takes a full game load tonight, where does her readiness land tomorrow? "
+        "Adjustments based on female-specific basketball recovery evidence: "
+        "Pernigoni et al. 2024 (44-study basketball SR), Goulart et al. 2022 (female SR/meta-analysis), "
+        "Charest et al. 2021 (NBA B2B sleep/travel), Walsh 2021 BJSM (sleep consensus). "
+        "Note: female players show substantially faster CMJ/neuromuscular recovery than male literature."
+    )
+
+    proj_player = st.selectbox("Select player to project", players["name"].tolist(),
+                                key="forecast_proj_player")
+    load_scenario = st.radio("Tonight's scenario",
+                              ["Rest / Practice only", "Typical game load (~28 min)",
+                               "Heavy game load (~36 min)", "Back-to-back game"],
+                              horizontal=True, key="forecast_scenario")
+
+    proj_pid = players[players["name"] == proj_player].iloc[0]["player_id"]
+    proj_pos = players[players["name"] == proj_player].iloc[0]["position"]
+
+    # Get today's wellness
+    w_proj = wellness[(wellness["player_id"] == proj_pid) &
+                       (pd.to_datetime(wellness["date"]) == pd.to_datetime(wellness["date"]).max())]
+    if len(w_proj) > 0:
+        wp = w_proj.iloc[0]
+
+        # Load impact on tomorrow's projected values -- based on load-recovery literature
+        # Hausswirth & Mujika 2013: sleep quality drops ~0.5pts after heavy game
+        # Fullagar et al. 2015: soreness rises 1-2pts next day after competition
+        # Morikawa 2022: B2B adds measurable fatigue on day 2
+        # ── Evidence-based load adjustments for FEMALE basketball players ───────────
+        # PRIMARY: Pernigoni et al. 2024 (J Sports Sci 42:1727) -- basketball-specific 44-study SR
+        #   Key: female players show NO significant CMJ drop at 24h post-match (Delextrat et al.)
+        #   vs males who show 24-48h impairment. Female players spend more time at low intensity.
+        # SLEEP: Pernigoni 2024 ("no apparent impact on sleep from single match");
+        #   Walsh 2021 BJSM (quality disrupted post-competition);
+        #   Singh et al. 2021 JCSM (B2B + travel = circadian disruption)
+        # SORENESS: Pernigoni 2024 (24-48h peak, moderate-to-very large ES male;
+        #   substantially attenuated in female -- Delextrat; Goulart 2022 female meta-analysis)
+        # B2B: Charest et al. 2021 JCSM (NBA travel distance/direction; circadian load);
+        #   Note: NBA's own data found no B2B injury risk increase -- performance decrement ≠ injury
+        # STRESS: Mental fatigue SR (Frontiers 2021); TQR returns to baseline ~24h
+        load_effects = {
+            "Rest / Practice only":        {"sleep_adj": +0.1, "sore_adj": -0.3, "stress_adj": -0.5, "b2b": 0},
+            "Typical game load (~28 min)": {"sleep_adj": -0.2, "sore_adj": +0.8, "stress_adj": +0.3, "b2b": 0},
+            "Heavy game load (~36 min)":   {"sleep_adj": -0.4, "sore_adj": +1.5, "stress_adj": +0.5, "b2b": 0},
+            "Back-to-back game":           {"sleep_adj": -0.7, "sore_adj": +2.5, "stress_adj": +1.5, "b2b": 1},
+        }
+        fx = load_effects[load_scenario]
+
+        proj_sleep   = max(4.5, min(9.5, float(wp["sleep_hours"]) + fx["sleep_adj"]))
+        proj_soreness = max(0,   min(10,  float(wp["soreness"])    + fx["sore_adj"]))
+        proj_stress  = max(1,   min(10,  float(wp["stress"])      + fx["stress_adj"]))
+        proj_mood    = max(1,   min(10,  float(wp["mood"])        - fx["stress_adj"] * 0.3))
+
+        # Latest force plate
+        fp_proj = force_plate[(force_plate["player_id"] == proj_pid)].sort_values("date").tail(1)
+        cmj_proj = float(fp_proj.iloc[0]["cmj_height_cm"]) if len(fp_proj) > 0 else None
+        rsi_proj = float(fp_proj.iloc[0]["rsi_modified"])  if len(fp_proj) > 0 else None
+
+        # Heavy load degrades CMJ next session (Gathercole 2015)
+        # CMJ degradation -- FEMALE-SPECIFIC evidence
+        # Pernigoni 2024: females show NO CMJ drop at 24h (unlike males with 24-48h impairment)
+        # Goulart 2022: female athletes have faster recovery (higher mitochondrial rates, capillary density)
+        # Clark 2025 PLOS One: CMJ peak disturbance at 24h in indoor sports (males); females recover faster
+        # Female basketball study: CK elevated 24-48h but strength/agility UNCHANGED (PubMed 24917684)
+        # Values substantially lower than male literature (old code used male soccer values)
+        cmj_degradation = {"Rest / Practice only": 0, "Typical game load (~28 min)": -0.5,
+                           "Heavy game load (~36 min)": -1.5, "Back-to-back game": -2.5}
+        if cmj_proj:
+            cmj_proj = max(18, cmj_proj + cmj_degradation[load_scenario])
+
+        proj_row = {
+            "sleep_hours": proj_sleep, "sleep_quality": wp.get("sleep_quality", 7),
+            "soreness": proj_soreness, "stress": proj_stress, "mood": proj_mood,
+            "cmj_height_cm": cmj_proj, "rsi_modified": rsi_proj,
+            "position": proj_pos,
+            "is_back_to_back": fx["b2b"], "days_rest": 0 if fx["b2b"] else 1,
+        }
+        tomorrow_score = calculate_readiness_score(proj_row)
+        today_score    = calculate_readiness_score(dict(wp) | {"position": proj_pos,
+                                                                 "cmj_height_cm": cmj_proj,
+                                                                 "rsi_modified": rsi_proj})
+
+        delta = tomorrow_score - today_score
+        delta_str = f"+{delta:.0f}" if delta > 0 else f"{delta:.0f}"
+        tmr_status = "READY" if tomorrow_score >= 80 else ("MONITOR" if tomorrow_score >= 60 else "PROTECT")
+        tmr_color  = "#16a34a" if tomorrow_score >= 80 else ("#d97706" if tomorrow_score >= 60 else "#dc2626")
+
+        p1, p2, p3 = st.columns(3)
+        p1.metric("Today's Readiness",   f"{today_score:.0f}%")
+        p2.metric("Projected Tomorrow",  f"{tomorrow_score:.0f}%", delta=delta_str)
+        p3.metric("Tomorrow Status",     tmr_status)
+
+        # ── Prescriptive recommendation -- specific, actionable, coach-ready ─
+        # Framework: Catapult 2024 trends report -- "real-time training adjustments"
+        # as most transformative AI application; Orlando Magic -- minutes prescription
+        # is the most digestible metric for coaches
+        mins_4d_proj = None
+        if "practice_minutes" in training_load.columns:
+            tl_4d = training_load[
+                (training_load["player_id"] == proj_pid) &
+                (pd.to_datetime(training_load["date"]) > pd.Timestamp(end_date) - pd.Timedelta(days=4))
+            ]
+            if len(tl_4d) > 0:
+                mins_4d_proj = round(
+                    tl_4d.get("game_minutes", pd.Series([0]*len(tl_4d))).fillna(0).sum() +
+                    tl_4d.get("practice_minutes", pd.Series([0]*len(tl_4d))).fillna(0).sum(), 0
+                )
+
+        # Build prescriptive minutes cap based on projected status + current load
+        if tmr_status == "PROTECT":
+            if mins_4d_proj and mins_4d_proj > 90:
+                min_cap = "20–24 minutes maximum"
+                drill_note = "Remove from full-court sprints and late-game crunch situations"
+            else:
+                min_cap = "22–26 minutes"
+                drill_note = "Limit explosive acceleration drills in warmup"
+            rec_color = "#dc2626"
+            rec_bg    = "#fef2f2"
+            rec_icon  = "⚠"
+            rec_head  = "Restrict Tonight"
+            rec_body  = (f"Cap {proj_player} at {min_cap} tonight. "
+                        f"{drill_note}. "
+                        f"Check in individually before practice -- ask about sleep and leg fatigue. "
+                        f"Projected readiness tomorrow: {tomorrow_score:.0f}% (PROTECT).")
+        elif tmr_status == "MONITOR":
+            if mins_4d_proj and mins_4d_proj > 100:
+                min_cap = "26–30 minutes"
+                drill_note = "Reduce high-intensity interval reps in practice; prioritise skill work"
+            else:
+                min_cap = "standard minutes with close monitoring"
+                drill_note = "Watch warmup quality -- if movement looks laboured, reduce early"
+            rec_color = "#d97706"
+            rec_bg    = "#fffbeb"
+            rec_icon  = "◑"
+            rec_head  = "Monitor Closely"
+            rec_body  = (f"{proj_player}: {drill_note}. "
+                        f"Target {min_cap} tonight. "
+                        f"Re-check soreness in warmup -- if ≥7/10, pull back further. "
+                        f"Projected readiness tomorrow: {tomorrow_score:.0f}% (MONITOR).")
+        else:
+            rec_color = "#16a34a"
+            rec_bg    = "#f0fdf4"
+            rec_icon  = "✓"
+            rec_head  = "Clear for Full Load"
+            rec_body  = (f"{proj_player} is projected to recover well. "
+                        f"No restrictions needed tonight -- full minutes available. "
+                        f"Projected readiness tomorrow: {tomorrow_score:.0f}% ({tmr_status}).")
+
+        st.markdown(
+            f'<div style="background:{rec_bg};border-left:4px solid {rec_color};'
+            f'border-radius:0 8px 8px 0;padding:14px 18px;margin-top:8px;">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;'
+            f'text-transform:uppercase;color:{rec_color};margin-bottom:6px;">'
+            f'{rec_icon} Staff Recommendation</div>'
+            f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">'
+            f'{rec_head}</div>'
+            f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{rec_body}</div>'
+            + (f'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">'
+               f'Load context: {mins_4d_proj:.0f} min in last 4 days</div>'
+               if mins_4d_proj is not None else "")
+            + '</div>',
+            unsafe_allow_html=True
+        )
+
+    else:
+        st.info("No current wellness data for projection.")
+
+
+    # ── ML INJURY RISK ─────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 7-Day Injury Risk (ML Model)")
+    st.caption(
+        "Random Forest model trained on 90-day monitoring history. "
+        "Flags players whose current wellness + force plate + GPS pattern matches "
+        "pre-injury windows in training data. Not a guarantee -- a signal to act on."
+    )
+    if len(ml_predictions) > 0:
+        ml_today = ml_predictions[
+            pd.to_datetime(ml_predictions["date"]) == pd.Timestamp(end_date)
+        ].merge(players[["player_id","name","position"]], on="player_id", how="left"
+        ).sort_values("injury_risk_score", ascending=False)
+
+        if len(ml_today) > 0:
+            ml_cols = st.columns(4)
+            for i, (_, row) in enumerate(ml_today.iterrows()):
+                risk_pct = row["injury_risk_score"] * 100
+                ready    = row["readiness_score"] * 100 if row["readiness_score"] <= 1 else row["readiness_score"]
+                if risk_pct >= 60:
+                    risk_label, risk_color, risk_bg = "INJURY WATCH", "#dc2626", "#fee2e2"
+                elif risk_pct >= 30:
+                    risk_label, risk_color, risk_bg = "WATCH CLOSELY", "#d97706", "#fef3c7"
+                else:
+                    risk_label, risk_color, risk_bg = "LOW RISK", "#16a34a", "#dcfce7"
+                with ml_cols[i % 4]:
+                    st.markdown(
+                        f'<div style="background:{risk_bg};border-left:4px solid {risk_color};'
+                        f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
+                        f'<div style="font-weight:800;font-size:13px;color:#0f172a;">{row["name"]}</div>'
+                        f'<div style="font-size:10px;font-weight:700;color:{risk_color};'
+                        f'letter-spacing:0.06em;margin:2px 0;">{risk_label}</div>'
+                        f'<div style="font-size:11px;color:#475569;">Today: {ready:.0f}% · '
+                        f'Risk: {risk_pct:.0f}/100</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+        else:
+            st.info(
+                "No ML predictions found for today. Run `python train_models.py` to generate. "
+                "Rule-based risk scores (below) are available without the ML model."
+            )
+    else:
+        st.info(
+            "ML model not yet trained. Run `python train_models.py` then restart. "
+            "Rule-based risk scoring below is always available."
+        )
+
+    st.markdown("---")
     if len(wellness) > 0:
         latest_date = wellness["date"].max()
         ref_date    = pd.to_datetime(latest_date)
@@ -1326,7 +1538,7 @@ with tab7:
                     'text-transform:uppercase;color:#991b1b;margin-bottom:8px;">Action Required This Week</div>'
                     + "".join(
                         f'<div style="font-size:13px;color:#1e293b;margin-bottom:4px;">'
-                        f'<b>{row["name"]}</b> — Risk {row["risk_score"]:.0f}/100 · '
+                        f'<b>{row["name"]}</b> -- Risk {row["risk_score"]:.0f}/100 · '
                         f'{", ".join(str(n) for n in row["flag_notes"][:2])}</div>'
                         for _, row in high_risk.iterrows()
                     )
@@ -1334,7 +1546,7 @@ with tab7:
                     unsafe_allow_html=True
                 )
 
-            st.markdown("**Full watchlist — expand each player for details:**")
+            st.markdown("**Full watchlist -- expand each player for details:**")
 
             for _, player in recent_data.head(6).iterrows():
                 fp_row  = get_fp_row_fc(player["player_id"])
@@ -1343,7 +1555,7 @@ with tab7:
                 # Expander title: name + risk level + top flag
                 top_flag = str(player["flag_notes"][0]) if len(player["flag_notes"]) > 0 else "multiple signals"
                 expander_title = (
-                    f"{player['risk_emoji']} **{player['name']}** ({player.get('position','')})  —  "
+                    f"{player['risk_emoji']} **{player['name']}** ({player.get('position','')})  --  "
                     f"{player['risk_level']} risk ({player['risk_score']:.0f}/100)  ·  {top_flag}"
                 )
                 with st.expander(expander_title):
@@ -1373,9 +1585,9 @@ with tab7:
                         ac_emoji, ac_z = _gps_zscore_flag(player["player_id"], "accel_count", ac_val, training_load, ref_date)
                         dc_emoji, dc_z = _gps_zscore_flag(player["player_id"], "decel_count", dc_val, training_load, ref_date)
 
-                        g1.metric("Player Load", f"{pl_emoji} {pl_val:.0f}", delta=f"{pl_z:+.1f}σ" if pl_z else "—", delta_color="off")
-                        g2.metric("Accel Count", f"{ac_emoji} {ac_val:.0f}", delta=f"{ac_z:+.1f}σ" if ac_z else "—", delta_color="off")
-                        g3.metric("Decel Count", f"{dc_emoji} {dc_val:.0f}", delta=f"{dc_z:+.1f}σ" if dc_z else "—", delta_color="off")
+                        g1.metric("Player Load", f"{pl_emoji} {pl_val:.0f}", delta=f"{pl_z:+.1f}σ" if pl_z else "--", delta_color="off")
+                        g2.metric("Accel Count", f"{ac_emoji} {ac_val:.0f}", delta=f"{ac_z:+.1f}σ" if ac_z else "--", delta_color="off")
+                        g3.metric("Decel Count", f"{dc_emoji} {dc_val:.0f}", delta=f"{dc_z:+.1f}σ" if dc_z else "--", delta_color="off")
 
                     st.markdown("**Why she's here:**")
                     for note in player["flag_notes"]:
@@ -1385,54 +1597,13 @@ with tab7:
     else:
         st.info("Add wellness + training load data to show forecast watchouts.")
 
-    # ── ML INJURY RISK INTEGRATION ────────────────────────────────────────────
-    # Show RF model predictions alongside rule-based risk scores when available
-    if len(ml_predictions) > 0:
-        st.markdown("---")
-        st.markdown("### 7-Day Injury Risk (ML Model)")
-        st.caption("Random Forest model trained on 90-day monitoring history. "
-                   "Combines wellness z-scores, CMJ/RSI deviations, GPS load, and schedule context.")
-
-        ml_today = ml_predictions[pd.to_datetime(ml_predictions["date"]).dt.date == end_date].merge(
-            players[["player_id","name","position"]], on="player_id", how="left"
-        ).sort_values("injury_risk_score", ascending=False)
-
-        if len(ml_today) > 0:
-            ml_cols = st.columns(4)
-            for i, (_, row) in enumerate(ml_today.iterrows()):
-                risk_pct = row["injury_risk_score"] * 100
-                ready    = row["readiness_score"]
-                if risk_pct >= 60:
-                    risk_label = "INJURY WATCH"
-                    risk_color = "#dc2626"
-                    risk_bg    = "#fee2e2"
-                elif risk_pct >= 30:
-                    risk_label = "MONITOR"
-                    risk_color = "#d97706"
-                    risk_bg    = "#fef3c7"
-                else:
-                    risk_label = "LOW RISK"
-                    risk_color = "#16a34a"
-                    risk_bg    = "#dcfce7"
-
-                card_html = (
-                    f'<div style="background:{risk_bg};border-left:4px solid {risk_color};'
-                    f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
-                    f'<div style="font-weight:800;font-size:13px;color:#0f172a;">{row["name"]}</div>'
-                    f'<div style="font-size:10px;font-weight:700;color:{risk_color};'
-                    f'letter-spacing:0.06em;margin:2px 0;">{risk_label}</div>'
-                    f'<div style="font-size:11px;color:#475569;">Readiness: {ready:.0f}%</div>'
-                    f'</div>'
-                )
-                with ml_cols[i % 4]:
-                    st.markdown(card_html, unsafe_allow_html=True)
 
     # ── ROLLING MINUTES TABLE ─────────────────────────────────────────────────
     # Orlando Magic framework: minutes played in 4/8 days is the metric coaches
     # respond to most (NBA sport science practitioner interview 2024)
     if "practice_minutes" in training_load.columns:
         st.markdown("---")
-        st.markdown("### Minutes Load — Last 8 Days")
+        st.markdown("### Minutes Load -- Last 8 Days")
         st.caption("Practice + game minutes combined. Coaches use 4-day and 8-day windows "
                    "to gauge cumulative load. High values (>120 min/4d or >220 min/8d) "
                    "warrant minutes restrictions regardless of wellness scores.")
@@ -1474,178 +1645,8 @@ with tab7:
             mins_df = pd.DataFrame(mins_rows).sort_values("Min (8d)", ascending=False)
             st.dataframe(mins_df, use_container_width=True, hide_index=True)
             st.caption("Thresholds: 4d >120 min = high; 8d >220 min = high. "
-                       "Clinical estimates — no published WNBA-specific cumulative load thresholds. "
+                       "Clinical estimates -- no published WNBA-specific cumulative load thresholds. "
                        "Adjust based on team's historical injury-load relationship.")
-
-    # ── LOAD PROJECTION — "What happens to readiness if she plays tonight?" ───
-    st.markdown("---")
-    st.markdown("### Load Projection")
-    st.caption(
-        "If a player takes a full game load tonight, where does her readiness land tomorrow? "
-        "Adjustments based on female-specific basketball recovery evidence: "
-        "Pernigoni et al. 2024 (44-study basketball SR), Goulart et al. 2022 (female SR/meta-analysis), "
-        "Charest et al. 2021 (NBA B2B sleep/travel), Walsh 2021 BJSM (sleep consensus). "
-        "Note: female players show substantially faster CMJ/neuromuscular recovery than male literature."
-    )
-
-    proj_player = st.selectbox("Select player to project", players["name"].tolist(),
-                                key="forecast_proj_player")
-    load_scenario = st.radio("Tonight's scenario",
-                              ["Rest / Practice only", "Typical game load (~28 min)",
-                               "Heavy game load (~36 min)", "Back-to-back game"],
-                              horizontal=True, key="forecast_scenario")
-
-    proj_pid = players[players["name"] == proj_player].iloc[0]["player_id"]
-    proj_pos = players[players["name"] == proj_player].iloc[0]["position"]
-
-    # Get today's wellness
-    w_proj = wellness[(wellness["player_id"] == proj_pid) &
-                       (pd.to_datetime(wellness["date"]) == pd.to_datetime(wellness["date"]).max())]
-    if len(w_proj) > 0:
-        wp = w_proj.iloc[0]
-
-        # Load impact on tomorrow's projected values — based on load-recovery literature
-        # Hausswirth & Mujika 2013: sleep quality drops ~0.5pts after heavy game
-        # Fullagar et al. 2015: soreness rises 1-2pts next day after competition
-        # Morikawa 2022: B2B adds measurable fatigue on day 2
-        # ── Evidence-based load adjustments for FEMALE basketball players ───────────
-        # PRIMARY: Pernigoni et al. 2024 (J Sports Sci 42:1727) — basketball-specific 44-study SR
-        #   Key: female players show NO significant CMJ drop at 24h post-match (Delextrat et al.)
-        #   vs males who show 24-48h impairment. Female players spend more time at low intensity.
-        # SLEEP: Pernigoni 2024 ("no apparent impact on sleep from single match");
-        #   Walsh 2021 BJSM (quality disrupted post-competition);
-        #   Singh et al. 2021 JCSM (B2B + travel = circadian disruption)
-        # SORENESS: Pernigoni 2024 (24-48h peak, moderate-to-very large ES male;
-        #   substantially attenuated in female — Delextrat; Goulart 2022 female meta-analysis)
-        # B2B: Charest et al. 2021 JCSM (NBA travel distance/direction; circadian load);
-        #   Note: NBA's own data found no B2B injury risk increase — performance decrement ≠ injury
-        # STRESS: Mental fatigue SR (Frontiers 2021); TQR returns to baseline ~24h
-        load_effects = {
-            "Rest / Practice only":        {"sleep_adj": +0.1, "sore_adj": -0.3, "stress_adj": -0.5, "b2b": 0},
-            "Typical game load (~28 min)": {"sleep_adj": -0.2, "sore_adj": +0.8, "stress_adj": +0.3, "b2b": 0},
-            "Heavy game load (~36 min)":   {"sleep_adj": -0.4, "sore_adj": +1.5, "stress_adj": +0.5, "b2b": 0},
-            "Back-to-back game":           {"sleep_adj": -0.7, "sore_adj": +2.5, "stress_adj": +1.5, "b2b": 1},
-        }
-        fx = load_effects[load_scenario]
-
-        proj_sleep   = max(4.5, min(9.5, float(wp["sleep_hours"]) + fx["sleep_adj"]))
-        proj_soreness = max(0,   min(10,  float(wp["soreness"])    + fx["sore_adj"]))
-        proj_stress  = max(1,   min(10,  float(wp["stress"])      + fx["stress_adj"]))
-        proj_mood    = max(1,   min(10,  float(wp["mood"])        - fx["stress_adj"] * 0.3))
-
-        # Latest force plate
-        fp_proj = force_plate[(force_plate["player_id"] == proj_pid)].sort_values("date").tail(1)
-        cmj_proj = float(fp_proj.iloc[0]["cmj_height_cm"]) if len(fp_proj) > 0 else None
-        rsi_proj = float(fp_proj.iloc[0]["rsi_modified"])  if len(fp_proj) > 0 else None
-
-        # Heavy load degrades CMJ next session (Gathercole 2015)
-        # CMJ degradation — FEMALE-SPECIFIC evidence
-        # Pernigoni 2024: females show NO CMJ drop at 24h (unlike males with 24-48h impairment)
-        # Goulart 2022: female athletes have faster recovery (higher mitochondrial rates, capillary density)
-        # Clark 2025 PLOS One: CMJ peak disturbance at 24h in indoor sports (males); females recover faster
-        # Female basketball study: CK elevated 24-48h but strength/agility UNCHANGED (PubMed 24917684)
-        # Values substantially lower than male literature (old code used male soccer values)
-        cmj_degradation = {"Rest / Practice only": 0, "Typical game load (~28 min)": -0.5,
-                           "Heavy game load (~36 min)": -1.5, "Back-to-back game": -2.5}
-        if cmj_proj:
-            cmj_proj = max(18, cmj_proj + cmj_degradation[load_scenario])
-
-        proj_row = {
-            "sleep_hours": proj_sleep, "sleep_quality": wp.get("sleep_quality", 7),
-            "soreness": proj_soreness, "stress": proj_stress, "mood": proj_mood,
-            "cmj_height_cm": cmj_proj, "rsi_modified": rsi_proj,
-            "position": proj_pos,
-            "is_back_to_back": fx["b2b"], "days_rest": 0 if fx["b2b"] else 1,
-        }
-        tomorrow_score = calculate_readiness_score(proj_row)
-        today_score    = calculate_readiness_score(dict(wp) | {"position": proj_pos,
-                                                                 "cmj_height_cm": cmj_proj,
-                                                                 "rsi_modified": rsi_proj})
-
-        delta = tomorrow_score - today_score
-        delta_str = f"+{delta:.0f}" if delta > 0 else f"{delta:.0f}"
-        tmr_status = "READY" if tomorrow_score >= 80 else ("MONITOR" if tomorrow_score >= 60 else "PROTECT")
-        tmr_color  = "#16a34a" if tomorrow_score >= 80 else ("#d97706" if tomorrow_score >= 60 else "#dc2626")
-
-        p1, p2, p3 = st.columns(3)
-        p1.metric("Today's Readiness",   f"{today_score:.0f}%")
-        p2.metric("Projected Tomorrow",  f"{tomorrow_score:.0f}%", delta=delta_str)
-        p3.metric("Tomorrow Status",     tmr_status)
-
-        # ── Prescriptive recommendation — specific, actionable, coach-ready ─
-        # Framework: Catapult 2024 trends report — "real-time training adjustments"
-        # as most transformative AI application; Orlando Magic — minutes prescription
-        # is the most digestible metric for coaches
-        mins_4d_proj = None
-        if "practice_minutes" in training_load.columns:
-            tl_4d = training_load[
-                (training_load["player_id"] == proj_pid) &
-                (pd.to_datetime(training_load["date"]) > pd.Timestamp(end_date) - pd.Timedelta(days=4))
-            ]
-            if len(tl_4d) > 0:
-                mins_4d_proj = round(
-                    tl_4d.get("game_minutes", pd.Series([0]*len(tl_4d))).fillna(0).sum() +
-                    tl_4d.get("practice_minutes", pd.Series([0]*len(tl_4d))).fillna(0).sum(), 0
-                )
-
-        # Build prescriptive minutes cap based on projected status + current load
-        if tmr_status == "PROTECT":
-            if mins_4d_proj and mins_4d_proj > 90:
-                min_cap = "20–24 minutes maximum"
-                drill_note = "Remove from full-court sprints and late-game crunch situations"
-            else:
-                min_cap = "22–26 minutes"
-                drill_note = "Limit explosive acceleration drills in warmup"
-            rec_color = "#dc2626"
-            rec_bg    = "#fef2f2"
-            rec_icon  = "⚠"
-            rec_head  = "Restrict Tonight"
-            rec_body  = (f"Cap {proj_player} at {min_cap} tonight. "
-                        f"{drill_note}. "
-                        f"Check in individually before practice — ask about sleep and leg fatigue. "
-                        f"Projected readiness tomorrow: {tomorrow_score:.0f}% (PROTECT).")
-        elif tmr_status == "MONITOR":
-            if mins_4d_proj and mins_4d_proj > 100:
-                min_cap = "26–30 minutes"
-                drill_note = "Reduce high-intensity interval reps in practice; prioritise skill work"
-            else:
-                min_cap = "standard minutes with close monitoring"
-                drill_note = "Watch warmup quality — if movement looks laboured, reduce early"
-            rec_color = "#d97706"
-            rec_bg    = "#fffbeb"
-            rec_icon  = "◑"
-            rec_head  = "Monitor Closely"
-            rec_body  = (f"{proj_player}: {drill_note}. "
-                        f"Target {min_cap} tonight. "
-                        f"Re-check soreness in warmup — if ≥7/10, pull back further. "
-                        f"Projected readiness tomorrow: {tomorrow_score:.0f}% (MONITOR).")
-        else:
-            rec_color = "#16a34a"
-            rec_bg    = "#f0fdf4"
-            rec_icon  = "✓"
-            rec_head  = "Clear for Full Load"
-            rec_body  = (f"{proj_player} is projected to recover well. "
-                        f"No restrictions needed tonight — full minutes available. "
-                        f"Projected readiness tomorrow: {tomorrow_score:.0f}% ({tmr_status}).")
-
-        st.markdown(
-            f'<div style="background:{rec_bg};border-left:4px solid {rec_color};'
-            f'border-radius:0 8px 8px 0;padding:14px 18px;margin-top:8px;">'
-            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;'
-            f'text-transform:uppercase;color:{rec_color};margin-bottom:6px;">'
-            f'{rec_icon} Staff Recommendation</div>'
-            f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">'
-            f'{rec_head}</div>'
-            f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{rec_body}</div>'
-            + (f'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">'
-               f'Load context: {mins_4d_proj:.0f} min in last 4 days</div>'
-               if mins_4d_proj is not None else "")
-            + '</div>',
-            unsafe_allow_html=True
-        )
-
-    else:
-        st.info("No current wellness data for projection.")
 
     st.markdown("---")
     st.caption(
@@ -1679,9 +1680,9 @@ with tab7:
 # ==============================================================================
 
 # ==============================================================================
-# TAB 9 — INSIGHTS (Ask + Correlations combined)
+# TAB 9 -- INSIGHTS (Ask + Correlations combined)
 # ==============================================================================
-# One destination for all analytical questions — natural language at top,
+# One destination for all analytical questions -- natural language at top,
 # correlation analysis below. Same data, different lenses.
 
 with tab8:
@@ -1693,7 +1694,7 @@ with tab8:
             <div style="font-family:Georgia,serif; font-size:20px; font-weight:700;
                 color:#0f172a; letter-spacing:-0.01em;">Ask a Question</div>
             <div style="font-size:13px; color:#64748b; margin-top:2px;">
-                Natural-language queries about your roster — powered by AI
+                Natural-language queries about your roster -- powered by AI
             </div>
         </div>
         """,
@@ -1756,7 +1757,7 @@ with tab8:
             <div style="font-family:Georgia,serif; font-size:20px; font-weight:700;
                 color:#0f172a; letter-spacing:-0.01em;">Signal Correlations</div>
             <div style="font-size:13px; color:#64748b; margin-top:2px;">
-                Hidden relationships across all monitoring metrics — including ESPN game outcomes
+                Hidden relationships across all monitoring metrics -- including ESPN game outcomes
             </div>
         </div>
         """,
@@ -1771,8 +1772,8 @@ with tab8:
 st.markdown("---")
 st.markdown(
     "<div style='text-align:center;color:#666;'>"
-    "<p><strong>WAIMS</strong> — Athlete Monitoring System | Python · Streamlit · SQLite</p>"
-    "<p>Dallas Wings inspired demo — 90 days · 12 players · ~10,000+ data points</p>"
+    "<p><strong>WAIMS</strong> -- Athlete Monitoring System | Python · Streamlit · SQLite</p>"
+    "<p>Dallas Wings inspired demo -- 90 days · 12 players · ~10,000+ data points</p>"
     "</div>",
     unsafe_allow_html=True,
 )
