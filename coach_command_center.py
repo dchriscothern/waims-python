@@ -482,63 +482,150 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     )
     st.markdown(header_html, unsafe_allow_html=True)
 
-    # ── SINCE LAST SESSION — 3 bullets the coach needs before practice ─────────
-    # Compares today vs yesterday for the whole squad
+    # ── SINCE LAST SESSION — always exactly 3 bullets ───────────────────────
+    # Framework: 3 fixed questions a coach needs answered every morning:
+    #   1. WHO needs a conversation before practice? (availability / protect)
+    #   2. WHAT changed overnight? (biggest wellness movement)
+    #   3. WHAT do I do differently today? (load watch / injury risk)
+    # If no issue exists for a slot, show a positive confirmation — silence is
+    # ambiguous; a green light is actionable. (Kitman Labs design principle)
     yesterday = ref - pd.Timedelta(days=1)
-    w_yest = wellness[wellness["date"] == yesterday]
-    session_bullets = []
+    w_today_all = wellness[pd.to_datetime(wellness["date"]) == pd.Timestamp(ref)]
+    w_yest      = wellness[pd.to_datetime(wellness["date"]) == pd.Timestamp(yesterday)]
 
+    # ── BULLET 1: WHO needs a conversation (protect + watch) ─────────────────
+    protect_list  = [r["name"] for r in summary if r["score"] < 60]
+    watch_list    = [r["name"] for r in summary if r.get("inj_risk") and r["inj_risk"] >= 60
+                     and r["score"] >= 60]  # already in protect if score<60
+    if protect_list and watch_list:
+        b1 = (f"<b>Check in before practice:</b> {', '.join(protect_list[:2])} on protect — "
+              f"modified session only. {', '.join(watch_list[:2])} on injury watch — limit "
+              f"max-effort reps.")
+        b1_color = "#dc2626"
+    elif protect_list:
+        names = ', '.join(protect_list[:3])
+        b1 = (f"<b>{len(protect_list)} player{'s' if len(protect_list)>1 else ''} on protect "
+              f"today:</b> {names} — modified session, flag for medical if pain >7/10.")
+        b1_color = "#dc2626"
+    elif watch_list:
+        names = ', '.join(watch_list[:3])
+        b1 = (f"<b>Injury watch this week:</b> {names} — clear for today but limit "
+              f"max-effort reps and monitor warmup quality closely.")
+        b1_color = "#d97706"
+    else:
+        ready_count = len([r for r in summary if r["score"] >= 80])
+        b1 = (f"<b>Full squad available today.</b> {ready_count} players fully ready, "
+              f"no protect or injury watch flags.")
+        b1_color = "#16a34a"
+
+    # ── BULLET 2: WHAT changed overnight (biggest single movement) ───────────
+    b2 = None
+    b2_color = "#475569"
     if len(w_yest) > 0:
-        # Biggest sleep drop
-        merged_sleep = pd.merge(
-            wellness[wellness["date"] == ref][["player_id","sleep_hours"]],
-            w_yest[["player_id","sleep_hours"]], on="player_id", suffixes=("_today","_yest")
+        merged = pd.merge(
+            w_today_all[["player_id","sleep_hours","soreness","stress","mood"]],
+            w_yest[["player_id","sleep_hours","soreness","stress","mood"]],
+            on="player_id", suffixes=("_t","_y")
         )
-        merged_sleep["drop"] = merged_sleep["sleep_hours_yest"] - merged_sleep["sleep_hours_today"]
-        worst_sleep = merged_sleep.sort_values("drop", ascending=False).iloc[0]
-        if worst_sleep["drop"] > 0.5:
-            pname = players[players["player_id"] == worst_sleep["player_id"]]["name"].values
-            pname = pname[0] if len(pname) > 0 else "Unknown"
-            session_bullets.append(f"Sleep down across squad — {pname} had biggest drop ({worst_sleep['sleep_hours_today']:.1f}h vs {worst_sleep['sleep_hours_yest']:.1f}h yesterday)")
+        # Score biggest overnight readiness drop
+        biggest_drop = None
+        biggest_drop_name = ""
+        biggest_drop_reason = ""
+        for _, mr in merged.iterrows():
+            pname_r = players[players["player_id"] == mr["player_id"]]["name"].values
+            pname_r = pname_r[0] if len(pname_r)>0 else "Unknown"
+            # find corresponding summary score
+            today_s = next((r["score"] for r in summary if r["pid"]==mr["player_id"]), None)
+            yest_row = dict(mr)
+            yest_row_calc = {
+                "sleep_hours": mr["sleep_hours_y"], "soreness": mr["soreness_y"],
+                "stress": mr["stress_y"], "mood": mr["mood_y"],
+                "position": players[players["player_id"]==mr["player_id"]]["position"].values[0]
+                             if len(players[players["player_id"]==mr["player_id"]])>0 else "F"
+            }
+            yest_score = _calculate_readiness(yest_row_calc)
+            if today_s is not None:
+                drop = yest_score - today_s
+                if biggest_drop is None or drop > biggest_drop:
+                    biggest_drop = drop
+                    biggest_drop_name = pname_r
+                    # identify the signal that drove it
+                    sore_change = mr["soreness_t"] - mr["soreness_y"]
+                    sleep_change = mr["sleep_hours_y"] - mr["sleep_hours_t"]
+                    stress_change = mr["stress_t"] - mr["stress_y"]
+                    if sleep_change > 0.8:
+                        biggest_drop_reason = f"sleep dropped {sleep_change:.1f}h overnight"
+                    elif sore_change >= 2:
+                        biggest_drop_reason = f"soreness up {sore_change:.0f} points overnight"
+                    elif stress_change >= 2:
+                        biggest_drop_reason = f"stress up {stress_change:.0f} points overnight"
+                    else:
+                        biggest_drop_reason = "multiple wellness signals declined"
 
-        # Soreness spike
-        merged_sore = pd.merge(
-            wellness[wellness["date"] == ref][["player_id","soreness"]],
-            w_yest[["player_id","soreness"]], on="player_id", suffixes=("_today","_yest")
-        )
-        merged_sore["spike"] = merged_sore["soreness_today"] - merged_sore["soreness_yest"]
-        spikes = merged_sore[merged_sore["spike"] >= 2]
-        if len(spikes) > 0:
-            spike_names = players[players["player_id"].isin(spikes["player_id"])]["name"].tolist()
-            session_bullets.append(f"{len(spikes)} player{'s' if len(spikes)>1 else ''} reporting increased soreness vs yesterday — {', '.join(spike_names[:3])}")
+        if biggest_drop and biggest_drop > 5:
+            b2 = (f"<b>Biggest overnight drop:</b> {biggest_drop_name} "
+                  f"({biggest_drop:.0f}% readiness decline) — {biggest_drop_reason}. "
+                  f"Check in individually before session starts.")
+            b2_color = "#d97706"
 
-    # Injury watch players
-    watch_list = [r["name"] for r in summary if r.get("inj_risk") and r["inj_risk"] >= 60]
-    if watch_list:
-        session_bullets.append(f"Injury watch this week — {', '.join(watch_list[:3])}: limit max-effort reps, monitor warmup closely")
+        # If no significant drops, show biggest improver as positive signal
+        if b2 is None:
+            b2 = "<b>Stable overnight.</b> No significant readiness drops across the squad — wellness consistent with yesterday."
+            b2_color = "#16a34a"
+    else:
+        b2 = "<b>No yesterday data</b> — first session of tracking period."
+        b2_color = "#64748b"
 
-    # PROTECT players
-    protect_list = [r["name"] for r in summary if r["score"] < 60]
-    if protect_list and not session_bullets:
-        session_bullets.append(f"{len(protect_list)} player{'s' if len(protect_list)>1 else ''} on protect today — modified session only")
+    # ── BULLET 3: WHAT to do differently (load context) ──────────────────────
+    high_load_players = []
+    if "practice_minutes" in training_load.columns:
+        for r in summary:
+            mins4 = r.get("mins_4d")
+            if mins4 and mins4 > 120:
+                high_load_players.append((r["name"], int(mins4)))
+    monitor_count = len([r for r in summary if 60 <= r["score"] < 80])
 
-    if session_bullets:
-        bullets_html = "".join(
-            f'<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px;">'
-            f'<span style="color:#f59e0b;font-size:14px;margin-top:1px;">▸</span>'
-            f'<span style="font-size:13px;color:#1e293b;line-height:1.4;">{b}</span>'
+    if high_load_players:
+        names_load = ", ".join(f"{n} ({m} min)" for n,m in high_load_players[:2])
+        b3 = (f"<b>High cumulative load:</b> {names_load} in last 4 days — "
+              f"consider shortened practice or lighter intensity today regardless of readiness score.")
+        b3_color = "#d97706"
+    elif monitor_count >= 4:
+        b3 = (f"<b>{monitor_count} players on MONITOR today</b> — consider reducing "
+              f"total session volume by 10–15%. Focus on skill quality over conditioning load.")
+        b3_color = "#d97706"
+    else:
+        ready_pct = round(len([r for r in summary if r["score"]>=80]) / max(len(summary),1) * 100)
+        b3 = (f"<b>Load looks manageable.</b> {ready_pct}% of squad fully ready — "
+              f"normal training volume appropriate today.")
+        b3_color = "#16a34a"
+
+    # ── Render all 3 bullets ─────────────────────────────────────────────────
+    def _bullet(text, color):
+        icon = "⚠" if color == "#dc2626" else ("◑" if color == "#d97706" else "✓")
+        icon_col = color
+        return (
+            f'<div style="display:flex;gap:12px;align-items:flex-start;'
+            f'padding:8px 0;border-bottom:1px solid #f1f5f9;">'
+            f'<span style="color:{icon_col};font-size:15px;min-width:18px;'
+            f'margin-top:1px;font-weight:700;">{icon}</span>'
+            f'<span style="font-size:13px;color:#1e293b;line-height:1.5;">{text}</span>'
             f'</div>'
-            for b in session_bullets[:3]
         )
-        st.markdown(
-            '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #f59e0b;'
-            'border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:16px;">'
-            '<div style="font-size:10px;font-weight:700;letter-spacing:0.15em;color:#94a3b8;'
-            'text-transform:uppercase;margin-bottom:8px;">Since Last Session</div>'
-            + bullets_html +
-            '</div>',
-            unsafe_allow_html=True
-        )
+
+    brief_html = (
+        '<div style="background:#f8fafc;border:1px solid #e2e8f0;'
+        'border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;'
+        'padding:14px 18px;margin-bottom:16px;">'
+        '<div style="font-size:10px;font-weight:700;letter-spacing:0.15em;'
+        'color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">'
+        'Morning Brief</div>'
+        + _bullet(b1, b1_color)
+        + _bullet(b2, b2_color)
+        + _bullet(b3, b3_color)
+        + '</div>'
+    )
+    st.markdown(brief_html, unsafe_allow_html=True)
 
     # ── ROW 1: Alerts + GPS Strip ─────────────────────────────────────────────
     left, right = st.columns([3, 2])

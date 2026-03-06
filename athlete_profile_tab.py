@@ -498,9 +498,50 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
             st.markdown(create_recommendation_box(readiness, context="competition"), unsafe_allow_html=True)
         else:
-            # create_gauge_chart returns a Plotly figure
             fig = create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80])
             st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
+
+        # ── 7-DAY RISK SCORE — directly under speedometer ────────────────────
+        # Position here so analyst sees risk context immediately with readiness.
+        # Compute flags from signals available at this point in execution.
+        _risk_flags = 0
+        _risk_reasons = []
+        _sleep_v  = float(latest_wellness.get("sleep_hours", 7.5))
+        _sore_v   = float(latest_wellness.get("soreness", 4))
+        _stress_v = float(latest_wellness.get("stress", 4))
+        if _sleep_v < 6.0:   _risk_flags += 2; _risk_reasons.append("critically short sleep")
+        elif _sleep_v < 7.0: _risk_flags += 1; _risk_reasons.append("short sleep")
+        if _sore_v > 7:      _risk_flags += 1; _risk_reasons.append("high soreness")
+        if _stress_v > 7:    _risk_flags += 1; _risk_reasons.append("high stress")
+        if cmj_z is not None and cmj_z < -1.5: _risk_flags += 2; _risk_reasons.append("CMJ well below baseline")
+        elif cmj_z is not None and cmj_z < -1.0: _risk_flags += 1; _risk_reasons.append("CMJ below baseline")
+        if rsi_z is not None and rsi_z < -1.5: _risk_flags += 2; _risk_reasons.append("RSI well below baseline")
+        elif rsi_z is not None and rsi_z < -1.0: _risk_flags += 1; _risk_reasons.append("RSI below baseline")
+
+        _profile_risk = min(100, _risk_flags * 15)
+        if _profile_risk >= 60:
+            _rc, _rl, _rm = "#dc2626", "HIGH RISK", "Prioritise recovery. Limit high-intensity work this week."
+        elif _profile_risk >= 30:
+            _rc, _rl, _rm = "#d97706", "ELEVATED", "Monitor closely. Be ready to modify on the fly."
+        else:
+            _rc, _rl, _rm = "#16a34a", "LOW RISK", "No elevated concern based on current signals."
+
+        st.markdown(
+            f'<div style="background:#f8fafc;border-left:4px solid {_rc};'
+            f'border-radius:0 8px 8px 0;padding:10px 14px;margin-top:4px;">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.1em;'
+            f'text-transform:uppercase;color:{_rc};">7-Day Injury Risk</div>'
+            f'<div style="font-size:22px;font-weight:800;color:{_rc};line-height:1;">'
+            f'{_profile_risk}<span style="font-size:11px;color:#94a3b8;">/100</span></div>'
+            f'</div>'
+            f'<div style="font-size:11px;font-weight:700;color:{_rc};margin:3px 0;">{_rl}</div>'
+            f'<div style="font-size:11px;color:#475569;line-height:1.4;">{_rm}</div>'
+            + (f'<div style="font-size:10px;color:#94a3b8;margin-top:4px;">'
+               f'Signals: {", ".join(_risk_reasons)}</div>' if _risk_reasons else "")
+            + '</div>',
+            unsafe_allow_html=True
+        )
 
     with col3:
         st.markdown("**Performance Profile**")
@@ -824,74 +865,26 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             context.lower(),
         )
 
-    # ── 7-DAY RISK + LOAD PROJECTION ─────────────────────────────────────────
+    # ── LOAD PROJECTION ───────────────────────────────────────────────────────
     st.markdown("---")
-    st.markdown("### Risk Outlook & Load Projection")
-    st.caption("How is this player trending — and what happens to her readiness if she plays tonight?")
+    st.markdown("### Load Projection")
+    st.caption("If she plays tonight, where does readiness land tomorrow? "
+               "Select scenario to see projected status and staff recommendation.")
 
-    rp_col1, rp_col2 = st.columns([1, 2])
+    # reuse variables computed above for col2 risk score
+    sleep_v  = _sleep_v
+    sore_v   = _sore_v
+    stress_v = _stress_v
 
-    with rp_col1:
-        # Build current risk score via classify_player_full if available
-        try:
-            from z_score_module import calculate_athlete_baselines, calculate_z_score
-            from dashboard_helpers import classify_player_full  # may not exist — graceful fallback
-        except ImportError:
-            classify_player_full = None
-
-        # Estimate injury risk from wellness + force plate signals
-        risk_flags = 0
-        risk_reasons = []
-        sleep_v = float(latest_wellness.get("sleep_hours", 7.5))
-        sore_v  = float(latest_wellness.get("soreness", 4))
-        stress_v = float(latest_wellness.get("stress", 4))
-
-        if sleep_v < 6.0:  risk_flags += 2; risk_reasons.append("critically short sleep")
-        elif sleep_v < 7.0: risk_flags += 1; risk_reasons.append("short sleep")
-        if sore_v > 7:      risk_flags += 1; risk_reasons.append("high soreness")
-        if stress_v > 7:    risk_flags += 1; risk_reasons.append("high stress")
-        if cmj_z is not None and cmj_z < -1.5: risk_flags += 2; risk_reasons.append("CMJ well below baseline")
-        elif cmj_z is not None and cmj_z < -1.0: risk_flags += 1; risk_reasons.append("CMJ below baseline")
-        if rsi_z is not None and rsi_z < -1.5: risk_flags += 2; risk_reasons.append("RSI well below baseline")
-        elif rsi_z is not None and rsi_z < -1.0: risk_flags += 1; risk_reasons.append("RSI below baseline")
-
-        profile_risk = min(100, risk_flags * 15)
-        if profile_risk >= 60:
-            risk_color, risk_level, risk_msg = "#dc2626", "HIGH RISK", "Prioritise recovery. Limit high-intensity work this week."
-        elif profile_risk >= 30:
-            risk_color, risk_level, risk_msg = "#d97706", "ELEVATED", "Monitor closely. Be ready to modify session on the fly."
-        else:
-            risk_color, risk_level, risk_msg = "#16a34a", "LOW RISK", "No elevated concern based on current signals."
-
-        st.markdown(
-            f'<div style="background:#f8fafc;border:2px solid {risk_color};border-radius:10px;'
-            f'padding:16px;text-align:center;">'
-            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;'
-            f'text-transform:uppercase;color:#64748b;margin-bottom:4px;">7-Day Injury Risk</div>'
-            f'<div style="font-size:42px;font-weight:800;color:{risk_color};line-height:1;">'
-            f'{profile_risk}</div>'
-            f'<div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">out of 100</div>'
-            f'<div style="font-size:11px;font-weight:700;color:{risk_color};'
-            f'letter-spacing:0.08em;">{risk_level}</div>'
-            f'<div style="font-size:11px;color:#475569;margin-top:6px;line-height:1.4;">'
-            f'{risk_msg}</div>'
-            + (f'<div style="font-size:10px;color:#94a3b8;margin-top:8px;">'
-               f'Signals: {", ".join(risk_reasons)}</div>' if risk_reasons else "")
-            + '</div>',
-            unsafe_allow_html=True
-        )
-        st.caption("Score = count of active warning flags × 15. Each flag = one signal "
-                   "outside safe threshold or >1σ below personal baseline. "
-                   "Walsh 2021 · Gathercole 2015 · Gabbett 2016.")
-
-    with rp_col2:
-        st.markdown("**Load Projection — what happens to readiness after tonight?**")
+    load_col1, load_col2 = st.columns([1, 2])
+    with load_col1:
         load_scenario_ap = st.radio(
             "Tonight's plan:",
             ["Rest / Practice only", "Typical game load (~28 min)",
              "Heavy game load (~36 min)", "Back-to-back game"],
             horizontal=False, key=f"load_scenario_{athlete_id}",
         )
+    with load_col2:
 
         # Evidence-based adjustments — female basketball specific
         # Pernigoni 2024 (44-study basketball SR); Goulart 2022 (female meta);
@@ -931,10 +924,10 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         tmr_status = "READY" if tomorrow_score >= 80 else ("MONITOR" if tomorrow_score >= 60 else "PROTECT")
         tmr_color  = "#16a34a" if tomorrow_score >= 80 else ("#d97706" if tomorrow_score >= 60 else "#dc2626")
 
-        mc1, mc2, mc3 = st.columns(3)
-        mc1.metric("Today", f"{today_score_ap:.0f}%")
-        mc2.metric("Tomorrow (projected)", f"{tomorrow_score:.0f}%", delta=delta_str_ap)
-        mc3.metric("Status", tmr_status)
+        _mc1, _mc2, _mc3 = st.columns(3)
+        _mc1.metric("Today", f"{today_score_ap:.0f}%")
+        _mc2.metric("Tomorrow (projected)", f"{tomorrow_score:.0f}%", delta=delta_str_ap)
+        _mc3.metric("Status", tmr_status)
 
         # Prescriptive recommendation — specific and actionable
         if tmr_status == "PROTECT":
