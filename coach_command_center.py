@@ -428,6 +428,64 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     )
     st.markdown(header_html, unsafe_allow_html=True)
 
+    # ── SINCE LAST SESSION — 3 bullets the coach needs before practice ─────────
+    # Compares today vs yesterday for the whole squad
+    yesterday = ref - pd.Timedelta(days=1)
+    w_yest = wellness[wellness["date"] == yesterday]
+    session_bullets = []
+
+    if len(w_yest) > 0:
+        # Biggest sleep drop
+        merged_sleep = pd.merge(
+            wellness[wellness["date"] == ref][["player_id","sleep_hours"]],
+            w_yest[["player_id","sleep_hours"]], on="player_id", suffixes=("_today","_yest")
+        )
+        merged_sleep["drop"] = merged_sleep["sleep_hours_yest"] - merged_sleep["sleep_hours_today"]
+        worst_sleep = merged_sleep.sort_values("drop", ascending=False).iloc[0]
+        if worst_sleep["drop"] > 0.5:
+            pname = players[players["player_id"] == worst_sleep["player_id"]]["name"].values
+            pname = pname[0] if len(pname) > 0 else "Unknown"
+            session_bullets.append(f"Sleep down across squad — {pname} had biggest drop ({worst_sleep['sleep_hours_today']:.1f}h vs {worst_sleep['sleep_hours_yest']:.1f}h yesterday)")
+
+        # Soreness spike
+        merged_sore = pd.merge(
+            wellness[wellness["date"] == ref][["player_id","soreness"]],
+            w_yest[["player_id","soreness"]], on="player_id", suffixes=("_today","_yest")
+        )
+        merged_sore["spike"] = merged_sore["soreness_today"] - merged_sore["soreness_yest"]
+        spikes = merged_sore[merged_sore["spike"] >= 2]
+        if len(spikes) > 0:
+            spike_names = players[players["player_id"].isin(spikes["player_id"])]["name"].tolist()
+            session_bullets.append(f"{len(spikes)} player{'s' if len(spikes)>1 else ''} reporting increased soreness vs yesterday — {', '.join(spike_names[:3])}")
+
+    # Injury watch players
+    watch_list = [r["name"] for r in summary if r.get("inj_risk") and r["inj_risk"] >= 60]
+    if watch_list:
+        session_bullets.append(f"Injury watch this week — {', '.join(watch_list[:3])}: limit max-effort reps, monitor warmup closely")
+
+    # PROTECT players
+    protect_list = [r["name"] for r in summary if r["score"] < 60]
+    if protect_list and not session_bullets:
+        session_bullets.append(f"{len(protect_list)} player{'s' if len(protect_list)>1 else ''} on protect today — modified session only")
+
+    if session_bullets:
+        bullets_html = "".join(
+            f'<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px;">'
+            f'<span style="color:#f59e0b;font-size:14px;margin-top:1px;">▸</span>'
+            f'<span style="font-size:13px;color:#1e293b;line-height:1.4;">{b}</span>'
+            f'</div>'
+            for b in session_bullets[:3]
+        )
+        st.markdown(
+            '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #f59e0b;'
+            'border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:16px;">'
+            '<div style="font-size:10px;font-weight:700;letter-spacing:0.15em;color:#94a3b8;'
+            'text-transform:uppercase;margin-bottom:8px;">Since Last Session</div>'
+            + bullets_html +
+            '</div>',
+            unsafe_allow_html=True
+        )
+
     # ── ROW 1: Alerts + GPS Strip ─────────────────────────────────────────────
     left, right = st.columns([3, 2])
 
@@ -567,54 +625,64 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
         # Name (top-left)
         fig.add_annotation(
-            x=0.07, y=0.87, xref="paper", yref="paper", showarrow=False,
+            x=0.07, y=0.90, xref="paper", yref="paper", showarrow=False,
             text=f"<b>{r['name']}</b>",
             font=dict(size=13, color="#0f172a"), xanchor="left")
 
-        # Position (below name)
+        # Position (top-left inline)
         fig.add_annotation(
-            x=0.07, y=0.72, xref="paper", yref="paper", showarrow=False,
+            x=0.07, y=0.76, xref="paper", yref="paper", showarrow=False,
             text=r["pos"],
             font=dict(size=11, color="#64748b"), xanchor="left")
 
-        # Status badge (top-right) — this IS the availability signal
+        # Status badge (top-right)
         fig.add_annotation(
-            x=0.93, y=0.87, xref="paper", yref="paper", showarrow=False,
+            x=0.93, y=0.90, xref="paper", yref="paper", showarrow=False,
             text=f"<b>{c['label']}</b>",
             font=dict(size=10, color=c["badge_fg"]),
             bgcolor=c["badge_bg"], borderpad=4, xanchor="right")
 
-        # Readiness % (large, left) — kept per design decision
+        # Readiness % — left side, medium size
         fig.add_annotation(
-            x=0.07, y=0.45, xref="paper", yref="paper", showarrow=False,
+            x=0.07, y=0.52, xref="paper", yref="paper", showarrow=False,
             text=f"<b>{r['score']:.0f}%</b>",
-            font=dict(size=34, color=c["score"], family="Georgia, serif"),
+            font=dict(size=30, color=c["score"], family="Georgia, serif"),
             xanchor="left")
 
-        # Injury risk badge (top-right, below status badge) — only if available
+        # Injury risk — right side, coach language not raw number
         inj_risk = r.get("inj_risk")
         if inj_risk is not None:
-            risk_color = "#dc2626" if inj_risk >= 60 else ("#d97706" if inj_risk >= 25 else "#16a34a")
-            risk_label = f"7d risk: {int(inj_risk)}%"
+            if inj_risk >= 60:
+                risk_txt   = "Injury watch"
+                risk_color = "#dc2626"
+                risk_bg    = "#fee2e2"
+            elif inj_risk >= 30:
+                risk_txt   = "Watch closely"
+                risk_color = "#d97706"
+                risk_bg    = "#fef3c7"
+            else:
+                risk_txt   = "Low risk"
+                risk_color = "#16a34a"
+                risk_bg    = "#dcfce7"
             fig.add_annotation(
-                x=0.93, y=0.68, xref="paper", yref="paper", showarrow=False,
-                text=risk_label,
-                font=dict(size=9, color=risk_color),
-                xanchor="right")
+                x=0.93, y=0.52, xref="paper", yref="paper", showarrow=False,
+                text=f"<b>{risk_txt}</b>",
+                font=dict(size=10, color=risk_color),
+                bgcolor=risk_bg, borderpad=3, xanchor="right")
 
         # Divider
-        fig.add_shape(type="line", x0=0.05, y0=0.22, x1=0.95, y1=0.22,
+        fig.add_shape(type="line", x0=0.05, y0=0.28, x1=0.95, y1=0.28,
                       xref="paper", yref="paper",
                       line=dict(color=c["border"], width=1))
 
-        # 2-reason line (bottom) — max 2 signals, plain English
+        # Reason line — plain English, max 2 signals
         fig.add_annotation(
-            x=0.07, y=0.10, xref="paper", yref="paper", showarrow=False,
+            x=0.07, y=0.14, xref="paper", yref="paper", showarrow=False,
             text=r["reason"],
             font=dict(size=10, color="#475569"), xanchor="left")
 
         fig.update_layout(
-            height=140,
+            height=150,
             margin=dict(l=0, r=0, t=0, b=0),
             paper_bgcolor=c["bg"], plot_bgcolor=c["bg"],
             xaxis=dict(visible=False, range=[0, 1]),
