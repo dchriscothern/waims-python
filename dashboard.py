@@ -982,14 +982,13 @@ start_date = end_date
 st.title("🏀 WAIMS READINESS WATCHLIST")
 st.markdown(f"**Date:** {end_date.strftime('%B %d, %Y')}")
 
-tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Command Center",
     "Today's Readiness",
     "Athlete Profiles",
-    "Trends",
+    "Trends & Load",
     "Jump Testing",
     "Availability & Injuries",
-    "GPS & Load",
     "Forecast",
     "Insights",
 ])
@@ -1021,7 +1020,7 @@ with tab2:
 # ==============================================================================
 
 with tab3:
-    st.header("Wellness Trends")
+    st.header("Trends & Load")
     st.caption("Raw daily values (faint) with 7-day rolling average (bold). Subjective + objective signals side by side.")
 
     if len(wellness) > 0:
@@ -1161,6 +1160,11 @@ with tab3:
     else:
         st.info("No wellness data available.")
 
+
+    # ── GPS & KINEXON LOAD ────────────────────────────────────────────────────
+    st.markdown("---")
+    gps_load_tab(training_load, players, end_date)
+
 # TAB 4: JUMP TESTING
 # ==============================================================================
 
@@ -1256,11 +1260,8 @@ with tab5:
 # TAB 6: GPS & LOAD
 # ==============================================================================
 
+# (GPS & Load merged into Trends & Load tab above)
 with tab6:
-    gps_load_tab(training_load, players, end_date)
-
-# ==============================================================================
-with tab7:
     st.header("Forecast & Load Projection")
 
     # ── CONTEXT BOX -- brief, action-oriented ─────────────────────────────────
@@ -1705,7 +1706,7 @@ with tab7:
 # One destination for all analytical questions -- natural language at top,
 # correlation analysis below. Same data, different lenses.
 
-with tab8:
+with tab7:
 
     # ── SECTION A: ASK ────────────────────────────────────────────────────────
     st.markdown(
@@ -1785,7 +1786,193 @@ with tab8:
     )
     correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players)
 
-# ==============================================================================
+    # ── EVIDENCE REVIEW ─────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Evidence Review")
+    st.caption(
+        "Formal evidence review policy: no WAIMS threshold change without a "
+        "meta-analysis or systematic review. Papers flagged weekly by GitHub Actions. "
+        "Decide here -- decisions saved to research_log.json."
+    )
+
+    import json as _ej
+    from pathlib import Path as _ep
+    _log_path = _ep(__file__).parent / "research_log.json"
+
+    st.markdown(
+        '<div style="background:#fef3c7;border-left:4px solid #d97706;'
+        'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:12px;">'
+        '<b>Decision ladder:</b> Pending &rarr; Watchlist &rarr; Integrated | Rejected &nbsp;|&nbsp; '
+        'CANDIDATE = meta-analysis/SR eligible for threshold review &nbsp;|&nbsp; '
+        'Single studies = Watchlist only'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    if _log_path.exists():
+        try:
+            _all_papers = _ej.loads(_log_path.read_text(encoding="utf-8"))
+        except Exception as _e:
+            st.error(f"Could not read research_log.json: {_e}")
+            _all_papers = []
+    else:
+        _all_papers = []
+        st.info(
+            "No research_log.json yet. Run: "
+            "`python research_monitor.py --days 30 --save`"
+        )
+
+    if _all_papers:
+        _n_pending    = sum(1 for p in _all_papers if p.get("decision","PENDING") == "PENDING")
+        _n_candidate  = sum(1 for p in _all_papers if p.get("gate_status","") == "CANDIDATE"
+                            and p.get("decision","PENDING") == "PENDING")
+        _n_watchlist  = sum(1 for p in _all_papers if p.get("decision","") == "WATCHLIST")
+        _n_integrated = sum(1 for p in _all_papers if p.get("decision","") == "INTEGRATED")
+        _n_rejected   = sum(1 for p in _all_papers if p.get("decision","") == "REJECTED")
+
+        _m1, _m2, _m3, _m4, _m5 = st.columns(5)
+        _m1.metric("Total", len(_all_papers))
+        _m2.metric("Pending", _n_pending,
+                   delta=f"{_n_candidate} candidates" if _n_candidate else None,
+                   delta_color="inverse")
+        _m3.metric("Watchlist", _n_watchlist)
+        _m4.metric("Integrated", _n_integrated)
+        _m5.metric("Rejected", _n_rejected)
+        st.markdown("---")
+
+        _ev_col1, _ev_col2 = st.columns([2, 1])
+        with _ev_col1:
+            _filter = st.radio(
+                "Show:",
+                ["Pending review", "Watchlist", "Integrated", "Rejected", "All"],
+                horizontal=True, key="ev_filter"
+            )
+        with _ev_col2:
+            _sort = st.selectbox(
+                "Sort by:",
+                ["Quality score", "Date found", "Gate status"],
+                key="ev_sort"
+            )
+
+        _filter_map = {
+            "Pending review": lambda p: p.get("decision","PENDING") == "PENDING",
+            "Watchlist":      lambda p: p.get("decision","") == "WATCHLIST",
+            "Integrated":     lambda p: p.get("decision","") == "INTEGRATED",
+            "Rejected":       lambda p: p.get("decision","") == "REJECTED",
+            "All":            lambda p: True,
+        }
+        _shown = [p for p in _all_papers if _filter_map[_filter](p)]
+        if "Quality" in _sort:
+            _shown.sort(key=lambda p: p.get("quality_score",0), reverse=True)
+        elif "Date" in _sort:
+            _shown.sort(key=lambda p: p.get("date_found",""), reverse=True)
+        else:
+            _go = {"CANDIDATE":0,"REVIEW":1,"WATCHLIST":2,"BACKGROUND":3,"ASSESS":4}
+            _shown.sort(key=lambda p: _go.get(p.get("gate_status",""),9))
+
+        st.caption(f"Showing {len(_shown)} papers")
+        _changed = False
+
+        for _idx, _p in enumerate(_shown):
+            _gate  = _p.get("gate_status","?")
+            _dec   = _p.get("decision","PENDING")
+            _score = _p.get("quality_score",0)
+            _bc = {"CANDIDATE":"#dc2626","REVIEW":"#d97706",
+                   "ASSESS":"#0284c7","WATCHLIST":"#64748b"}.get(_gate,"#94a3b8")
+            _dc = {"PENDING":"#64748b","WATCHLIST":"#d97706",
+                   "INTEGRATED":"#16a34a","REJECTED":"#94a3b8"}.get(_dec,"#64748b")
+            _lbl = " ".join(
+                f'<span style="background:#e2e8f0;color:#475569;padding:1px 5px;'
+                f'border-radius:3px;font-size:10px;">{l}</span>'
+                for l in _p.get("quality_labels",[])
+            )
+            st.markdown(
+                f'<div style="border:1px solid #e2e8f0;border-left:4px solid {_bc};'
+                f'border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:4px;background:white;">'
+                f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
+                f'<div><span style="font-size:11px;font-weight:700;color:{_bc};">[{_gate}]</span>'
+                f' &nbsp; {_lbl}'
+                f'<span style="font-size:10px;color:#94a3b8;margin-left:8px;">'
+                f'Score: {_score} | {_p.get("source","PubMed")}</span></div>'
+                f'<span style="font-size:11px;font-weight:700;color:{_dc};">{_dec}</span>'
+                f'</div>'
+                f'<div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:3px;">'
+                f'{_p.get("title","Unknown")[:100]}</div>'
+                f'<div style="font-size:11px;color:#475569;margin-bottom:4px;">'
+                f'{_p.get("authors","")} | <em>{_p.get("journal","")}</em> | {_p.get("pub_date","?")}</div>'
+                f'<div style="font-size:11px;background:#f0f9ff;padding:3px 8px;'
+                f'border-radius:3px;color:#0369a1;margin-bottom:3px;">'
+                f'WAIMS: {_p.get("waims_signal","?")}</div>'
+                f'<div style="font-size:11px;background:#fefce8;padding:3px 8px;'
+                f'border-radius:3px;color:#713f12;">{_p.get("gate_note","")[:120]}</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            _b1, _b2, _b3, _b4, _blink = st.columns([1,1,1,1,2])
+            _new_dec = _dec
+            with _b1:
+                if st.button("Integrate", key=f"ev_int_{_idx}",
+                             type="primary" if _dec=="INTEGRATED" else "secondary",
+                             disabled=(_dec=="INTEGRATED")):
+                    _new_dec = "INTEGRATED"
+            with _b2:
+                if st.button("Watchlist", key=f"ev_wtch_{_idx}",
+                             disabled=(_dec=="WATCHLIST")):
+                    _new_dec = "WATCHLIST"
+            with _b3:
+                if st.button("Reject", key=f"ev_rej_{_idx}",
+                             disabled=(_dec=="REJECTED")):
+                    _new_dec = "REJECTED"
+            with _b4:
+                if st.button("Reset", key=f"ev_reset_{_idx}",
+                             disabled=(_dec=="PENDING")):
+                    _new_dec = "PENDING"
+            with _blink:
+                if _p.get("url"):
+                    st.markdown(
+                        f'<a href="{_p["url"]}" target="_blank" '
+                        f'style="font-size:12px;color:#0284c7;">View paper</a>',
+                        unsafe_allow_html=True
+                    )
+
+            if _new_dec != _dec:
+                for _mp in _all_papers:
+                    _mid = _mp.get("id") or _mp.get("pmid") or _mp.get("url","")
+                    _pid = _p.get("id") or _p.get("pmid") or _p.get("url","")
+                    if _mid == _pid:
+                        _mp["decision"]      = _new_dec
+                        _mp["decision_date"] = pd.Timestamp.now().strftime("%Y-%m-%d")
+                        break
+                _changed = True
+                st.rerun()
+
+        if _changed:
+            try:
+                _log_path.write_text(
+                    _ej.dumps(_all_papers, indent=2, ensure_ascii=False),
+                    encoding="utf-8"
+                )
+                st.success("Saved to research_log.json.")
+            except Exception as _se:
+                st.error(f"Could not save: {_se}")
+
+        _int_papers = [p for p in _all_papers if p.get("decision")=="INTEGRATED"]
+        if _int_papers:
+            st.markdown("---")
+            with st.expander(f"Integration queue -- {len(_int_papers)} approved, awaiting code update"):
+                st.info(
+                    "These papers are approved. To activate in WAIMS thresholds, "
+                    "start a session with Claude and say: "
+                    "'These papers are approved in my evidence log -- please integrate them into WAIMS.'"
+                )
+                for _ip in _int_papers:
+                    st.markdown(
+                        f"- **{_ip.get('title','?')[:80]}** "
+                        f"({_ip.get('authors','').split(' et')[0]}, {_ip.get('pub_date','?')}) "
+                        f"-- *{_ip.get('waims_signal','?')}*"
+                    )
+
 # FOOTER
 # ==============================================================================
 

@@ -1130,21 +1130,60 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
 
 
 
-    with st.expander("Research References"):
+    # ── RESEARCH REFERENCES ───────────────────────────────────────────────────
+    # Two-level expander:
+    #   Level 1: Thresholds in use today (quick reference for staff)
+    #   Level 2: Full evidence log with citations
+    # Evidence monitor runs weekly (GitHub Actions). New papers added to
+    # research_log.json and HTML report. Only APPROVED papers appear here.
+    with st.expander("Evidence Base — Thresholds & Citations"):
         st.markdown(
-            "- **Sleep:** <7 hrs elevated injury risk (Walsh et al. 2021 BJSM; OR=1.34 in 2025 meta); <6 hrs red flag. Female athletes: hormonal variability compounds risk (Charest & Grandner 2020)\n"
-            "- **Deceleration load monitoring:** Decel count = GPS exposure indicator (threshold-based event counting). Thresholds are inherently arbitrary; counts are sensitive to dwell time settings; absolute thresholds risk between-athlete bias. Z-score vs personal baseline (used here) is the recommended interpretation approach. Sustained drops below baseline warrant cross-referencing with CMJ/RSI before clinical action. Clubb 2025 (Sportsmith); Pimenta et al. 2026 SCJ; Clubb & Gonçalves 2023.\n"
-            "- **Deceleration biomechanics (separate from monitoring):** GRF during decel ~2.7x acceleration, ~1.3x max velocity sprinting. ACL injury mechanisms within first 50ms foot contact. Provides rationale for WHY decel exposure matters -- not a property of the GPS count metric itself. Harper et al. 2019 IJSPP; Science of Multi-directional Sport framework.\n"
-            "- **GPS 3.0 framing:** GPS metrics = external locomotor load only, weak proxy for internal neuromuscular load. Direction-change mechanics (cuts/stops) can be ~70% of true mechanical work but invisible to linear GPS. CMJ/RSI is the correct neuromuscular response signal. Boskovic et al. 2024, Sport Performance & Science Reports.\n"
-            "- **CMJ/RSI:** Neuromuscular fatigue indicator, weighted highest in readiness formula — Gathercole et al. 2015\n"
-            "- **ACWR ⚠ (contextual flag only):** Gabbett 2016 established >1.5 high-risk zone; Impellizzeri et al. 2020 identified statistical flaws; 2025 meta (22 cohort studies) recommends use with caution — not scored in readiness formula\n"
-            "- **Soreness:** >7 requires monitoring (Hulin et al. 2016)\n"
-            "- **Accels/Decels:** GPS exposure indicator; drops below personal baseline warrant CMJ/RSI cross-reference before action (Clubb 2025)\n"
-            "- **Post-match recovery (female):** Pernigoni et al. 2024 (44-study basketball SR); no CMJ drop at 24h in female players (Delextrat); Goulart 2022 female meta-analysis\n"
-            "- **B2B fatigue:** Charest et al. 2021 JCSM (NBA travel/circadian); Clark et al. 2025 PLOS One (108-study indoor sports SR)\n"
-            "\n"
-            "**-- Evidence monitor 2026-03-06: 3 CANDIDATES under formal review --**\n"
-            "- ACL prevention: Watson et al. 2026 Am J Sports Med SR+meta-analysis (check female basketball applicability)\n"
-            "- CMJ calculation methods: Eythorsdottir et al. 2026 Eur J Sport Sci SR (may affect CMJ thresholds)\n"
-            "- ML injury prediction: Yuan et al. 2026 J Sports Sci Med SR (relevant to V2 ML model)"
+            "#### Thresholds active in this profile\n"
+            "| Signal | Threshold | Status | Source |\n"
+            "|---|---|---|---|\n"
+            "| Sleep | <7h flag · <6h hard floor | Active | Walsh et al. 2021 BJSM; 2025 meta OR=1.34 |\n"
+            "| CMJ | z-score <-1.0 flag · <-1.5 high | Active (primary) | Gathercole et al. 2015 |\n"
+            "| RSI | z-score <-1.0 flag · <-1.5 high | Active (primary) | Gathercole et al. 2015 |\n"
+            "| Soreness | >7/10 | Active | Hulin et al. 2016 |\n"
+            "| Decel count | z-score <-1.0 (cross-ref CMJ/RSI) | Active | Clubb 2025; Pimenta et al. 2026 |\n"
+            "| ACWR | >1.5 flag (contextual only, not scored) | Flag only | Gabbett 2016; demoted per Impellizzeri 2020 |\n"
         )
+        st.caption(
+            "Formal evidence review policy: no threshold change without meta-analysis support. "
+            "Evidence monitor runs weekly via GitHub Actions. "
+            "New papers reviewed before any threshold update."
+        )
+        with st.expander("Full citation log"):
+            st.markdown(
+                "**Sleep & injury risk**\n"
+                "- Walsh et al. 2021 BJSM -- consensus statement, <7h threshold basis\n"
+                "- 2025 meta-analysis (9 studies, n=1,078): OR=1.34 (95% CI 1.08-1.66), I²=85.6% -- confirms association, notes heterogeneity\n"
+                "- Charest & Grandner 2020 -- NBA sleep/travel; female hormonal variability compounds risk\n"
+                "- Kong et al. 2025 Frontiers Physiol -- mechanistic SR: neuromuscular coordination, reaction time, tissue repair\n"
+                "\n"
+                "**CMJ/RSI -- neuromuscular fatigue**\n"
+                "- Gathercole et al. 2015 -- CMJ/RSI as fatigue markers, primary signal basis\n"
+                "- Pernigoni et al. 2024 (44-study basketball SR) -- female players: minimal CMJ drop at 24h\n"
+                "- Goulart et al. 2022 (female meta-analysis) -- faster recovery vs male literature\n"
+                "\n"
+                "**Deceleration load monitoring**\n"
+                "- Clubb 2025 Sportsmith -- thresholds arbitrary, dwell time sensitivity, z-score vs baseline is correct approach\n"
+                "- Pimenta et al. 2026 SCJ -- individualised thresholds as % of max capacity\n"
+                "- Decel biomechanics (separate): GRF ~2.7x acceleration during decel. Harper et al. 2019 IJSPP; Science of Multi-directional Sport\n"
+                "\n"
+                "**GPS framing**\n"
+                "- Boskovic et al. 2024 SPSR -- GPS 3.0: external locomotor load only, ~70% multidirectional load invisible to linear GPS\n"
+                "\n"
+                "**ACWR**\n"
+                "- Gabbett 2016 -- established >1.5 high-risk zone\n"
+                "- Impellizzeri et al. 2020 BJSM -- statistical coupling flaws; demoted to contextual flag in WAIMS\n"
+                "\n"
+                "**Load & recovery**\n"
+                "- Charest et al. 2021 JCSM -- NBA B2B sleep/travel/circadian disruption\n"
+                "- Clark et al. 2025 PLOS One -- 108-study indoor sports SR\n"
+                "\n"
+                "**Evidence monitor queue (under formal review -- not yet active in thresholds)**\n"
+                "- Watson et al. 2026 Am J Sports Med -- ACL prevention SR+meta. Flagged 2026-03-06. Pending: population check (female basketball).\n"
+                "- Eythorsdottir et al. 2026 Eur J Sport Sci -- CMJ jump height calculation SR. Flagged 2026-03-06. Pending: may affect CMJ thresholds.\n"
+                "- Yuan et al. 2026 J Sports Sci Med -- ML lower limb injury prediction SR. Flagged 2026-03-06. Pending: V2 ML model relevance.\n"
+            )
