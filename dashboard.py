@@ -193,20 +193,32 @@ def build_gps_flag_notes(player_id, gps_row, training_load_df, ref_date):
     if gps_row is None:
         return []
     notes = []
-    checks = [
-        ("player_load",  "Player Load",  "low"),
-        ("accel_count",  "Accel Count",  "low"),
-        ("decel_count",  "Decel Count",  "low"),
-    ]
-    for col, label, direction in checks:
+    # DECEL is the primary basketball injury-risk GPS signal.
+    # Science of Multi-directional Sport: GRF during decel ~2.7x acceleration.
+    # ACL injuries occur within first 50ms of foot contact (decel phase).
+    # Protective avoidance (decel drop below baseline) appears BEFORE subjective soreness.
+    # Harper et al. 2019 IJSPP; Nedergaard et al. 2014; Buckthorpe et al. 2019.
+    
+    # Decel flagged first, with explicit primary-signal label
+    decel_val = gps_row.get("decel_count")
+    if decel_val is not None:
+        decel_emoji, decel_z = _gps_zscore_flag(player_id, "decel_count", decel_val, training_load_df, ref_date)
+        if decel_emoji == "🔴" and decel_z is not None:
+            notes.append(f"DECEL COUNT {decel_val:.0f} -- {abs(decel_z):.1f}σ below baseline "
+                        f"(PRIMARY signal: protective avoidance pattern, ACL risk phase)")
+        elif decel_emoji == "🟡" and decel_z is not None:
+            notes.append(f"Decel count {decel_val:.0f} -- {abs(decel_z):.1f}σ below baseline (monitor)")
+
+    # Secondary signals
+    for col, label in [("player_load", "Player Load"), ("accel_count", "Accel Count")]:
         val = gps_row.get(col)
         if val is None:
             continue
         emoji, z = _gps_zscore_flag(player_id, col, val, training_load_df, ref_date)
         if emoji == "🔴" and z is not None:
-            notes.append(f"{label} {val:.0f} -- {abs(z):.1f}σ below baseline (high fatigue signal)")
-        elif emoji == "🟡" and z is not None:
             notes.append(f"{label} {val:.0f} -- {abs(z):.1f}σ below baseline")
+        elif emoji == "🟡" and z is not None:
+            notes.append(f"{label} {val:.0f} -- {abs(z):.1f}σ below baseline (mild)")
     return notes
 
 
@@ -308,6 +320,26 @@ def classify_player_full(player_id, today_wellness_row, today_fp_row, wellness_d
 def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_df, end_date):
     st.header("Today's Readiness Status")
     st.caption(f"📅 {end_date.strftime('%B %d, %Y')}")
+
+    # ── QUICK ACTIONS — top of page, always accessible ───────────────────────
+    # Moved to top per coach workflow: download or alert before digging into details
+    _qa1, _qa2, _qa3 = st.columns(3)
+    with _qa1:
+        if st.button("Email At-Risk Players", use_container_width=True, key="qa_email_top"):
+            st.info("At-risk player list will populate once data loads below.")
+    with _qa2:
+        st.download_button(
+            "Export Today's Report (CSV)",
+            data="name,status\nLoading...",
+            file_name=f"readiness_{pd.Timestamp(end_date).strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="qa_export_top"
+        )
+    with _qa3:
+        if st.button("Create Training Alert", use_container_width=True, key="qa_alert_top"):
+            st.info("Training alert will populate once data loads below.")
+    st.markdown("---")
 
     today_wellness = wellness_df[wellness_df["date"] == pd.to_datetime(end_date)].copy()
     cols = ["player_id", "name"] + (["position"] if "position" in players_df.columns else [])
@@ -530,19 +562,7 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
                     for note in gps_notes:
                         st.write(f"• 📡 {note}")
 
-    st.markdown("---")
-    st.markdown("### Quick Actions")
-    qa1, qa2, qa3 = st.columns(3)
-    with qa1:
-        if st.button("Email At-Risk Players", use_container_width=True):
-            at_risk = today_wellness[today_wellness["zscore_status"] == "red"]["name"].tolist()
-            st.info(f"Would email: {', '.join(at_risk)}" if at_risk else "No at-risk players today!")
-    with qa2:
-        csv = today_wellness[["name", "position", "readiness_score", "status", "sleep_hours", "soreness", "stress", "mood"]].to_csv(index=False)
-        st.download_button("Export Today's Report (CSV)", data=csv, file_name=f"readiness_{end_date.strftime('%Y%m%d')}.csv", mime="text/csv", use_container_width=True)
-    with qa3:
-        if st.button("Create Training Alert", use_container_width=True):
-            st.info(f"Training modifications recommended for {red_count + yellow_count} players")
+    # Quick Actions moved to top of tab — see above
 
 # ==============================================================================
 # TAB 5: AVAILABILITY & INJURIES
