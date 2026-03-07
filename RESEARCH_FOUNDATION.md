@@ -144,3 +144,32 @@ Applied to all thresholds in WAIMS:
 
 All ★ thresholds in WAIMS are explicitly labeled in source code comments  
 and in dashboard research references.
+
+## External Analysis Attribution
+
+**Gemini AI analysis (2026-03-06):** Reviewed coach_command_center.py and identified three 
+highest-utility additions for NBA/WNBA environments:
+1. Positional Group Readiness Strip — guards/wings/bigs unit averages (implemented V1.1)
+2. Minutes Cap on roster cards — prescriptive per-player limit (implemented V1.1)  
+3. Hidden Fatigue Flag — READY but trending down under load (implemented V1.1)
+
+Items 4 (OUT/GTD Availability distinction) and 5 (Projected Impact squad toggle) deferred to V2.
+Item 4 partially covered by Availability tab. Item 5 is squad-level load projection — V2 roadmap.
+
+## Key Institutions to Monitor
+
+### WHSP Institute (Women's Health, Sports & Performance)
+- **URL:** whspinstitute.org
+- **Launched:** January 29, 2026
+- **Investment:** $50M+ from Clara Wu Tsai (co-owner, New York Liberty) and co-founders
+- **Led by:** Dr. Kate Ackerman (triple board-certified, global leader in female athlete health)
+- **Research team:** Dr. Trent Stellingwerff (150+ peer-reviewed publications, IOC consensus statements)
+- **Relevance to WAIMS:** Directly addresses every female-specific gap in WAIMS — hormonal cycle, ACL risk, recovery rates, biomechanics. Their publications appear on PubMed and are automatically caught by the evidence monitor.
+- **Monitoring approach:** PubMed (automated weekly via GitHub Actions) + quarterly manual check of whspinstitute.org/our-research. Do NOT scrape — new institute, small team, manual is appropriate.
+- **WAIMS connection:** Less than 10% of sports science research has historically focused on women (Ackerman 2026). WAIMS is explicitly designed to use female-specific baselines (Goulart 2022, Pernigoni 2024) rather than male-derived norms. WHSP research will directly improve V2 features: menstrual cycle phase adjustment, female-specific CMJ recovery rates, ACL risk context.
+
+### Travel Direction & Circadian Science
+- **Key finding:** Eastward travel is harder than westward. The human circadian rhythm runs ~24.25 hours, making it naturally easier to delay (westward) than advance (eastward).
+- **NBA evidence:** Teams traveling eastward won 44.51% vs 40.83% when traveling westward (Charest et al. 2021 JCSM). Circadian misalignment and travel distance both negatively influence performance, interacting significantly (Chronobiology International, 9,840 NBA games, 2014-2018).
+- **Current WAIMS treatment:** B2B flag only — no directional awareness. Dallas Wings flying east (e.g., to New York, Washington) warrants a higher penalty than flying west (e.g., to Seattle, LA).
+- **V2 roadmap:** Add `travel_direction` field (east/west) and `time_zones_crossed` to the schedule context. Apply asymmetric circadian penalty: eastward = ~1 day/time zone to resync; westward = ~0.5 day/time zone.

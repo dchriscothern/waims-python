@@ -1930,18 +1930,15 @@ with tab7:
                         _mp["decision"]      = _new_dec
                         _mp["decision_date"] = pd.Timestamp.now().strftime("%Y-%m-%d")
                         break
-                _changed = True
+                # Write BEFORE rerun — rerun interrupts execution
+                try:
+                    _log_path.write_text(
+                        _ej.dumps(_all_papers, indent=2, ensure_ascii=False),
+                        encoding="utf-8"
+                    )
+                except Exception as _se_early:
+                    st.error(f"Save failed: {_se_early}")
                 st.rerun()
-
-        if _changed:
-            try:
-                _log_path.write_text(
-                    _ej.dumps(_all_papers, indent=2, ensure_ascii=False),
-                    encoding="utf-8"
-                )
-                st.success("Saved to research_log.json.")
-            except Exception as _se:
-                st.error(f"Could not save: {_se}")
 
         _int_papers = [p for p in _all_papers if p.get("decision")=="INTEGRATED"]
         if _int_papers:

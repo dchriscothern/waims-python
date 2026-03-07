@@ -1,5 +1,772 @@
 [
   {
+    "id": "pmid_41713798",
+    "pmid": "41713798",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "The responsiveness of digital biomarkers as measurement tools in people with hip and knee osteoarthritis: A systematic review and meta-analysis.",
+    "authors": "Zhu SJ et al.",
+    "journal": "Osteoarthritis Cartilage",
+    "pub_date": "2026 Feb 17",
+    "doi": "10.1016/j.joca.2026.02.002",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41713798/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 20,
+    "quality_labels": [
+      "META-ANALYSIS",
+      "SYSTEMATIC REVIEW",
+      "REVIEW"
+    ],
+    "decision": "PENDING",
+    "gate_status": "CANDIDATE",
+    "gate_note": "ELIGIBLE FOR THRESHOLD REVIEW. Check: same population? Same sport/sex? Meaningful effect size? If yes -- schedule formal review with performance staff.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41753086",
+    "pmid": "41753086",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "The Role of Sleep on Physical and Cognitive Performance of Ultra-Endurance Athletes: A Systematic Review.",
+    "authors": "Guilherme LQ et al.",
+    "journal": "J Clin Med",
+    "pub_date": "2026 Feb 10",
+    "doi": "10.3390/jcm15041398",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41753086/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 10,
+    "quality_labels": [
+      "SYSTEMATIC REVIEW",
+      "REVIEW"
+    ],
+    "decision": "PENDING",
+    "gate_status": "CANDIDATE",
+    "gate_note": "ELIGIBLE FOR THRESHOLD REVIEW. Check: same population? Same sport/sex? Meaningful effect size? If yes -- schedule formal review with performance staff.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41714467",
+    "pmid": "41714467",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Circulating Biomarkers of Military-Specific Performance Resilience: A Systematic Review.",
+    "authors": "Van Cutsem J et al.",
+    "journal": "Curr Psychiatry Rep",
+    "pub_date": "2026 Feb 20",
+    "doi": "10.1007/s11920-025-01652-2",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41714467/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 10,
+    "quality_labels": [
+      "SYSTEMATIC REVIEW",
+      "REVIEW"
+    ],
+    "decision": "PENDING",
+    "gate_status": "CANDIDATE",
+    "gate_note": "ELIGIBLE FOR THRESHOLD REVIEW. Check: same population? Same sport/sex? Meaningful effect size? If yes -- schedule formal review with performance staff.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41733092",
+    "pmid": "41733092",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "The Effect of 6\u2009Months of Dietary Counselling on Sleep Outcomes Among Patients With Cardiovascular Diseases: A Randomised Controlled Trial.",
+    "authors": "Verkaar AJCF et al.",
+    "journal": "J Sleep Res",
+    "pub_date": "2026 Feb 24",
+    "doi": "10.1111/jsr.70311",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41733092/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 7,
+    "quality_labels": [
+      "RCT"
+    ],
+    "decision": "PENDING",
+    "gate_status": "WATCHLIST",
+    "gate_note": "Prospective or cohort study. Monitor for replication. Escalate to CANDIDATE if confirmed in future meta-analysis.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41776224",
+    "pmid": "41776224",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Sleep quality prediction in basketball athletes using a deep learning framework with an attention mechanism based on multimodal data.",
+    "authors": "Liu L et al.",
+    "journal": "Sci Rep",
+    "pub_date": "2026 Mar 3",
+    "doi": "10.1038/s41598-026-42147-1",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41776224/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 3,
+    "quality_labels": [
+      "BASKETBALL"
+    ],
+    "decision": "PENDING",
+    "gate_status": "REVIEW",
+    "gate_note": "Basketball-specific -- read abstract carefully. Single study: WATCHLIST only. Do not change thresholds alone.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41672061",
+    "pmid": "41672061",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Aerobic Exercise Performance is Impaired in Naturally Menstruating Females Compared with Males 24\u00a0Hours Following a Strenuous Aerobic Interval Workout.",
+    "authors": "Blough K et al.",
+    "journal": "Int J Sports Physiol Perform",
+    "pub_date": "2026 Mar 1",
+    "doi": "10.1123/ijspp.2024-0468",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41672061/",
+    "topics": [
+      "Hormonal Cycle & Performance"
+    ],
+    "waims_signal": "V2 feature -- not yet in WAIMS",
+    "waims_action": "Evidence base for future menstrual cycle integration (V2 roadmap)",
+    "tags": [
+      "female",
+      "hormonal",
+      "V2"
+    ],
+    "quality_score": 2,
+    "quality_labels": [
+      "FEMALE"
+    ],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41638248",
+    "pmid": "41638248",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Ankle Laxity Fluctuation and Sex Hormones in Women with/without Recurrent Sprains.",
+    "authors": "Fukano M et al.",
+    "journal": "Int J Sports Med",
+    "pub_date": "2026 Feb 20",
+    "doi": "10.1055/a-2804-6786",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41638248/",
+    "topics": [
+      "Hormonal Cycle & Performance"
+    ],
+    "waims_signal": "V2 feature -- not yet in WAIMS",
+    "waims_action": "Evidence base for future menstrual cycle integration (V2 roadmap)",
+    "tags": [
+      "female",
+      "hormonal",
+      "V2"
+    ],
+    "quality_score": 2,
+    "quality_labels": [
+      "FEMALE"
+    ],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41681805",
+    "pmid": "41681805",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "International Validity of the Athlete Psychological Strain Questionnaire (APSQ): A Scoping Review.",
+    "authors": "Dragoiu TS et al.",
+    "journal": "Diagnostics (Basel)",
+    "pub_date": "2026 Feb 5",
+    "doi": "10.3390/diagnostics16030486",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41681805/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 1,
+    "quality_labels": [
+      "REVIEW"
+    ],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41785382",
+    "pmid": "41785382",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Beyond Averages: Uncovering Within-Person Links Between Sleep and Performance in Division I Collegiate Football Players.",
+    "authors": "Kilwein TM et al.",
+    "journal": "Res Q Exerc Sport",
+    "pub_date": "2026 Mar 5",
+    "doi": "10.1080/02701367.2025.2608371",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41785382/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41780299",
+    "pmid": "41780299",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "The characteristics of depression and sleep status among elite Chinese badminton athletes.",
+    "authors": "Li Q et al.",
+    "journal": "Acta Psychol (Amst)",
+    "pub_date": "2026 Mar 3",
+    "doi": "10.1016/j.actpsy.2026.106564",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41780299/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41779434",
+    "pmid": "41779434",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Exogenous ketosis mitigates hypoxia-induced neural signaling alterations and cerebral oxygenation decline at rest in healthy males.",
+    "authors": "Vermaerke N et al.",
+    "journal": "J Appl Physiol (1985)",
+    "pub_date": "2026 Mar 4",
+    "doi": "10.1152/japplphysiol.01059.2025",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41779434/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41776130",
+    "pmid": "41776130",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Effects of Isotemporal Substitution Analysis of Sedentary Behavior, Sleep, and Physical Activity on Physical Performance in Older Adults.",
+    "authors": "Marques MME et al.",
+    "journal": "J Prev (2022)",
+    "pub_date": "2026 Mar 4",
+    "doi": "10.1007/s10935-026-00904-y",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41776130/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41769160",
+    "pmid": "41769160",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Sleep tight, play right: practical insights into sleep for soccer players.",
+    "authors": "Giannaki CD et al.",
+    "journal": "Front Sports Act Living",
+    "pub_date": "2026",
+    "doi": "10.3389/fspor.2026.1740420",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41769160/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41762273",
+    "pmid": "41762273",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Strengthening recovery, enduring sleep. An ecologically valid assessment of sleep quantity and quality in hybrid athletes: does training mode matter?",
+    "authors": "Buoite Stella A et al.",
+    "journal": "Eur J Appl Physiol",
+    "pub_date": "2026 Feb 28",
+    "doi": "10.1007/s00421-026-06187-9",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41762273/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41760450",
+    "pmid": "41760450",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Clinical Manifestations and Behaviors Associated with Equine Head and Neck Disorders.",
+    "authors": "Nout-Lomas YS et al.",
+    "journal": "Vet Clin North Am Equine Pract",
+    "pub_date": "2026 Feb 26",
+    "doi": "10.1016/j.cveq.2026.01.002",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41760450/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41759761",
+    "pmid": "41759761",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Sequential associations among perceived heat-related symptoms, fatigue, and performance-related behavior during summer training.",
+    "authors": "Yamashita N et al.",
+    "journal": "Physiol Behav",
+    "pub_date": "2026 Feb 25",
+    "doi": "10.1016/j.physbeh.2026.115292",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41759761/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41758806",
+    "pmid": "41758806",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Monitoring health and wellbeing in adolescent track and field (athletics) athletes: A co-creation study.",
+    "authors": "Bunce NA et al.",
+    "journal": "PLoS One",
+    "pub_date": "2026",
+    "doi": "10.1371/journal.pone.0341972",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41758806/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41758392",
+    "pmid": "41758392",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Associations between chronotype, physical activity and cognition in a free-living setting.",
+    "authors": "Holt E et al.",
+    "journal": "Exp Brain Res",
+    "pub_date": "2026 Feb 27",
+    "doi": "10.1007/s00221-026-07254-5",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41758392/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41750042",
+    "pmid": "41750042",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Exploring Factors Associated with Physical Exercise Participation Among Chinese Adults Based on Explainable Machine Learning Methods.",
+    "authors": "Lu T et al.",
+    "journal": "Behav Sci (Basel)",
+    "pub_date": "2026 Feb 6",
+    "doi": "10.3390/bs16020233",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41750042/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41725192",
+    "pmid": "41725192",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "The Relationship Between Physical Activity and College Students' Bedtime Procrastination: The Moderating Effect of Past Time Perspective and Childhood Socioeconomic Status.",
+    "authors": "Hu Y et al.",
+    "journal": "Psychol Rep",
+    "pub_date": "2026 Feb 22",
+    "doi": "10.1177/00332941261428063",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41725192/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41680430",
+    "pmid": "41680430",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Strategic daytime napping enhances agility and lowers perceived exertion but does not improve fatigue resistance in adolescent soccer players.",
+    "authors": "\u00d6nc\u00fc M et al.",
+    "journal": "Sci Rep",
+    "pub_date": "2026 Feb 12",
+    "doi": "10.1038/s41598-026-39637-7",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41680430/",
+    "topics": [
+      "Sleep & Injury Risk"
+    ],
+    "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
+    "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
+    "tags": [
+      "sleep",
+      "injury"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41791370",
+    "pmid": "41791370",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Physiological, Neuromuscular, and Perceptual Responses to Matched High-Intensity Intermittent Exercise in Soccer Players Under Fed and Ramadan-Type Fasting Conditions.",
+    "authors": "Ate\u015f O et al.",
+    "journal": "Int J Sport Nutr Exerc Metab",
+    "pub_date": "2026 Mar 5",
+    "doi": "10.1123/ijsnem.2025-0252",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41791370/",
+    "topics": [
+      "CMJ / RSI as Fatigue Marker"
+    ],
+    "waims_signal": "CMJ z-score (35pts) and RSI z-score (25pts) -- primary signals",
+    "waims_action": "Would change primary signal weights or z-score thresholds",
+    "tags": [
+      "force_plate",
+      "neuromuscular"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41708946",
+    "pmid": "41708946",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Effect of movement goal on countermovement jump performance in athletes across different sports.",
+    "authors": "Pompa D et al.",
+    "journal": "Sci Rep",
+    "pub_date": "2026 Feb 18",
+    "doi": "10.1038/s41598-026-40260-9",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41708946/",
+    "topics": [
+      "CMJ / RSI as Fatigue Marker"
+    ],
+    "waims_signal": "CMJ z-score (35pts) and RSI z-score (25pts) -- primary signals",
+    "waims_action": "Would change primary signal weights or z-score thresholds",
+    "tags": [
+      "force_plate",
+      "neuromuscular"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
+    "id": "pmid_41663450",
+    "pmid": "41663450",
+    "source": "PubMed",
+    "source_type": "pubmed",
+    "trust_level": "PRIMARY",
+    "title": "Menstrual cycle does not change sagittal plane segments coordination variability during deadlift, a nonlinear dynamical analysis approach.",
+    "authors": "Abbasi A et al.",
+    "journal": "Sci Rep",
+    "pub_date": "2026 Feb 9",
+    "doi": "10.1038/s41598-026-38698-y",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/41663450/",
+    "topics": [
+      "Hormonal Cycle & Performance"
+    ],
+    "waims_signal": "V2 feature -- not yet in WAIMS",
+    "waims_action": "Evidence base for future menstrual cycle integration (V2 roadmap)",
+    "tags": [
+      "female",
+      "hormonal",
+      "V2"
+    ],
+    "quality_score": 0,
+    "quality_labels": [],
+    "decision": "PENDING",
+    "gate_status": "BACKGROUND",
+    "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
+    "date_found": "2026-03-07",
+    "decision_by": "",
+    "decision_date": "",
+    "decision_notes": ""
+  },
+  {
     "id": "pmid_41713823",
     "pmid": "41713823",
     "source": "PubMed",

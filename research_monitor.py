@@ -116,6 +116,20 @@ PUBMED_TOPICS = [
         "waims_action": "Would update injury mechanism language in risk context (V2 module)",
         "tags": ["basketball", "injury"],
     },
+    {
+        "topic": "Female Athlete Health (WHSP / Wu Tsai Alliance)",
+        "query": '("female athlete" OR "women athlete") AND (hormonal OR menstrual OR ACL OR recovery OR injury) AND ("systematic review" OR "meta-analysis" OR "Ackerman" OR "Stellingwerff" OR "Wu Tsai")',
+        "waims_signal": "Female-specific signals throughout WAIMS — CMJ baselines, recovery rates, hormonal cycle (V2)",
+        "waims_action": "WHSP Institute (launched Jan 2026, $50M+, Clara Wu Tsai/NY Liberty) — primary source for female athlete science. Publications via PubMed from Dr. Ackerman, Dr. Stellingwerff teams.",
+        "tags": ["female", "WHSP", "hormonal", "injury"],
+    },
+    {
+        "topic": "Travel Direction & Circadian Impact",
+        "query": '(travel OR "time zone" OR "jet lag" OR circadian) AND (athlete OR basketball OR NBA OR WNBA) AND (performance OR fatigue OR sleep OR recovery)',
+        "waims_signal": "B2B + travel scenario in load projection (Charest 2021 basis)",
+        "waims_action": "Eastward travel harder than westward (circadian rhythm longer than 24h). Dallas Wings eastward trips warrant additional penalty vs westward. Currently only B2B flag, not direction-aware.",
+        "tags": ["travel", "circadian", "sleep", "load"],
+    },
 ]
 
 
