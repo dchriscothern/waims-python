@@ -916,14 +916,12 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                     if r.get("hidden_fatigue") else ""
                 )
                 + f'<b style="color:#334155;">{r["mins_4d"]:.0f} min</b> last 4 days'
-                + (f' &nbsp;·&nbsp; <b style="color:#334155;">{r["mins_8d"]:.0f}</b> last 8'
-                   if r.get("mins_8d") is not None else "")
                 + (
-                    # Minutes cap — prescriptive output
+                    # Load warning label — context flag, not a hard cap
                     f' &nbsp;·&nbsp; <span style="background:#e0f2fe;color:#0369a1;'
                     f'font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;'
-                    f'border:1px solid #0369a122;">Cap: {r["mins_cap"]:.0f} min</span>'
-                    if r.get("mins_cap") is not None else ""
+                    f'border:1px solid #0369a122;">{r["load_warning"]}</span>'
+                    if r.get("load_warning") else ""
                 )
                 + '</div>'
                 if r.get("mins_4d") is not None else ""

@@ -197,3 +197,21 @@ This sets up a weekly Monday 8am search that commits results back to the repo.
 **Important:** Do not update WAIMS thresholds from a single new study alone. Wait for replication or meta-analysis confirmation.
 
 **Sportsmith.co:** Manual monitoring recommended — trusted applied sport science articles (Jo Clubb, Tim Gabbett, etc.). Free tier has some content; $13/month premium gives full access. For a real team, worth adding as continuing education partner. Cannot be scraped automatically due to authentication — bookmark and review weekly.
+
+## Drill-Level Load Library (Roadmap — V2/V3)
+
+Concept surfaced by Gemini analysis (2026-03-06) of WAIMS Command Center. Coaches often
+have "black box" drills — they know the tactical intent but not the physiological cost.
+
+**What's already in WAIMS (V1):**
+- Translation layer: Load Projection outputs plain-language guidance ("High-Leg drill — expect soreness tomorrow. Good for Monday, bad for a Friday pre-game.")
+- Positional drill scaling: Unit Readiness Strip shows Guards/Wings/Bigs readiness — coaches can adjust drill intensity by unit
+- 3-click rule: Command Center -> flag -> Athlete Profile detail
+
+**V2 roadmap items from Gemini analysis:**
+- Drill Menu with biometric price tags: drag-and-drop practice planning with projected team load. Requires drill-level GPS tagging (Catapult/Playermaker), not just session-level.
+- Drill Efficiency Scoring: HR/Player Load vs active time. "Your 4-on-4 Shell has 40% standing time."
+- Modify Practice button: suggests lower-load drill versions when unit readiness is low
+- Practice Script output: printable/tablet-ready session plan with load-aware drill substitutions
+
+**Note on ACWR in Gemini suggestions:** Gemini still treats ACWR as a primary load signal in some suggestions. WAIMS has correctly demoted ACWR to a contextual flag only (Impellizzeri 2020 BJSM critique). Do not reintroduce ACWR weighting based on these suggestions.
