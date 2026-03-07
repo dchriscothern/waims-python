@@ -210,7 +210,7 @@ def _heatmap_section(df):
         xaxis=dict(tickfont=dict(size=9), tickangle=-45),
         yaxis=dict(tickfont=dict(size=9)),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     return corr, avail
 
@@ -346,7 +346,7 @@ def _lag_analysis_section(df):
             xaxis=dict(title="Days Prior"),
             margin=dict(l=10, r=10, t=50, b=10),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         best = lag_df.loc[lag_df["abs_r"].idxmax()]
         lag_desc = "same day" if best["lag"] == 0 else f"{int(best['lag'])} day(s) prior"
@@ -438,7 +438,7 @@ def _conditional_risk_section(df):
         xaxis=dict(tickangle=-30),
         margin=dict(l=10, r=10, t=50, b=80),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     # Table
     display = risk_df.rename(columns={
@@ -452,7 +452,7 @@ def _conditional_risk_section(df):
     display["Relative Risk"]       = display["Relative Risk"].apply(lambda x: f"{x:.2f}×")
     st.dataframe(display[["Flag", "Days Flagged", "Risk % When Flagged",
                            "Baseline Risk %", "Relative Risk"]],
-                 use_container_width=True, hide_index=True)
+                 width='stretch', hide_index=True)
 
     st.caption(
         "⚠️ Based on synthetic data — real-world rates will differ. "
@@ -533,7 +533,7 @@ def _per_player_section(df, players):
         xaxis=dict(tickangle=-30),
         margin=dict(l=10, r=10, t=50, b=80),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     st.caption(
         "**Negative r = expected (healthier pattern):** more sleep → less next-day soreness.  "
@@ -563,7 +563,7 @@ def _per_player_section(df, players):
             showlegend=False,
         ))
         fig2.update_layout(height=320, margin=dict(l=10, r=10, t=50, b=10))
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width='stretch')
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SECTION 6: MODEL FEATURE AUDIT
@@ -617,7 +617,7 @@ def _model_audit_section():
             xaxis=dict(title="Importance Score"),
             margin=dict(l=10, r=60, t=50, b=10),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         # GPS vs wellness comparison
         gps_imp   = sum(v for f, v in zip(feats, model.feature_importances_) if "load" in f or "accel" in f or "decel" in f)

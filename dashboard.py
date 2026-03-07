@@ -1771,20 +1771,6 @@ with tab7:
         unsafe_allow_html=True,
     )
 
-    # ── SECTION B: CORRELATIONS ───────────────────────────────────────────────
-    st.markdown(
-        """
-        <div style="margin-bottom:16px;">
-            <div style="font-family:Georgia,serif; font-size:20px; font-weight:700;
-                color:#0f172a; letter-spacing:-0.01em;">Signal Correlations</div>
-            <div style="font-size:13px; color:#64748b; margin-top:2px;">
-                Hidden relationships across all monitoring metrics -- including ESPN game outcomes
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players)
 
     # ── EVIDENCE REVIEW ─────────────────────────────────────────────────────
     st.markdown("---")
@@ -1971,7 +1957,23 @@ with tab7:
                         f"- **{_ip.get('title','?')[:80]}** "
                         f"({_ip.get('authors','').split(' et')[0]}, {_ip.get('pub_date','?')}) "
                         f"-- *{_ip.get('waims_signal','?')}*"
+                        f"-- *{_ip.get('waims_signal','?')}*"
                     )
+    # ── SECTION B: CORRELATIONS ───────────────────────────────────────────────
+    st.markdown(
+        """
+        <div style="margin-bottom:16px;">
+            <div style="font-family:Georgia,serif; font-size:20px; font-weight:700;
+                color:#0f172a; letter-spacing:-0.01em;">Signal Correlations</div>
+            <div style="font-size:13px; color:#64748b; margin-top:2px;">
+                Hidden relationships across all monitoring metrics -- including ESPN game outcomes
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players)
+
 
 # FOOTER
 # ==============================================================================
