@@ -173,3 +173,62 @@ Item 4 partially covered by Availability tab. Item 5 is squad-level load project
 - **NBA evidence:** Teams traveling eastward won 44.51% vs 40.83% when traveling westward (Charest et al. 2021 JCSM). Circadian misalignment and travel distance both negatively influence performance, interacting significantly (Chronobiology International, 9,840 NBA games, 2014-2018).
 - **Current WAIMS treatment:** B2B flag only — no directional awareness. Dallas Wings flying east (e.g., to New York, Washington) warrants a higher penalty than flying west (e.g., to Seattle, LA).
 - **V2 roadmap:** Add `travel_direction` field (east/west) and `time_zones_crossed` to the schedule context. Apply asymmetric circadian penalty: eastward = ~1 day/time zone to resync; westward = ~0.5 day/time zone.
+
+---
+
+## Model Validation Framework
+
+### Current Approach (V1): Readiness Score — Coach Intuition Alignment
+
+WAIMS does not currently operate as a trained injury classifier. The forecast tab produces a **risk score watchout** — a heuristic composite — not a validated predictive model. This is the correct posture for a system without sufficient real-team injury event data.
+
+**Primary validation question (V1):**
+> Does the readiness score ranking match what the coach already knows?
+
+This is the most meaningful validation available at this stage. A readiness score that consistently surprises the coaching staff is a red flag. A score that surfaces the same 2–3 athletes the coach was already watching — with a clear explanation — builds trust.
+
+**V1 validation method:**
+- **Spearman rank correlation** between WAIMS readiness ranking and coach's informal daily assessment
+- Target: coach agrees with top and bottom 3 athletes flagged on ≥ 70% of days
+- Collected informally — coach feedback after morning brief, noted in session log
+- No formal injury event validation required at V1 (insufficient events in demo data)
+
+**Operational framing:**
+WAIMS flags the right 2–3 athletes for a coach each morning. Precision@K (top 3) is more meaningful than row-level accuracy. The goal is not to be right about every player — it is to surface the most important conversations before practice.
+
+---
+
+### V2 Validation Upgrades
+
+When real team data accumulates (minimum 1 full season recommended):
+
+**Time-aware validation (walk-forward splits)**
+Train on days 1–45, validate on 46–60. Repeat across the season. Prevents future data leakage and captures load pattern drift across the schedule. This is the most important methodological upgrade.
+
+**Player-holdout test**
+GroupKFold by `player_id` — answers whether the model generalises to a new signing with limited history. Stress test for roster turnover scenarios.
+
+**Injury classification metrics (if sufficient events)**
+- PR-AUC (primary — handles class imbalance)
+- Calibration curve + Brier score (is the model's 30% risk actually 30%?)
+- Lead-time analysis: flags arriving 3–7 days before injury are operationally useful; same-day flags are not
+
+**Simple baselines to beat**
+Model must outperform:
+- Acute load threshold rule (last 7 days)
+- ACWR heuristic
+- Player rolling z-score on soreness/fatigue alone
+
+**Ablation studies**
+Test model without GPS features, without wellness features, without schedule features. Identifies which data streams are actually driving signal vs noise.
+
+**Injury type stratification**
+Non-contact soft tissue injuries (load-related) should be predictable. Contact injuries should not be expected to validate well — document this explicitly so coaches understand model scope.
+
+---
+
+### Dashboard Transparency Note
+
+The WAIMS dashboard surfaces the validation philosophy directly to sport scientists via the Insights tab. Coaches see decision-ready outputs. Sport scientists see the evidence grade, threshold source, and validation status behind every metric.
+
+*Validation framework informed by Julius.ai model validation analysis (2026). Applied and adapted for WAIMS operational context.*
