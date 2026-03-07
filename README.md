@@ -47,7 +47,7 @@ Does not make clinical decisions — translates data into plain English for coac
 
 | Tab | Audience | Purpose |
 |-----|----------|---------|
-| Command Center | Coach | Morning brief — status badges, priority alerts, GPS strip, roster cards |
+| Command Center | Coach | Morning brief — status badges, unit readiness strip (G/F/C), roster cards with minutes cap + hidden fatigue flag, overnight delta |
 | Today's Readiness | Analyst | Z-score flags, wellness + force plate + GPS per player |
 | Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, 7-day risk score, load projection, basketball-specific risk context (V1) |
 | Trends | Analyst | 7-day rolling averages — sleep, soreness, mood, stress |
@@ -155,6 +155,9 @@ Safe for GitHub, portfolio, and professional presentations.
 | Feature | V1 Status | V2 (Production) Plan |
 |---|---|---|
 | Basketball-Specific Risk Context | V1: Core flags (CMJ/RSI, decel, sleep, soreness) with clinical caveats. `injury_mechanism_insight_box` not built yet. | V2: Full mechanism language, position-specific context, practice vs competition differentiation. Requires validation on real team data first. |
+| Positional Group Readiness Strip | V1: Guards / Wings / Bigs average readiness shown above roster cards. Instant tactical adjustment signal. | V2: Could integrate with game footage tags for drill-specific load by unit. |
+| Minutes Cap on Cards | V1: Recommended minutes cap on each roster card based on readiness + 4-day cumulative load. | V2: Incorporate Second Spectrum game minutes for true cumulative load picture. |
+| Hidden Fatigue Detection | V1: Flags READY players (>=80%) trending down under high load (>100 min/4d). Amber badge on card. | V2: Incorporate decel trend data for earlier detection. |
 | GPS decel monitoring | V1: z-score vs personal baseline, labelled as exposure indicator with cross-reference requirement (Clubb 2025). | V2: Individualised thresholds as % of each player's observed maximum (Pimenta et al. 2026). |
 | Game load integration | V1: Practice minutes only (Kinexon). Game load not tracked. | V2: Second Spectrum optical tracking integration — true week-total load picture across practice + games. WNBA leaguewide data available since 2024. |
 | ML model | V1: Random Forest trained on synthetic demo data. Predictions are illustrative. | V2: Retrained on 90+ days of real athlete data with real injury outcomes. Add menstrual cycle phase as feature. |
@@ -162,3 +165,35 @@ Safe for GitHub, portfolio, and professional presentations.
 | Notifications | V1: Dashboard only — staff must open the app. | V2: Slack morning brief, SMS alerts for PROTECT-status players (medical staff only). |
 | Athlete view | V1: Staff-facing only. | V2: Simplified athlete-facing readiness + trend view. No injury risk numbers shown to athletes. |
 | Hormonal cycle | V1: Not modelled. | V2: Menstrual phase adjustment to CMJ/RSI thresholds and load recommendations (Bruinvels et al. 2017). Requires athlete consent protocol. |
+
+---
+
+## Research Monitoring
+
+WAIMS includes `research_monitor.py` — an automated PubMed search tool that flags new papers relevant to the evidence base.
+
+**Run manually:**
+```bash
+python research_monitor.py              # last 7 days, console output
+python research_monitor.py --days 30   # last 30 days
+python research_monitor.py --save      # save to research_log.json
+python research_monitor.py --html      # generate HTML report with decision buttons
+```
+
+**Run automatically (GitHub Actions):**
+```bash
+python research_monitor.py --github-action > .github/workflows/research_monitor.yml
+```
+This sets up a weekly Monday 8am search that commits results back to the repo.
+
+**Search topics covered:** Sleep & injury risk, CMJ/RSI monitoring, basketball load monitoring, deceleration & injury, GPS validity, female athlete recovery, ACWR critique, wellness monitoring, basketball injury epidemiology.
+
+**Decision workflow:**
+1. HIGH priority (meta-analysis or systematic review) — read abstract immediately
+2. Does it change a threshold, weight, or interpretation in WAIMS?
+3. YES → update `RESEARCH_FOUNDATION.md` + relevant module + this README
+4. NO → add to `research_log.json` as background evidence only
+
+**Important:** Do not update WAIMS thresholds from a single new study alone. Wait for replication or meta-analysis confirmation.
+
+**Sportsmith.co:** Manual monitoring recommended — trusted applied sport science articles (Jo Clubb, Tim Gabbett, etc.). Free tier has some content; $13/month premium gives full access. For a real team, worth adding as continuing education partner. Cannot be scraped automatically due to authentication — bookmark and review weekly.

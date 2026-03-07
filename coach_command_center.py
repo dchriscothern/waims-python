@@ -223,25 +223,59 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
                 mins_4d = round(last4["total_min"].sum(), 0) if len(last4) > 0 else 0
                 mins_8d = round(tl_hist["total_min"].sum(), 0)
 
+        # ── Hidden fatigue detection ─────────────────────────────────────────
+        # Player at READY/MONITOR but load is high AND score is trending down.
+        # This is "green on paper but declining under load" — a real risk pattern.
+        # Inspired by Gemini analysis of Orlando Magic minutes framework.
+        hidden_fatigue = False
+        if mins_4d is not None and mins_4d > 100 and score >= 60:
+            # Check yesterday's score for trend
+            yest_w = wellness[
+                (wellness["player_id"] == pid) &
+                (pd.to_datetime(wellness["date"]) == pd.Timestamp(ref) - pd.Timedelta(days=1))
+            ]
+            if len(yest_w) > 0:
+                yest_score = _readiness(yest_w.iloc[0])
+                if yest_score - score >= 5:  # dropping ≥5% while high load
+                    hidden_fatigue = True
+                    if "Cleared for full training" in reason:
+                        reason = "Trending down under high load — monitor closely"
+
+        # ── Minutes cap recommendation ────────────────────────────────────────
+        # Specific minutes cap based on readiness + cumulative load.
+        # Orlando Magic framework: prescriptive output, not just a flag.
+        mins_cap = None
+        if score < 60:
+            mins_cap = 22  # PROTECT
+        elif score < 80:
+            if mins_4d is not None and mins_4d > 120:
+                mins_cap = 26  # MONITOR + high load
+            else:
+                mins_cap = 32  # MONITOR, manageable load
+        elif hidden_fatigue:
+            mins_cap = 30  # READY but hidden fatigue flag
+
         rows.append({
-            "pid":      pid,
-            "name":     p["name"],
-            "pos":      p.get("position", ""),
-            "score":    score,
-            "emoji":    emoji,
-            "color":    color,
-            "bg":       bg,
-            "sleep":    w["sleep_hours"],
-            "soreness": w["soreness"],
-            "mood":     w["mood"],
-            "stress":   w.get("stress", 0),
-            "cmj":      cmj_flag,
-            "load":     pl_flag,
-            "accel":    ac_flag,
-            "reason":   reason,
-            "inj_risk": inj_risk,
-            "mins_4d":  mins_4d,
-            "mins_8d":  mins_8d,
+            "pid":            pid,
+            "name":           p["name"],
+            "pos":            p.get("position", ""),
+            "score":          score,
+            "emoji":          emoji,
+            "color":          color,
+            "bg":             bg,
+            "sleep":          w["sleep_hours"],
+            "soreness":       w["soreness"],
+            "mood":           w["mood"],
+            "stress":         w.get("stress", 0),
+            "cmj":            cmj_flag,
+            "load":           pl_flag,
+            "accel":          ac_flag,
+            "reason":         reason,
+            "inj_risk":       inj_risk,
+            "mins_4d":        mins_4d,
+            "mins_8d":        mins_8d,
+            "mins_cap":       mins_cap,
+            "hidden_fatigue": hidden_fatigue,
         })
 
 
@@ -730,6 +764,57 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     # No availability %, no signal icons — badge IS the availability signal
 
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+
+    # ── POSITIONAL GROUP READINESS STRIP ─────────────────────────────────────
+    # Coaches think in units: "Are my guards fresh enough to run a high-press?"
+    # Instant tactical read — adjust practice plan before walking onto the court.
+    # Gemini analysis (2026-03-06): positional grouping is highest-utility
+    # coach-facing addition alongside minutes context.
+    _pos_groups = {"G": [], "F": [], "C": []}
+    for _r in summary:
+        _p = str(_r.get("pos", "")).upper()
+        if _p.startswith("G"):   _pos_groups["G"].append(_r["score"])
+        elif _p.startswith("F"): _pos_groups["F"].append(_r["score"])
+        elif _p.startswith("C"): _pos_groups["C"].append(_r["score"])
+        else:                    _pos_groups["F"].append(_r["score"])  # default to wing
+
+    def _pos_badge(label, scores):
+        if not scores:
+            return ""
+        avg = sum(scores) / len(scores)
+        if avg >= 80:   color, status, bg = "#16a34a", "READY",   "#dcfce7"
+        elif avg >= 60: color, status, bg = "#d97706", "MONITOR", "#fef3c7"
+        else:           color, status, bg = "#dc2626", "PROTECT", "#fee2e2"
+        return (
+            f'<div style="background:{bg};border:1px solid {color}44;'
+            f'border-radius:8px;padding:10px 14px;text-align:center;flex:1;">'
+            f'<div style="font-size:10px;font-weight:700;letter-spacing:0.1em;'
+            f'text-transform:uppercase;color:{color};margin-bottom:4px;">{label}</div>'
+            f'<div style="font-size:22px;font-weight:800;color:{color};line-height:1;">'
+            f'{avg:.0f}%</div>'
+            f'<div style="font-size:10px;color:{color};font-weight:600;margin-top:2px;">'
+            f'{status} &nbsp;·&nbsp; {len(scores)} players</div>'
+            f'</div>'
+        )
+
+    _g_badge = _pos_badge("Guards", _pos_groups["G"])
+    _f_badge = _pos_badge("Wings / Forwards", _pos_groups["F"])
+    _c_badge = _pos_badge("Centers / Bigs", _pos_groups["C"])
+
+    # Only show if we have real positional data
+    if any([_pos_groups["G"], _pos_groups["F"], _pos_groups["C"]]):
+        st.markdown(
+            '<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;'
+            'text-transform:uppercase;color:#94a3b8;margin-bottom:8px;">Unit Readiness</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<div style="display:flex;gap:10px;margin-bottom:16px;">'
+            f'{_g_badge}{_f_badge}{_c_badge}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     st.markdown(
         '<div style="font-size:11px; font-weight:700; letter-spacing:0.18em; '
         'text-transform:uppercase; color:#94a3b8; margin-bottom:10px;">Roster Status</div>',
@@ -821,12 +906,26 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             f'  <div title="{risk_tooltip}">{risk_badge}</div>'
             f'</div>'
 
-            # Row 3: cumulative minutes — Orlando Magic framework: coaches think in minutes
+            # Row 3: cumulative minutes + minutes cap + hidden fatigue flag
             + (
                 f'<div style="font-size:11px;color:#64748b;margin-top:3px;">'
-                f'<b style="color:#334155;">{r["mins_4d"]:.0f} min</b> last 4 days'
+                + (
+                    # Hidden fatigue flag — trending down under high load
+                    f'<span style="background:#fef3c7;color:#d97706;font-size:10px;'
+                    f'font-weight:700;padding:1px 6px;border-radius:3px;margin-right:6px;'
+                    f'border:1px solid #d9770644;">HIDDEN FATIGUE</span>'
+                    if r.get("hidden_fatigue") else ""
+                )
+                + f'<b style="color:#334155;">{r["mins_4d"]:.0f} min</b> last 4 days'
                 + (f' &nbsp;·&nbsp; <b style="color:#334155;">{r["mins_8d"]:.0f}</b> last 8'
                    if r.get("mins_8d") is not None else "")
+                + (
+                    # Minutes cap — prescriptive output
+                    f' &nbsp;·&nbsp; <span style="background:#e0f2fe;color:#0369a1;'
+                    f'font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;'
+                    f'border:1px solid #0369a122;">Cap: {r["mins_cap"]:.0f} min</span>'
+                    if r.get("mins_cap") is not None else ""
+                )
                 + '</div>'
                 if r.get("mins_4d") is not None else ""
             )
