@@ -661,6 +661,43 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     st.caption("If she plays tonight, where does readiness land tomorrow? "
                "Select scenario to see projected status and staff recommendation.")
 
+    # ── Hidden fatigue context — displayed when cumulative load is high ───────
+    # Different from 7-day injury risk: risk asks "warning signals present?"
+    # Hidden fatigue asks "is load accumulation unsustainable?"
+    # A player can show READY (80%+) with no injury flags but still be carrying
+    # too many minutes — that pattern is invisible to the risk score alone.
+    if "practice_minutes" in training_load.columns:
+        _ap_tl = training_load[
+            (training_load["player_id"] == athlete_id) &
+            (pd.to_datetime(training_load["date"]) > pd.Timestamp(latest_date) - pd.Timedelta(days=8)) &
+            (pd.to_datetime(training_load["date"]) <= pd.Timestamp(latest_date))
+        ].copy()
+        if len(_ap_tl) > 0:
+            _ap_tl["_total"] = (
+                _ap_tl.get("game_minutes", pd.Series([0]*len(_ap_tl))).fillna(0) +
+                _ap_tl.get("practice_minutes", pd.Series([0]*len(_ap_tl))).fillna(0)
+            )
+            _ap_4d = _ap_tl[pd.to_datetime(_ap_tl["date"]) >
+                             pd.Timestamp(latest_date) - pd.Timedelta(days=4)]["_total"].sum()
+            _ap_8d = _ap_tl["_total"].sum()
+
+            if _ap_4d > 100:
+                _hf_color = "#d97706" if readiness >= 80 else "#dc2626"
+                _hf_label = "Hidden Fatigue" if readiness >= 80 else "High Cumulative Load"
+                st.markdown(
+                    f'<div style="background:#fffbeb;border-left:4px solid {_hf_color};'
+                    f'border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:8px;">'
+                    f'<span style="font-size:11px;font-weight:700;color:{_hf_color};">'
+                    f'{_hf_label}</span>'
+                    f'<span style="font-size:11px;color:#475569;"> — '
+                    f'{_ap_4d:.0f} min last 4 days · {_ap_8d:.0f} last 8. '
+                    f'Readiness score reflects current-day signals only; '
+                    f'load accumulation adds risk not fully captured in the score. '
+                    f'Use load projection below to see cumulative impact.</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
     # sleep_v / sore_v / stress_v defined at top of function
 
     load_col1, load_col2 = st.columns([1, 2])
@@ -1136,54 +1173,122 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     #   Level 2: Full evidence log with citations
     # Evidence monitor runs weekly (GitHub Actions). New papers added to
     # research_log.json and HTML report. Only APPROVED papers appear here.
+    # ── EVIDENCE BASE ─────────────────────────────────────────────────────────
+    # Two sections:
+    #   1. Active thresholds table — what's running in WAIMS today
+    #   2. Evidence monitor queue — reads research_log.json dynamically
+    #      Papers marked PENDING show as "under review"
+    #      Papers marked INTEGRATED move to active thresholds (manual code update)
+    #      Papers marked REJECTED disappear from the queue
+    #      Update decisions by editing research_log.json on GitHub
     with st.expander("Evidence Base — Thresholds & Citations"):
+
+        st.markdown("#### Active Thresholds")
         st.markdown(
-            "#### Thresholds active in this profile\n"
-            "| Signal | Threshold | Status | Source |\n"
-            "|---|---|---|---|\n"
-            "| Sleep | <7h flag · <6h hard floor | Active | Walsh et al. 2021 BJSM; 2025 meta OR=1.34 |\n"
-            "| CMJ | z-score <-1.0 flag · <-1.5 high | Active (primary) | Gathercole et al. 2015 |\n"
-            "| RSI | z-score <-1.0 flag · <-1.5 high | Active (primary) | Gathercole et al. 2015 |\n"
-            "| Soreness | >7/10 | Active | Hulin et al. 2016 |\n"
-            "| Decel count | z-score <-1.0 (cross-ref CMJ/RSI) | Active | Clubb 2025; Pimenta et al. 2026 |\n"
-            "| ACWR | >1.5 flag (contextual only, not scored) | Flag only | Gabbett 2016; demoted per Impellizzeri 2020 |\n"
+            "| Signal | Threshold | Basis |\n"
+            "|---|---|---|\n"
+            "| Sleep | <7h flag · <6h hard floor | Walsh 2021 BJSM consensus; 2025 meta OR=1.34; Mah et al. 2011 (basketball) |\n"
+            "| CMJ | z <-1.0 flag · z <-1.5 high | Gathercole 2015; Pernigoni 2024 basketball SR |\n"
+            "| RSI | z <-1.0 flag · z <-1.5 high | Gathercole 2015 |\n"
+            "| Soreness | >7/10 requires action | Hulin et al. 2016 |\n"
+            "| Decel count | z <-1.0 cross-ref CMJ/RSI | Clubb 2025; Pimenta et al. 2026 SCJ |\n"
+            "| ACWR | >1.5 contextual flag only | Gabbett 2016; demoted Impellizzeri 2020 |\n"
         )
-        st.caption(
-            "Formal evidence review policy: no threshold change without meta-analysis support. "
-            "Evidence monitor runs weekly via GitHub Actions. "
-            "New papers reviewed before any threshold update."
-        )
+
         with st.expander("Full citation log"):
             st.markdown(
-                "**Sleep & injury risk**\n"
+                "**Sleep**\n"
+                "- Mah et al. 2011 Sleep -- Stanford basketball: sleep extension improved reaction time "
+                "and sprint performance over 5-7 weeks. Most basketball-specific sleep study.\n"
+                "- Mah et al. 2018 Sleep Health -- 628 collegiate athletes: 42.4% poor sleep quality, "
+                "39.1% insufficient sleep (<7h). Established prevalence baseline.\n"
                 "- Walsh et al. 2021 BJSM -- consensus statement, <7h threshold basis\n"
-                "- 2025 meta-analysis (9 studies, n=1,078): OR=1.34 (95% CI 1.08-1.66), I²=85.6% -- confirms association, notes heterogeneity\n"
-                "- Charest & Grandner 2020 -- NBA sleep/travel; female hormonal variability compounds risk\n"
-                "- Kong et al. 2025 Frontiers Physiol -- mechanistic SR: neuromuscular coordination, reaction time, tissue repair\n"
+                "- 2025 meta (9 studies, n=1,078): OR=1.34 (95% CI 1.08-1.66), I2=85.6%\n"
+                "- Charest & Grandner 2020 -- NBA B2B travel circadian disruption; Mah Score framework\n"
+                "- Kong et al. 2025 Frontiers Physiol -- mechanistic SR: cortisol elevation, "
+                "connective tissue weakening, glycogen impairment\n"
+                "- Concussion: prospective ~600 athletes, <=5.8h vs >7.0h = 2x concussion risk\n"
                 "\n"
-                "**CMJ/RSI -- neuromuscular fatigue**\n"
-                "- Gathercole et al. 2015 -- CMJ/RSI as fatigue markers, primary signal basis\n"
-                "- Pernigoni et al. 2024 (44-study basketball SR) -- female players: minimal CMJ drop at 24h\n"
+                "**CMJ/RSI**\n"
+                "- Gathercole et al. 2015 -- CMJ/RSI as neuromuscular fatigue markers\n"
+                "- Pernigoni et al. 2024 (44-study basketball SR) -- female: minimal CMJ drop at 24h\n"
                 "- Goulart et al. 2022 (female meta-analysis) -- faster recovery vs male literature\n"
                 "\n"
-                "**Deceleration load monitoring**\n"
-                "- Clubb 2025 Sportsmith -- thresholds arbitrary, dwell time sensitivity, z-score vs baseline is correct approach\n"
+                "**Deceleration**\n"
+                "- Clubb 2025 Sportsmith -- thresholds arbitrary, dwell time sensitivity, "
+                "z-score vs baseline is correct approach\n"
                 "- Pimenta et al. 2026 SCJ -- individualised thresholds as % of max capacity\n"
-                "- Decel biomechanics (separate): GRF ~2.7x acceleration during decel. Harper et al. 2019 IJSPP; Science of Multi-directional Sport\n"
+                "- Biomechanics: GRF ~2.7x acceleration during decel -- Harper 2019; "
+                "Science of Multi-directional Sport\n"
                 "\n"
-                "**GPS framing**\n"
-                "- Boskovic et al. 2024 SPSR -- GPS 3.0: external locomotor load only, ~70% multidirectional load invisible to linear GPS\n"
-                "\n"
-                "**ACWR**\n"
-                "- Gabbett 2016 -- established >1.5 high-risk zone\n"
-                "- Impellizzeri et al. 2020 BJSM -- statistical coupling flaws; demoted to contextual flag in WAIMS\n"
-                "\n"
-                "**Load & recovery**\n"
-                "- Charest et al. 2021 JCSM -- NBA B2B sleep/travel/circadian disruption\n"
+                "**GPS / Load**\n"
+                "- Boskovic et al. 2024 SPSR -- GPS 3.0: external locomotor load only\n"
+                "- Impellizzeri et al. 2020 BJSM -- ACWR statistical coupling flaws\n"
+                "- Charest et al. 2021 JCSM -- NBA B2B sleep/travel\n"
                 "- Clark et al. 2025 PLOS One -- 108-study indoor sports SR\n"
-                "\n"
-                "**Evidence monitor queue (under formal review -- not yet active in thresholds)**\n"
-                "- Watson et al. 2026 Am J Sports Med -- ACL prevention SR+meta. Flagged 2026-03-06. Pending: population check (female basketball).\n"
-                "- Eythorsdottir et al. 2026 Eur J Sport Sci -- CMJ jump height calculation SR. Flagged 2026-03-06. Pending: may affect CMJ thresholds.\n"
-                "- Yuan et al. 2026 J Sports Sci Med -- ML lower limb injury prediction SR. Flagged 2026-03-06. Pending: V2 ML model relevance.\n"
+            )
+
+        # ── Dynamic evidence monitor queue ────────────────────────────────────
+        # Reads research_log.json. Update decisions on GitHub to change what shows here.
+        # PENDING -> shows as "under review"
+        # INTEGRATED -> shown in active thresholds above (requires code update)
+        # REJECTED -> hidden
+        import json as _json
+        from pathlib import Path as _Path
+        _log_path = _Path(__file__).parent / "research_log.json"
+        if _log_path.exists():
+            try:
+                _papers = _json.loads(_log_path.read_text(encoding="utf-8"))
+                _pending   = [p for p in _papers if p.get("decision","PENDING") == "PENDING"]
+                _watchlist = [p for p in _papers if p.get("decision","") == "WATCHLIST"]
+                _integrated = [p for p in _papers if p.get("decision","") == "INTEGRATED"]
+
+                if _pending or _watchlist:
+                    with st.expander(
+                        f"Evidence monitor queue -- {len(_pending)} pending · "
+                        f"{len(_watchlist)} watchlist · {len(_integrated)} integrated"
+                    ):
+                        st.caption(
+                            "Updated weekly by GitHub Actions. "
+                            "To decide: edit research_log.json on GitHub -- "
+                            "change decision to INTEGRATED, WATCHLIST, or REJECTED. "
+                            "INTEGRATED papers require a code update to activate in thresholds."
+                        )
+                        if _pending:
+                            st.markdown("**Pending formal review:**")
+                            for p in _pending[:10]:
+                                gate = p.get("gate_status","?")
+                                color = "#dc2626" if gate=="CANDIDATE" else (
+                                        "#d97706" if gate=="REVIEW" else "#64748b")
+                                st.markdown(
+                                    f'<div style="border-left:3px solid {color};'
+                                    f'padding:6px 10px;margin:4px 0;background:#f8fafc;">'
+                                    f'<span style="font-size:11px;font-weight:700;color:{color};">'
+                                    f'[{gate}]</span> '
+                                    f'<span style="font-size:12px;color:#0f172a;">{p.get("title","?")[:90]}</span><br>'
+                                    f'<span style="font-size:10px;color:#64748b;">'
+                                    f'{p.get("authors","")} · {p.get("journal","")} · '
+                                    f'{p.get("pub_date","?")}</span><br>'
+                                    f'<span style="font-size:10px;color:#0369a1;">'
+                                    f'WAIMS: {p.get("waims_signal","?")[:80]}</span>'
+                                    f'</div>',
+                                    unsafe_allow_html=True
+                                )
+                            if len(_pending) > 10:
+                                st.caption(f"... and {len(_pending)-10} more in research_log.json")
+
+                        if _watchlist:
+                            st.markdown("**Watchlist (awaiting replication):**")
+                            for p in _watchlist[:5]:
+                                st.markdown(
+                                    f'- {p.get("title","?")[:80]} '
+                                    f'*({p.get("authors","").split(" et")[0]}, '
+                                    f'{p.get("pub_date","?")})*'
+                                )
+            except Exception as _e:
+                st.caption(f"research_log.json found but could not be read: {_e}")
+        else:
+            st.caption(
+                "No research_log.json found. Run the evidence monitor to generate it: "
+                "`python research_monitor.py --days 30 --save`"
             )

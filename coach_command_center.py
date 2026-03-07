@@ -241,19 +241,18 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
                     if "Cleared for full training" in reason:
                         reason = "Trending down under high load — monitor closely"
 
-        # ── Minutes cap recommendation ────────────────────────────────────────
-        # Specific minutes cap based on readiness + cumulative load.
-        # Orlando Magic framework: prescriptive output, not just a flag.
-        mins_cap = None
-        if score < 60:
-            mins_cap = 22  # PROTECT
-        elif score < 80:
-            if mins_4d is not None and mins_4d > 120:
-                mins_cap = 26  # MONITOR + high load
-            else:
-                mins_cap = 32  # MONITOR, manageable load
+        # ── Load warning — replaces hard minutes cap ──────────────────────────
+        # A hard number implies precision the data doesn't support on a summary card.
+        # Load Projection tool (Athlete Profile / Forecast) gives the specific cap
+        # when a scenario is explicitly selected.
+        # Here: warning label only — coaches use judgment on actual number.
+        load_warning = None
+        if score < 60 and mins_4d is not None and mins_4d > 80:
+            load_warning = "Manage load tonight"
         elif hidden_fatigue:
-            mins_cap = 30  # READY but hidden fatigue flag
+            load_warning = "High cumulative load — ease off"
+        elif score < 80 and mins_4d is not None and mins_4d > 120:
+            load_warning = "High 4-day load"
 
         rows.append({
             "pid":            pid,
@@ -274,7 +273,7 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
             "inj_risk":       inj_risk,
             "mins_4d":        mins_4d,
             "mins_8d":        mins_8d,
-            "mins_cap":       mins_cap,
+            "load_warning":   load_warning,
             "hidden_fatigue": hidden_fatigue,
         })
 

@@ -55,7 +55,7 @@ from pathlib import Path
 PUBMED_TOPICS = [
     {
         "topic": "Sleep & Injury Risk",
-        "query": '(sleep OR "sleep deprivation") AND (injury OR "injury risk") AND (athlete OR sport)',
+        "query": '(sleep OR "sleep duration" OR "sleep deprivation") AND (injury OR "injury risk" OR performance) AND (athlete OR sport OR basketball OR WNBA) NOT (drug OR medication OR pharmacol OR zolpidem OR insomnia disorder OR clinical trial)',
         "waims_signal": "sleep_hours threshold (<7h flag, <6h hard floor -- Walsh 2021)",
         "waims_action": "Would change <7h threshold or readiness formula sleep weight (currently 20pts)",
         "tags": ["sleep", "injury"],
@@ -104,7 +104,7 @@ PUBMED_TOPICS = [
     },
     {
         "topic": "Hormonal Cycle & Performance",
-        "query": '("menstrual cycle" OR "hormonal cycle" OR "luteal phase") AND (injury OR performance OR recovery OR ACL)',
+        "query": '("menstrual cycle" OR "luteal phase" OR "follicular phase") AND (injury OR performance OR recovery OR ACL) AND (athlete OR sport OR exercise) NOT (contraceptive OR pharmacol OR hormone therapy)',
         "waims_signal": "V2 feature -- not yet in WAIMS",
         "waims_action": "Evidence base for future menstrual cycle integration (V2 roadmap)",
         "tags": ["female", "hormonal", "V2"],
