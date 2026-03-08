@@ -51,6 +51,25 @@ Asymmetry > 10–15% associated with elevated injury risk in female athletes.
 **Bishop et al. 2023** ★★  
 RSI-Modified sensitivity in women's basketball — validated cutoffs for flag thresholds.
 
+
+**Janetzki et al. 2023** ★★★
+*"Assessing athlete readiness using physical, physiological, and perceptual markers: A systematic review and meta-analysis"*
+Scientific Journal of Sport and Performance, 2(3), 339–380. DOI: 10.55860/AGRH6754
+
+165 studies in systematic review. 27 studies in meta-analysis. 20 readiness markers evaluated.
+**Key findings directly applied in WAIMS:**
+- CMJ jump height: large correlation with sprint performance (r = 0.69, p = .00) — strongest validated readiness-to-performance link
+- CMJ peak power and squat jump: non-significant correlations — validates WAIMS choice of CMJ height/RSI over power metrics
+- 5 markers meta-analysed: CMJ, HRV (RMSSD/SD1), sub-maximal HR, sRPE
+- HRV (RMSSD): significant correlation with performance — supports HRV as V2 addition
+- Sub-maximal HR: significant correlation — validates aerobic readiness monitoring
+- sRPE: significant correlation — validates subjective wellness as legitimate signal alongside objective measures
+
+*WAIMS application: Primary evidence base for CMJ z-score as the highest-weighted readiness signal (35pts).
+Validates the three-source architecture (subjective + neuromuscular + GPS) as each marker class
+showed independent predictive validity. Also supports HRV as the most valuable V2 addition.*
+*Citation: Janetzki SJ, Bourdon PC, Burgess DJ, Barratt GK, Bellenger CR. (2023). Scientific Journal of Sport and Performance, 2(3), 339–380.*
+
 **Cormack et al. 2008** ★★  
 CMJ monitoring protocol — individual baseline approach superior to population norms  
 for detecting meaningful fatigue in small-squad settings.
