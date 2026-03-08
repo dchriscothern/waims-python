@@ -338,7 +338,7 @@ def fetch_rss(source, days):
                 continue
             score, labels = score_paper(title)
             items.append({
-                "id": f"rss_{re.sub(r'[^a-z0-9]','_',title.lower())[:40]}",
+                "id": f"rss_{re.sub(r'[^a-z0-9]','_',title.lower())[:35]}_{abs(hash(link)) % 10000:04d}",
                 "source": source["name"], "source_type": source["type"],
                 "trust_level": source["trust_level"],
                 "title": title, "url": link,
