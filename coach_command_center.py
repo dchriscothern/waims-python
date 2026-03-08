@@ -322,8 +322,8 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
                 alerts.append({
                     "level":  "🟡 WORKLOAD",
                     "name":   r["name"],
-                    "msg":    "She's been working hard recently — a big week on top of this could be risky.","
-                    "action": "Consider keeping today's session shorter — intensity is fine, just less of it.","
+                    "msg":    "She has been working hard recently — a big week on top of this could be risky.",
+                    "action": "Consider keeping the session a bit shorter today — intensity is fine, just less of it.",
                 })
 
         if r["cmj"] == "🔴":
@@ -331,7 +331,7 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
                 "level":  "🔴 NEURO",
                 "name":   r["name"],
                 "msg":    "Legs not responding — jump power significantly below her normal",
-                "action": "Worth pulling her from high-intensity drills today — her legs are not responding normally.","
+                "action": "Worth pulling her from high-intensity drills today — her legs are not responding normally.",
             })
 
         if r["accel"] == "🔴":
