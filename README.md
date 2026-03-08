@@ -175,6 +175,55 @@ Safe for GitHub, portfolio, and professional presentations.
 
 ---
 
+## Automated Workflows (GitHub Actions)
+
+Once workflow files are pushed to your repo, GitHub runs them automatically — no further action needed.
+
+### How to activate:
+1. Push `.github/workflows/retrain_models.yml` and `.github/workflows/research_monitor.yml` to your repo
+2. Go to your repo → **Actions** tab → confirm workflows are listed
+3. They run on schedule automatically. To trigger manually: Actions → select workflow → **Run workflow**
+
+### Weekly Model Retrain (`retrain_models.yml`)
+Runs every **Sunday 6am UTC** — models are ready before Monday morning brief.
+Also triggers automatically when `train_models.py` or `generate_database.py` changes.
+
+```bash
+# Generate the workflow file
+python research_monitor.py --github-action > .github/workflows/research_monitor.yml
+
+# Retrain workflow — copy from repo root
+cp retrain_models.yml .github/workflows/retrain_models.yml
+```
+
+What it does:
+- Runs `train_models.py` on latest data in the database
+- Commits updated `models/injury_risk_model.pkl`, `models/readiness_scorer.pkl`, `data/processed_data.csv`
+- Dashboard reads updated models on next page load — no restart needed
+
+**When to retrain:** Weekly is right for a demo. In production with real daily data, retrain after every 7+ new player-days of data. More data = better predictions.
+
+### Weekly Evidence Review (`research_monitor.yml`)
+Runs every **Monday 8am UTC** — new papers ready for triage when staff arrive.
+
+```bash
+python research_monitor.py --github-action > .github/workflows/research_monitor.yml
+```
+
+What it does:
+- Searches PubMed across 10 sport-science topics
+- Pulls Martin Buchheit, SPSR, BJSM RSS feeds
+- Filters clinical noise automatically
+- Saves new papers to `research_log.json` as PENDING
+- Commits results — appear in Insights tab Evidence Review on next dashboard load
+
+### Important: `GITHUB_TOKEN`
+Both workflows use `${{ secrets.GITHUB_TOKEN }}` to push commits back to the repo.
+This token is **automatically provided by GitHub** — you do not need to create it.
+It only needs read/write permissions on the repo, which is the default for Actions.
+
+---
+
 ## Research Monitoring
 
 WAIMS includes `research_monitor.py` — an automated PubMed + RSS tool that flags new papers relevant to the evidence base.

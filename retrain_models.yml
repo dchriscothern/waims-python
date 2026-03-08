@@ -1,0 +1,73 @@
+# .github/workflows/retrain_models.yml
+# Weekly model retraining — Sunday 6am UTC (before Monday morning brief).
+# Also runs automatically when train_models.py or generate_database.py changes.
+# Can be triggered manually from GitHub Actions tab at any time.
+#
+# What this does:
+#   1. Checks out the repo
+#   2. Installs dependencies
+#   3. Runs train_models.py — retrains Random Forest + readiness scorer on
+#      latest data in waims_demo.db (or real DB in production)
+#   4. Commits updated model files back to repo:
+#        models/injury_risk_model.pkl
+#        models/readiness_scorer.pkl
+#        data/processed_data.csv
+#
+# In production: replace waims_demo.db with your live database connection.
+# The dashboard reads models/*.pkl on every load — no restart needed after retrain.
+
+name: WAIMS Weekly Model Retrain
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'   # Sunday 6am UTC — models ready before Monday brief
+  workflow_dispatch:        # Manual trigger from GitHub Actions tab
+  push:
+    paths:
+      - 'train_models.py'       # Retrain automatically if training code changes
+      - 'generate_database.py'  # Retrain automatically if DB schema changes
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Retrain models
+        run: python train_models.py
+        env:
+          # Add any environment variables your train_models.py needs
+          # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PYTHONUNBUFFERED: "1"
+
+      - name: Commit updated models
+        run: |
+          git config user.name "WAIMS Model Trainer"
+          git config user.email "trainer@waims"
+          git add models/injury_risk_model.pkl \
+                  models/readiness_scorer.pkl \
+                  data/processed_data.csv 2>/dev/null || true
+          git diff --staged --quiet || \
+            git commit -m "Weekly model retrain $(date +%Y-%m-%d)"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report outcome
+        if: always()
+        run: |
+          echo "Retrain completed: $(date)"
+          echo "Model files:"
+          ls -lh models/*.pkl 2>/dev/null || echo "No pkl files found"
+          ls -lh data/processed_data.csv 2>/dev/null || echo "No processed_data.csv found"
