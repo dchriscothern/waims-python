@@ -85,19 +85,22 @@ For Streamlit Cloud deployment: Settings → Secrets → add same key/value pair
 
 ```
 waims-python/
-├── dashboard.py                 # Main app — 10 tabs
+├── dashboard.py                 # Main app — 8 tabs
 ├── coach_command_center.py      # Tab 1: Coach morning brief
-├── athlete_profile_tab.py       # Tab 3: Per-athlete deep-dive
-├── correlation_explorer.py      # Tab 10: Signal discovery + ESPN correlations
+├── athlete_profile_tab.py       # Tab 2: Per-athlete deep-dive
+├── correlation_explorer.py      # Insights tab section: signal discovery + ESPN correlations
 ├── generate_database.py         # DB creation — 12 players, 90 days, schedule
 ├── train_models.py              # RF model + readiness scorer + Section 8 validation
 ├── espn_data.py                 # ESPN WNBA box scores 2019–2025 (no API key)
 ├── wnba_api.py                  # WNBA positional benchmarks (static 2025)
-├── smart_query.py               # Generative AI natural-language query
+├── smart_query.py               # Generative AI natural-language query (Insights tab)
 ├── improved_gauges.py           # Gauge/pill chart components (optional)
 ├── z_score_module.py            # Shared z-score helpers (optional)
 ├── research_citations.py        # Research modal (optional)
 ├── research_context.py          # Risk context box (optional)
+├── research_monitor.py          # Automated PubMed + RSS evidence monitor
+├── research_merge.py            # Merges extended lookback into existing log safely
+├── research_topics_config.py    # Tightened PubMed query config (sport science only)
 ├── .env                         # API keys — never commit (in .gitignore)
 ├── .env.example                 # Template — safe to commit
 ├── requirements.txt
@@ -153,6 +156,26 @@ python generate_database.py && python train_models.py
 
 ---
 
+## Research Evidence Monitor
+
+WAIMS includes automated weekly evidence monitoring via GitHub Actions.
+
+```bash
+# Run manually
+python research_monitor.py --days 7 --save
+
+# Extended lookback without overwriting existing decisions
+python research_monitor.py --days 730 --output research_log_extended.json
+python research_merge.py --new research_log_extended.json --existing research_log.json
+
+# Set up GitHub Actions (Monday 8am weekly)
+python research_monitor.py --github-action > .github/workflows/research_monitor.yml
+```
+
+Decisions (Integrate / Watchlist / Reject) are made in the Evidence Review section of the Insights tab and saved to `research_log.json`.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -178,5 +201,5 @@ python generate_database.py && python train_models.py
    ANTHROPIC_API_KEY = "your_key"
    BALLDONTLIE_API_KEY = "your_key"
    ```
-4. Note: `waims_demo.db` must be committed to repo for cloud deployment  
+4. Note: `waims_demo.db` must be committed to repo for cloud deployment
    (or add DB generation to app startup)

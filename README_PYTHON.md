@@ -14,12 +14,17 @@ generate_database.py  ──►  waims_demo.db  ──►  train_models.py  ─�
                          wnba_api.py
                                 │
                          dashboard.py
-                    ┌───────────┴────────────────────┐
-                    │  coach_command_center.py (Tab 1) │
-                    │  athlete_profile_tab.py  (Tab 3) │
-                    │  correlation_explorer.py (Tab 10)│
-                    │  smart_query.py          (Tab 9) │
-                    └──────────────────────────────────┘
+                    ┌───────────┴──────────────────────────┐
+                    │  coach_command_center.py  (Tab 1)     │
+                    │  athlete_profile_tab.py   (Tab 2)     │
+                    │  correlation_explorer.py  (Insights)  │
+                    │  smart_query.py           (Insights)  │
+                    └──────────────────────────────────────┘
+
+Evidence monitoring (separate from dashboard):
+  research_monitor.py  ──►  research_log.json  ──►  Insights tab (Evidence Review)
+  research_merge.py    ──►  safe extended-lookback merging
+  research_topics_config.py  ──►  tightened PubMed query reference
 ```
 
 ---
@@ -103,15 +108,16 @@ Population benchmarks are display-only context, not model features.
 ---
 
 ### `coach_command_center.py` — Tab 1
-**Audience:** Head coach, assistant coaches  
+**Audience:** Head coach, assistant coaches
 **Goal:** Full roster situational awareness in under 30 seconds
 
 Components:
 - Dark header — live READY/MONITOR/PROTECT counts
 - Priority Alerts — top 3 flagged players, reason + directive
+- Positional Group Readiness Strip — Guards / Wings / Bigs average readiness above roster
 - GPS/Kinexon strip — team avg load, high-load players, low-accel players
-- Roster cards (Plotly figures) — name, position, status badge, readiness %, reason line
-- 7-day team sparklines — sleep, soreness, mood, stress
+- Roster cards — name, position, status badge, readiness %, minutes cap, overnight delta
+- Hidden Fatigue Flag — READY players trending down under high load (>100 min/4d)
 
 Status badges:
 - READY (green) ≥ 80
@@ -120,8 +126,8 @@ Status badges:
 
 ---
 
-### `athlete_profile_tab.py` — Tab 3
-**Audience:** Sports scientist, athletic trainer  
+### `athlete_profile_tab.py` — Tab 2
+**Audience:** Sports scientist, athletic trainer
 **Goal:** Full per-player monitoring picture
 
 Components:
@@ -134,7 +140,7 @@ Components:
 - Basketball-specific risk context (practice vs competition)
 - Research references with evidence grades
 
-Formula alignment: readiness score uses shared _calculate_readiness() function,
+Formula alignment: readiness score uses shared `_calculate_readiness()` function,
 identical to coach_command_center.py — single source of truth via pkl scorer.
 Sleep threshold: <7.0 yellow, <6.0 red (Walsh 2021) — consistent across all tabs.
 CMJ benchmark: position-matched G=38cm, F=34cm, C=30cm — consistent across all tabs.
@@ -144,8 +150,8 @@ Reason: Impellizzeri 2020 statistical coupling critique, 2025 meta-analysis.
 
 ---
 
-### `correlation_explorer.py` — Tab 10
-**Audience:** Sports scientist, analyst  
+### `correlation_explorer.py` — Insights Tab (Signal Correlations section)
+**Audience:** Sports scientist, analyst
 **Goal:** Surface hidden signal relationships
 
 Sections:
@@ -160,10 +166,13 @@ ESPN integration: `_build_master()` joins `game_results` and `game_box_scores`
 on game dates, adding `game_team_pts`, `game_margin`, `game_result_binary`.
 These appear in heatmap when ESPN data is present in DB.
 
+Note: Previously a standalone tab (Tab 10). Now integrated into the Insights tab
+beneath the Ask and Evidence Review sections — sport scientist audience only.
+
 ---
 
-### `smart_query.py` — Tab 9
-**Audience:** All staff  
+### `smart_query.py` — Insights Tab (Ask section)
+**Audience:** All staff
 **Goal:** Natural-language data questions
 
 Calls Claude API (claude-sonnet). Context includes:
@@ -178,28 +187,104 @@ Example queries:
 - "Show me everyone with CMJ drop and high soreness"
 - "Does team readiness correlate with game margin?"
 
+Note: Previously a standalone tab (Tab 9). Now integrated into the Insights tab
+as the top section — accessible to all staff regardless of technical background.
+
+---
+
+### `research_monitor.py` — Evidence Monitor (standalone script)
+**Audience:** Sport scientist
+**Goal:** Weekly automated triage of new sport science research
+
+Purpose: Forward-looking inbox only. Foundational papers (Walsh 2021, Gabbett 2016,
+Gathercole 2015, etc.) are already in RESEARCH_FOUNDATION.md. This script surfaces
+NEW research for weekly triage.
+
+Key features:
+- 10 targeted PubMed queries (sport science only — clinical noise filtered out)
+- Expert RSS: Martin Buchheit, SPSR, BJSM
+- Evidence gate applied automatically (CANDIDATE / REVIEW / WATCHLIST / BACKGROUND)
+- Decisions saved to `research_log.json` and displayed in Insights tab
+- `--output` flag for saving to a separate file (extended lookback workflow)
+- GitHub Actions: Monday 8am weekly run
+
+```bash
+python research_monitor.py --days 7 --save        # standard weekly run
+python research_monitor.py --days 730 --output research_log_extended.json
+python research_merge.py --new research_log_extended.json --existing research_log.json
+```
+
+---
+
+### `research_merge.py` — Evidence Log Merge (standalone script)
+**Audience:** Sport scientist
+**Goal:** Safely merge an extended-lookback research run into existing log
+
+Preserves all existing Integrate / Watchlist / Reject decisions.
+Applies relevance filter before adding new papers.
+Creates timestamped backup of existing log before writing.
+
+```bash
+python research_merge.py --new research_log_extended.json --existing research_log.json
+python research_merge.py --new research_log_extended.json --strict   # strong matches only
+```
+
+---
+
+## 8 Tabs — Quick Reference
+
+| Tab | Name | Audience | Key Purpose |
+|-----|------|----------|-------------|
+| 1 | Command Center | Coach | 30-second morning brief — who, what, do differently |
+| 2 | Today's Readiness | Analyst | Z-score flags, all signals per player |
+| 3 | Athlete Profiles | Analyst | Per-player deep-dive, radar, GPS trends |
+| 4 | Trends & Load | Analyst | Rolling averages + GPS/Kinexon trends (merged) |
+| 5 | Jump Testing | Analyst | CMJ & RSI vs personal baseline |
+| 6 | Availability & Injuries | GM / Medical | Status board, season %, injury log |
+| 7 | Forecast | GM / Coach | 7-day risk watchlist + load projection |
+| 8 | Insights | Sport Scientist | Ask + Model Validation + Evidence Review + Correlations |
+
 ---
 
 ## Key Design Decisions
 
-**Single readiness formula across all tabs**  
+**Single readiness formula across all tabs**
 All three calculation surfaces (Command Center, Athlete Profile, train_models.py) now use
 the same pkl scorer or identical fallback formula. Prior to audit, athlete_profile_tab.py
 used a different formula (wellness only, no CMJ/RSI/schedule) which caused meaningful
-score divergence — a player with good sleep but fatigued legs could show 90% in profiles
-but correctly 65% in Command Center. Resolved March 2026.
+score divergence. Resolved March 2026.
 
-**Personal z-scores over population thresholds**  
-Small rosters (12 players) make population norms unreliable. A guard who normally scores 7/10 on soreness and reports 7/10 today is not flagged — because that's her norm. Personal 30-day rolling baseline is more sensitive and specific.
+**Personal z-scores over population thresholds**
+Small rosters (12 players) make population norms unreliable. A guard who normally scores
+7/10 on soreness and reports 7/10 today is not flagged — because that's her norm.
+Personal 30-day rolling baseline is more sensitive and specific.
 
-**Hard safety floors**  
-Some signals override z-scores: sleep < 7 hrs, soreness/stress > 7. These are absolute thresholds regardless of personal baseline. Prevents "this player is always tired so we normalize it."
+**Hard safety floors**
+Some signals override z-scores: sleep < 7 hrs, soreness/stress > 7. These are absolute
+thresholds regardless of personal baseline. Prevents "this player is always tired so we
+normalize it."
 
-**ACWR demotion**  
-ACWR is displayed but not weighted in readiness score or model features. Reason: Impellizzeri et al. 2020 identified mathematical coupling artifacts; 2025 meta-analysis recommends "use with caution." Back-to-back and days_rest features replace it as schedule load signals.
+**ACWR demotion**
+ACWR is displayed but not weighted in readiness score or model features. Reason:
+Impellizzeri et al. 2020 identified mathematical coupling artifacts; 2025 meta-analysis
+recommends "use with caution." Back-to-back and days_rest features replace it as schedule
+load signals.
 
-**Evidence grades**  
-All thresholds tagged ★★★ (RCT/systematic review), ★★ (observational cohort), or ★ (clinical estimate). Unrivaled transition penalty explicitly marked as clinical estimate — no research exists.
+**Evidence gate policy**
+No WAIMS threshold change without a supporting meta-analysis or systematic review.
+Single new studies go to Watchlist. Decisions recorded in research_log.json.
+Forward-looking inbox only — foundational evidence already locked in RESEARCH_FOUNDATION.md.
+
+**Model validation (V1)**
+V1 validation question: does the readiness score ranking match coach intuition?
+Spearman rank correlation between daily ranking and coach informal assessment.
+Target: coach agrees with top/bottom 3 flagged athletes on ≥70% of days.
+V2 upgrades: walk-forward time splits, player-holdout GroupKFold, PR-AUC, Precision@K.
+
+**Evidence grades**
+All thresholds tagged ★★★ (RCT/systematic review), ★★ (observational cohort), or
+★ (clinical estimate). Unrivaled transition penalty explicitly marked as clinical
+estimate — no research exists.
 
 ---
 
@@ -211,3 +296,5 @@ All thresholds tagged ★★★ (RCT/systematic review), ★★ (observational c
 | Synthetic wellness data | Real athlete monitoring input | Model predictions become valid |
 | ESPN box scores (free) | Second Spectrum (team license) | True GPS game load replaces proxy |
 | Anonymized players | Real roster (with consent) | Photos, actual career stats |
+| B2B flag only | V2: eastward/westward travel direction | Circadian penalty scaled by direction |
+| Manual evidence triage | Already automated | GitHub Actions weekly — already built |
