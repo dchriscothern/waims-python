@@ -60,12 +60,12 @@
       "SYSTEMATIC REVIEW",
       "REVIEW"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "CANDIDATE",
     "gate_note": "ELIGIBLE FOR THRESHOLD REVIEW. Check: same population? Same sport/sex? Meaningful effect size? If yes -- schedule formal review with performance staff.",
     "date_found": "2026-03-07",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1040,12 +1040,12 @@
       "RCT",
       "BASKETBALL"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "REVIEW",
     "gate_note": "Basketball-specific -- read abstract carefully. Single study: WATCHLIST only. Do not change thresholds alone.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1143,12 +1143,12 @@
       "RCT",
       "FEMALE"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "WATCHLIST",
     "gate_note": "Prospective or cohort study. Monitor for replication. Escalate to CANDIDATE if confirmed in future meta-analysis.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {

@@ -1773,7 +1773,7 @@ understand model boundaries.
                 f'<span style="font-size:10px;color:#94a3b8;margin-left:8px;">Score: {_score} | {_p.get("source","PubMed")}</span></div>'
                 f'<span style="font-size:11px;font-weight:700;color:{_dc};">{_dec}</span>'
                 f'</div>'
-                f'<div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:3px;word-wrap:break-word;white-space:normal;">{_p.get("title","Unknown")[:200]}</div>'
+                f'<div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:3px;word-wrap:break-word;white-space:normal;">{_p.get("title","Unknown")[:230]}</div>'
                 f'<div style="font-size:11px;color:#475569;margin-bottom:4px;">{_p.get("authors","")} | <em>{_p.get("journal","")}</em> | {_p.get("pub_date","?")}</div>'
                 f'<div style="font-size:11px;background:#f0f9ff;padding:3px 8px;border-radius:3px;color:#0369a1;margin-bottom:3px;">WAIMS: {_p.get("waims_signal","?")}</div>'
                 f'<div style="font-size:11px;background:#fefce8;padding:3px 8px;border-radius:3px;color:#713f12;">{_p.get("gate_note","")[:120]}</div>'
