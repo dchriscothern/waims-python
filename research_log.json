@@ -416,12 +416,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-07",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -509,12 +509,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-07",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -758,12 +758,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-07",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1241,12 +1241,12 @@
     "quality_labels": [
       "PROSPECTIVE"
     ],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "WATCHLIST",
     "gate_note": "Prospective or cohort study. Monitor for replication. Escalate to CANDIDATE if confirmed in future meta-analysis.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1308,12 +1308,12 @@
       "BASKETBALL",
       "FEMALE"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "REVIEW",
     "gate_note": "Basketball-specific -- read abstract carefully. Single study: WATCHLIST only. Do not change thresholds alone.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1342,12 +1342,12 @@
       "BASKETBALL",
       "FEMALE"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "REVIEW",
     "gate_note": "Basketball-specific -- read abstract carefully. Single study: WATCHLIST only. Do not change thresholds alone.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1376,12 +1376,12 @@
       "BASKETBALL",
       "FEMALE"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "REVIEW",
     "gate_note": "Basketball-specific -- read abstract carefully. Single study: WATCHLIST only. Do not change thresholds alone.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1409,12 +1409,12 @@
     "quality_labels": [
       "BASKETBALL"
     ],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "REVIEW",
     "gate_note": "Basketball-specific -- read abstract carefully. Single study: WATCHLIST only. Do not change thresholds alone.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1611,12 +1611,12 @@
       "FEMALE",
       "REVIEW"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1776,12 +1776,12 @@
     "quality_labels": [
       "FEMALE"
     ],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1809,12 +1809,12 @@
     "quality_labels": [
       "FEMALE"
     ],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -1911,12 +1911,12 @@
     "quality_labels": [
       "FEMALE"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2044,12 +2044,12 @@
     "quality_labels": [
       "REVIEW"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2143,12 +2143,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2330,12 +2330,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2361,12 +2361,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2548,12 +2548,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2579,12 +2579,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2704,12 +2704,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2766,12 +2766,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2828,12 +2828,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -2952,12 +2952,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -3045,12 +3045,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -3076,12 +3076,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -3474,12 +3474,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -3666,12 +3666,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -3698,12 +3698,12 @@
     ],
     "quality_score": 0,
     "quality_labels": [],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "BACKGROUND",
     "gate_note": "Background awareness only. Not sufficient basis for threshold change.",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -3878,12 +3878,12 @@
     "quality_labels": [],
     "waims_signal": "Practitioner article -- assess manually",
     "waims_action": "Does this change a threshold or interpretation? Cross-check with Sportsmith.",
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "ASSESS",
     "gate_note": "Practitioner article -- assess against real-world context. Does it align with or contradict your Sportsmith reading this week?",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -4153,12 +4153,12 @@
     ],
     "waims_signal": "Practitioner article -- assess manually",
     "waims_action": "Does this change a threshold or interpretation? Cross-check with Sportsmith.",
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "ASSESS",
     "gate_note": "Practitioner article -- assess against real-world context. Does it align with or contradict your Sportsmith reading this week?",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
@@ -4411,12 +4411,12 @@
     ],
     "waims_signal": "Practitioner article -- assess manually",
     "waims_action": "Does this change a threshold or interpretation? Cross-check with Sportsmith.",
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "ASSESS",
     "gate_note": "Practitioner article -- assess against real-world context. Does it align with or contradict your Sportsmith reading this week?",
     "date_found": "2026-03-06",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-07",
     "decision_notes": ""
   },
   {
