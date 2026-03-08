@@ -239,7 +239,7 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
                 if yest_score - score >= 5:  # dropping ≥5% while high load
                     hidden_fatigue = True
                     if "Cleared for full training" in reason:
-                        reason = "Trending down under high load — monitor closely"
+                        reason = "Trending down despite heavy week — watch her closely"
 
         # ── Load warning — replaces hard minutes cap ──────────────────────────
         # A hard number implies precision the data doesn't support on a summary card.
@@ -248,11 +248,11 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
         # Here: warning label only — coaches use judgment on actual number.
         load_warning = None
         if score < 60 and mins_4d is not None and mins_4d > 80:
-            load_warning = "Manage load tonight"
+            load_warning = "Consider easing her load today"
         elif hidden_fatigue:
-            load_warning = "High cumulative load — ease off"
+            load_warning = "Heavy legs this week — worth watching"
         elif score < 80 and mins_4d is not None and mins_4d > 120:
-            load_warning = "High 4-day load"
+            load_warning = "High minutes this week"
 
         rows.append({
             "pid":            pid,
@@ -322,8 +322,8 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
                 alerts.append({
                     "level":  "🟡 WORKLOAD",
                     "name":   r["name"],
-                    "msg":    "Training load has spiked this week relative to recent baseline",
-                    "action": "Cap volume today — full intensity, shorter duration",
+                    "msg":    "She's been working hard recently — a big week on top of this could be risky.","
+                    "action": "Consider keeping today's session shorter — intensity is fine, just less of it.","
                 })
 
         if r["cmj"] == "🔴":
@@ -331,7 +331,7 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
                 "level":  "🔴 NEURO",
                 "name":   r["name"],
                 "msg":    "Legs not responding — jump power significantly below her normal",
-                "action": "No sprinting or jumping today — active recovery only",
+                "action": "Worth pulling her from high-intensity drills today — her legs are not responding normally.","
             })
 
         if r["accel"] == "🔴":
@@ -538,7 +538,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     elif protect_list:
         names = ', '.join(protect_list[:3])
         b1 = (f"<b>{len(protect_list)} player{'s' if len(protect_list)>1 else ''} on protect "
-              f"today:</b> {names} — modified session, flag for medical if pain >7/10.")
+              f"today:</b> {names} — modified session only. Let medical know if she reports pain.")
         b1_color = "#dc2626"
     elif watch_list:
         names = ', '.join(watch_list[:3])
@@ -620,12 +620,12 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
     if high_load_players:
         names_load = ", ".join(f"{n} ({m} min)" for n,m in high_load_players[:2])
-        b3 = (f"<b>High cumulative load:</b> {names_load} in last 4 days — "
-              f"consider shortened practice or lighter intensity today regardless of readiness score.")
+        b3 = (f"<b>Heavy legs this week:</b> {names_load} in the last 4 days — "
+              f"consider a lighter session today regardless of how they feel. Your call on minutes.")
         b3_color = "#d97706"
     elif monitor_count >= 4:
-        b3 = (f"<b>{monitor_count} players on MONITOR today</b> — consider reducing "
-              f"total session volume by 10–15%. Focus on skill quality over conditioning load.")
+        b3 = (f"<b>{monitor_count} players worth watching today</b> — consider keeping the session a bit lighter. "
+              f"Skill work over conditioning today.")
         b3_color = "#d97706"
     else:
         ready_pct = round(len([r for r in summary if r["score"]>=80]) / max(len(summary),1) * 100)
