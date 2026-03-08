@@ -43,19 +43,18 @@ Does not make clinical decisions — translates data into plain English for coac
 
 ## Features
 
-### 9 Interactive Tabs
+### 8 Interactive Tabs
 
 | Tab | Audience | Purpose |
 |-----|----------|---------|
 | Command Center | Coach | Morning brief — status badges, unit readiness strip (G/F/C), roster cards with minutes cap + hidden fatigue flag, overnight delta |
 | Today's Readiness | Analyst | Z-score flags, wellness + force plate + GPS per player |
-| Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, 7-day risk score, load projection, basketball-specific risk context (V1) |
-| Trends | Analyst | 7-day rolling averages — sleep, soreness, mood, stress |
+| Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, 7-day risk score, load projection, basketball-specific risk context |
+| Trends & Load | Analyst | 7-day rolling averages — sleep, soreness, mood, stress + GPS/Kinexon load merged into single tab |
 | Jump Testing | Analyst | CMJ & RSI vs personal baseline, 7-day team trend |
 | Availability & Injuries | GM / Medical | Daily availability board, season %, injury log |
-| GPS & Load | Analyst | Kinexon metrics, 14-day trends, player load ACWR |
 | Forecast | GM / Coach | 7-day injury risk watchlist + load projection (what happens to readiness after tonight's game) |
-| Insights | All | Natural-language queries + correlation heatmap + ESPN game outcome analysis |
+| Insights | Sport Scientist | Natural-language queries + model validation philosophy + evidence review inbox + correlation heatmap |
 
 ### Monitoring Signals
 
@@ -87,8 +86,6 @@ That divergence is the clinical value — subjective wellness and objective neur
 
 Cards also show **▲/▼ overnight** — readiness change vs yesterday, so coaches see what moved since last session.
 
-Badges appear on: Command Center roster cards, Priority Alerts panel, Forecast tab, Athlete Profile.
-
 ### Classification Engine
 
 Personal z-scores (30-day rolling baseline) + hard safety floors:
@@ -99,6 +96,16 @@ Personal z-scores (30-day rolling baseline) + hard safety floors:
 - CMJ/RSI position-matched benchmarks (G=38cm, F=34cm, C=30cm)
 - ACWR: contextual flag only (Impellizzeri 2020)
 - Scores rescaled 0–100 so READY/MONITOR/PROTECT thresholds are calibrated
+
+---
+
+## Model Validation
+
+**V1 validation question:** Does the readiness score ranking match what the coach already knows?
+
+WAIMS V1 does not operate as a validated injury classifier — the Forecast tab produces a heuristic risk score. The meaningful V1 validation is Spearman rank correlation between WAIMS daily ranking and coach informal assessment. Target: coach agrees with top/bottom 3 flagged athletes on ≥ 70% of days.
+
+**V2 validation upgrades** (when 1 full season of real data is available): walk-forward time splits, player-holdout GroupKFold, PR-AUC + calibration, Precision@K top 3 per day, lead-time analysis, and ablation studies. See Insights tab → Model Validation Philosophy for full framework.
 
 ---
 
@@ -147,71 +154,82 @@ Full citations in `RESEARCH_FOUNDATION.md`.
 All player names anonymized (Player G1, Player F1, etc.).  
 Safe for GitHub, portfolio, and professional presentations.
 
-
 ---
 
-## V1 vs V2 — Feature Status
+## V1 vs V2 vs V3 — Feature Status
 
-| Feature | V1 Status | V2 (Production) Plan |
-|---|---|---|
-| Basketball-Specific Risk Context | V1: Core flags (CMJ/RSI, decel, sleep, soreness) with clinical caveats. `injury_mechanism_insight_box` not built yet. | V2: Full mechanism language, position-specific context, practice vs competition differentiation. Requires validation on real team data first. |
-| Positional Group Readiness Strip | V1: Guards / Wings / Bigs average readiness shown above roster cards. Instant tactical adjustment signal. | V2: Could integrate with game footage tags for drill-specific load by unit. |
-| Minutes Cap on Cards | V1: Recommended minutes cap on each roster card based on readiness + 4-day cumulative load. | V2: Incorporate Second Spectrum game minutes for true cumulative load picture. |
-| Hidden Fatigue Detection | V1: Flags READY players (>=80%) trending down under high load (>100 min/4d). Amber badge on card. | V2: Incorporate decel trend data for earlier detection. |
-| GPS decel monitoring | V1: z-score vs personal baseline, labelled as exposure indicator with cross-reference requirement (Clubb 2025). | V2: Individualised thresholds as % of each player's observed maximum (Pimenta et al. 2026). |
-| Game load integration | V1: Practice minutes only (Kinexon). Game load not tracked. | V2: Second Spectrum optical tracking integration — true week-total load picture across practice + games. WNBA leaguewide data available since 2024. |
-| ML model | V1: Random Forest trained on synthetic demo data. Predictions are illustrative. | V2: Retrained on 90+ days of real athlete data with real injury outcomes. Add menstrual cycle phase as feature. |
-| Data input | V1: SQLite / CSV manual import. | V2: Live API connections — Kinexon, ForceDecks/Vald, wellness app (Smartabase or Teamworks Pulse), Second Spectrum. MCP server architecture. |
-| Notifications | V1: Dashboard only — staff must open the app. | V2: Slack morning brief, SMS alerts for PROTECT-status players (medical staff only). |
-| Athlete view | V1: Staff-facing only. | V2: Simplified athlete-facing readiness + trend view. No injury risk numbers shown to athletes. |
-| Hormonal cycle | V1: Not modelled. | V2: Menstrual phase adjustment to CMJ/RSI thresholds and load recommendations (Bruinvels et al. 2017). Requires athlete consent protocol. |
+| Feature | V1 Status | V2 (Production) Plan | V3 (Future) |
+|---|---|---|---|
+| Basketball-Specific Risk Context | Core flags (CMJ/RSI, decel, sleep, soreness) with clinical caveats | Full mechanism language, position-specific context, practice vs competition differentiation | — |
+| Positional Group Readiness Strip | Guards / Wings / Bigs avg readiness above roster cards | — | Integrate with drill-level load by unit |
+| Minutes Cap on Cards | Recommended cap based on readiness + 4-day load | Incorporate Second Spectrum game minutes for true cumulative load | — |
+| Hidden Fatigue Detection | Flags READY players trending down under high load (>100 min/4d) | Incorporate decel trend data for earlier detection | — |
+| GPS decel monitoring | z-score vs personal baseline, labelled as exposure indicator (Clubb 2025) | Individualised thresholds as % of each player's observed maximum (Pimenta 2026) | — |
+| Drill-level GPS tagging | Not built | Not in scope | PlayerMaker/Kinexon timestamp-gated drill segmentation — analyst labels drill type in app, load metrics mapped per segment |
+| Game load integration | Practice minutes only (Kinexon) | Second Spectrum optical tracking — true week-total load across practice + games | — |
+| ML model | Random Forest on synthetic demo data — illustrative only | Retrain on 90+ days real data with real injury outcomes. Add menstrual cycle phase as feature | Walk-forward validation, PR-AUC, Precision@K |
+| Data input | SQLite / CSV manual import | Live APIs: Kinexon, ForceDecks, wellness app. MCP server architecture | — |
+| Notifications | Dashboard only | Slack morning brief, SMS alerts for PROTECT-status (medical staff only) | — |
+| Hormonal cycle | Not modelled | Menstrual phase adjustment to CMJ/RSI thresholds (Bruinvels 2017). Requires consent protocol | WHSP Institute publications auto-monitored |
+| Travel direction | B2B flag only | Eastward/westward circadian penalty (Charest 2021) — ~1 day/time zone eastward | — |
 
 ---
 
 ## Research Monitoring
 
-WAIMS includes `research_monitor.py` — an automated PubMed search tool that flags new papers relevant to the evidence base.
+WAIMS includes `research_monitor.py` — an automated PubMed + RSS tool that flags new papers relevant to the evidence base.
+
+**Purpose:** Forward-looking inbox only. Foundational papers (Walsh 2021, Gabbett 2016, Gathercole 2015, etc.) are already integrated in `RESEARCH_FOUNDATION.md`. This monitor surfaces NEW research for weekly triage in the Evidence Review section of the Insights tab.
 
 **Run manually:**
 ```bash
-python research_monitor.py              # last 7 days, console output
-python research_monitor.py --days 30   # last 30 days
-python research_monitor.py --save      # save to research_log.json
-python research_monitor.py --html      # generate HTML report with decision buttons
+python research_monitor.py                        # last 7 days, console output
+python research_monitor.py --days 30              # last 30 days
+python research_monitor.py --save                 # save to research_log.json
+python research_monitor.py --html                 # generate HTML report
+python research_monitor.py --output custom.json   # save to separate file (for merge workflow)
 ```
 
-**Run automatically (GitHub Actions):**
+**Extended lookback + merge (preserves existing decisions):**
+```bash
+python research_monitor.py --days 730 --output research_log_extended.json
+python research_merge.py --new research_log_extended.json --existing research_log.json
+```
+
+**Run automatically (GitHub Actions — Monday 8am weekly):**
 ```bash
 python research_monitor.py --github-action > .github/workflows/research_monitor.yml
 ```
-This sets up a weekly Monday 8am search that commits results back to the repo.
 
-**Search topics covered:** Sleep & injury risk, CMJ/RSI monitoring, basketball load monitoring, deceleration & injury, GPS validity, female athlete recovery, ACWR critique, wellness monitoring, basketball injury epidemiology.
+**Search topics:** Sleep & athlete injury risk, CMJ/RSI monitoring, basketball load, female athlete monitoring, deceleration, GPS load, ACWR methodology, menstrual cycle & performance, basketball injury epidemiology, travel & circadian load.
+
+**Relevance filter:** Clinical noise (surgery, pharmacology, oncology, animal studies, etc.) is automatically filtered out before papers reach your log. Only sport science relevant papers surface for triage.
 
 **Decision workflow:**
-1. HIGH priority (meta-analysis or systematic review) — read abstract immediately
-2. Does it change a threshold, weight, or interpretation in WAIMS?
-3. YES → update `RESEARCH_FOUNDATION.md` + relevant module + this README
-4. NO → add to `research_log.json` as background evidence only
+1. CANDIDATE (meta-analysis/SR) — read abstract, schedule staff review if relevant
+2. REVIEW (basketball-specific) — read abstract, Watchlist only
+3. Does it change a threshold or interpretation in WAIMS?
+4. YES → update `RESEARCH_FOUNDATION.md` + relevant module + README
+5. NO → Watchlist or Reject
 
-**Important:** Do not update WAIMS thresholds from a single new study alone. Wait for replication or meta-analysis confirmation.
+**Policy:** No threshold change without meta-analysis or systematic review support. Single studies go to Watchlist.
 
-**Sportsmith.co:** Manual monitoring recommended — trusted applied sport science articles (Jo Clubb, Tim Gabbett, etc.). Free tier has some content; $13/month premium gives full access. For a real team, worth adding as continuing education partner. Cannot be scraped automatically due to authentication — bookmark and review weekly.
+**Sportsmith.co:** Manual monitoring recommended — trusted applied sport science (Jo Clubb, Tim Gabbett). $13/month premium. Cannot be auto-scraped — bookmark and review weekly. Log as `Source: Sportsmith (manual YYYY-MM-DD)`.
 
-## Drill-Level Load Library (Roadmap — V2/V3)
+---
 
-Concept surfaced by Gemini analysis (2026-03-06) of WAIMS Command Center. Coaches often
-have "black box" drills — they know the tactical intent but not the physiological cost.
+## Drill-Level Load Library (V3 Roadmap)
+
+Concept surfaced by Gemini analysis (2026-03-06). Coaches often have "black box" drills — they know the tactical intent but not the physiological cost.
 
 **What's already in WAIMS (V1):**
-- Translation layer: Load Projection outputs plain-language guidance ("High-Leg drill — expect soreness tomorrow. Good for Monday, bad for a Friday pre-game.")
-- Positional drill scaling: Unit Readiness Strip shows Guards/Wings/Bigs readiness — coaches can adjust drill intensity by unit
-- 3-click rule: Command Center -> flag -> Athlete Profile detail
+- Load Projection: plain-language guidance per scenario ("Heavy game — expect soreness tomorrow")
+- Unit Readiness Strip: Guards/Wings/Bigs readiness — coaches adjust drill intensity by unit
+- 3-click rule: Command Center → flag → Athlete Profile detail
 
-**V2 roadmap items from Gemini analysis:**
-- Drill Menu with biometric price tags: drag-and-drop practice planning with projected team load. Requires drill-level GPS tagging (Catapult/Playermaker), not just session-level.
-- Drill Efficiency Scoring: HR/Player Load vs active time. "Your 4-on-4 Shell has 40% standing time."
-- Modify Practice button: suggests lower-load drill versions when unit readiness is low
-- Practice Script output: printable/tablet-ready session plan with load-aware drill substitutions
+**V3 roadmap:**
+- Drill-level GPS tagging via PlayerMaker or Kinexon — timestamp-gated drill segmentation
+- Analyst labels drill type in app, load metrics mapped per segment automatically
+- Drill Menu with biometric price tags, Modify Practice button, Practice Script output
 
-**Note on ACWR in Gemini suggestions:** Gemini still treats ACWR as a primary load signal in some suggestions. WAIMS has correctly demoted ACWR to a contextual flag only (Impellizzeri 2020 BJSM critique). Do not reintroduce ACWR weighting based on these suggestions.
+**Note on ACWR:** Do not reintroduce ACWR weighting from external suggestions. WAIMS has correctly demoted ACWR to a contextual flag only (Impellizzeri 2020 BJSM critique).
