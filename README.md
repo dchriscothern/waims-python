@@ -145,6 +145,8 @@ WAIMS V1 does not operate as a validated injury classifier — the Forecast tab 
 | ACWR | Impellizzeri et al. 2020 | Flag only — not weighted |
 | Unrivaled | Clinical estimate | -2pt (no published research — explicitly flagged) |
 
+**Research philosophy:** Thresholds are set by research, adjusted by context. Published thresholds come from heterogeneous populations (often soccer/rugby). WAIMS accounts for basketball-specific demands — pace of play, multi-directional deceleration load, positional differentiation, WNBA schedule density, and female physiology. In a real high-performance department, thresholds are calibrated through collaboration between sport science, coaching, and medical staff — evidence sets the starting point, practitioners adjust to their specific context.
+
 Full citations in `RESEARCH_FOUNDATION.md`.
 
 ---
@@ -263,7 +265,9 @@ python research_monitor.py --github-action > .github/workflows/research_monitor.
 
 **Policy:** No threshold change without meta-analysis or systematic review support. Single studies go to Watchlist.
 
-**Sportsmith.co:** Manual monitoring recommended — trusted applied sport science (Jo Clubb, Tim Gabbett). $13/month premium. Cannot be auto-scraped — bookmark and review weekly. Log as `Source: Sportsmith (manual YYYY-MM-DD)`.
+**Sportsmith.co:** Manual monitoring recommended — trusted applied sport science (Jo Clubb, Tim Gabbett). $13/month premium. Log as `Source: Sportsmith (manual YYYY-MM-DD)`.
+
+**Sports Science AI (sportscienceai.com):** Purpose-built AI research assistant for sport science. Database updated weekly. Citations for every paper. Covers journals outside PubMed. Recommended for real-team deployment as a complement to the automated PubMed monitor — together they provide full coverage without manual periodic gap searches.
 
 ---
 

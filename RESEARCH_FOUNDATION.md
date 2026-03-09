@@ -9,6 +9,99 @@ Evidence grades:
 
 ---
 
+
+
+## Research Philosophy & Contextual Adjustment
+
+### Evidence-Driven, Context-Informed
+
+WAIMS thresholds are grounded in peer-reviewed systematic reviews and meta-analyses.
+However, published thresholds are derived from heterogeneous sport populations — often soccer,
+rugby, or mixed sport samples — and no evidence gate replaces the judgment of experienced
+practitioners working with a specific team.
+
+**The WAIMS evidence policy is:**
+> Thresholds are set by research. Thresholds are adjusted by context.
+
+### Why Basketball Context Matters
+
+Basketball has specific characteristics that differentiate it from the sports most represented
+in the monitoring literature:
+
+- **Multi-directional, high-deceleration demands** — distinct from linear team sports (soccer, rugby)
+- **WNBA pace of play** — shorter shot clock, different movement density vs NBA or European leagues
+- **Positional differentiation** — guards carry different acute and chronic load profiles than forwards/centers
+- **Schedule density** — 40-game WNBA regular season with back-to-backs differs structurally from soccer weekly cycles
+- **Female physiology** — recovery rates, hormonal variability, and neuromuscular response differ from male-derived norms
+
+### RSI-Modified — Context Note
+
+RSI-Modified (25pts in WAIMS) is validated primarily by Gathercole et al. (2015) in elite female
+rugby sevens athletes — the closest available female team sport population. The 2023 Janetzki
+meta-analysis did not include RSI as a meta-analysed marker (insufficient standardised studies).
+
+NBA and WNBA teams use RSI-Mod and drop jump alongside CMJ height because they measure
+different qualities:
+- **CMJ height** — explosive output, acceleration readiness (Janetzki 2023 validated)
+- **RSI-Modified** — reactive strength, stretch-shortening cycle efficiency, more sensitive to
+  accumulated fatigue and overreach (Gathercole 2015)
+
+Both belong in a basketball monitoring system. The Janetzki finding validates CMJ height specifically;
+the absence of RSI from that meta-analysis reflects insufficient standardised studies, not evidence
+against its use.
+
+### Threshold Adjustment Process
+
+In a real high-performance department, WAIMS thresholds should be reviewed:
+
+1. **With coaching staff** — do flagged athletes match coach intuition? (V1 validation method)
+2. **With medical/athletic training** — do thresholds align with clinical observations?
+3. **Against team historical data** — do z-score flags precede actual performance decrements or injury?
+4. **In context of schedule** — preseason, regular season, and playoff thresholds may legitimately differ
+5. **Without silos** — sport science, coaching, and medical staff should inform threshold decisions together
+
+No threshold change without meta-analysis support is the evidence gate for new published research.
+Contextual adjustment based on practitioner judgment, team data, and interdepartmental collaboration
+is a separate and essential layer that published research cannot replace.
+
+*This is how the Orlando Magic framework operates in practice: evidence sets the starting point,
+practitioners calibrate to their specific context.*
+
+## Recommended Evidence Sources for WAIMS
+
+### Primary Literature (automated via research_monitor.py)
+| Source | Access | Use |
+|---|---|---|
+| **PubMed** | Free, no key | Primary literature. WAIMS monitor searches 10 targeted queries weekly. |
+| **SPORT Discus** | Library/institutional | Best sports science database — broader than PubMed for applied sport. Search manually. |
+| **Google Scholar** | Free | Citation tracking — find what cited Gathercole 2015, Walsh 2021, etc. to surface newer work. |
+| **Semantic Scholar** | Free | AI-generated TLDRs + citation graphs. Good for rapid screening. |
+
+### Practitioner Layer (manual weekly review)
+| Source | Access | Use |
+|---|---|---|
+| **Sportsmith** | $13/month | Applied practice translation (Jo Clubb deceleration series, Tim Gabbett). Best practice layer. |
+| **Martin Buchheit / SPSR** | Free RSS | GPS 3.0, load monitoring methodology. Auto-monitored via research_monitor.py. |
+| **BJSM Blog** | Free RSS | Walsh 2021 sleep consensus, Impellizzeri ACWR critique. Auto-monitored. |
+| **Science for Sport** | Free + paid tier | Practitioner-facing research summaries. Good for staying current without reading full papers. |
+
+### What ScienceConnect.io Is (not a search tool)
+ScienceConnect.io is a Wiley single-sign-on platform — lets you access multiple academic publishers
+with one account. Not a research discovery tool. Not relevant for WAIMS monitoring.
+
+### Sports Science AI (Recommended for Real-Team Deployment)
+**sportscienceai.com** — purpose-built AI research assistant for sport science.
+- Database updated weekly with latest research (not general web training data)
+- Citations for every referenced paper — no hallucinations
+- Tailored for sport science, not general knowledge
+- Handles the deep "what does the literature say about X" questions that PubMed queries miss
+- Covers journals outside PubMed (e.g. Scientific Journal of Sport and Performance)
+- For a real team: replaces manual gap searches entirely alongside the automated PubMed monitor
+- Flagged as V2 tooling — paid subscription, appropriate when working with a real organisation
+
+*Together, automated PubMed monitoring (already built) + Sports Science AI gives full coverage
+without any manual periodic searches.*
+
 ## Sleep
 
 ### Primary Threshold: < 7.0 hrs → yellow flag | < 6.0 hrs → red flag
@@ -56,19 +149,31 @@ RSI-Modified sensitivity in women's basketball — validated cutoffs for flag th
 *"Assessing athlete readiness using physical, physiological, and perceptual markers: A systematic review and meta-analysis"*
 Scientific Journal of Sport and Performance, 2(3), 339–380. DOI: 10.55860/AGRH6754
 
-165 studies in systematic review. 27 studies in meta-analysis. 20 readiness markers evaluated.
-**Key findings directly applied in WAIMS:**
-- CMJ jump height: large correlation with sprint performance (r = 0.69, p = .00) — strongest validated readiness-to-performance link
-- CMJ peak power and squat jump: non-significant correlations — validates WAIMS choice of CMJ height/RSI over power metrics
-- 5 markers meta-analysed: CMJ, HRV (RMSSD/SD1), sub-maximal HR, sRPE
-- HRV (RMSSD): significant correlation with performance — supports HRV as V2 addition
-- Sub-maximal HR: significant correlation — validates aerobic readiness monitoring
-- sRPE: significant correlation — validates subjective wellness as legitimate signal alongside objective measures
+165 studies in systematic review. 27 studies in meta-analysis. 20 readiness markers evaluated across 46 sports.
+Searched MEDLINE, Embase, Emcare, Scopus, SPORT Discus through March 2023.
 
-*WAIMS application: Primary evidence base for CMJ z-score as the highest-weighted readiness signal (35pts).
-Validates the three-source architecture (subjective + neuromuscular + GPS) as each marker class
-showed independent predictive validity. Also supports HRV as the most valuable V2 addition.*
-*Citation: Janetzki SJ, Bourdon PC, Burgess DJ, Barratt GK, Bellenger CR. (2023). Scientific Journal of Sport and Performance, 2(3), 339–380.*
+**Key meta-analysis findings (only statistically significant result):**
+- CMJ **jump height** (without arm swing), acute cross-sectional: large, significant correlation with 10m sprint speed/time (r = 0.69, 95% CI 0.47–0.83, p = .00, I² = 71.4%)
+- CMJ **peak power**: non-significant with 10m sprint time (r = 0.13, p = .87) — power metrics not validated
+- Squat jump height: non-significant (r = 0.70, p = .17 — large effect but underpowered, n=3 studies)
+- CMJ height vs total distance (longitudinal): non-significant (r = 0.38, p = .41)
+- HRV (RMSSD + SD1) vs Yo-Yo IR1: non-significant (r = 0.66, p = .31)
+- Sub-maximal HR vs Yo-Yo IR1: non-significant (r = -0.65, p = .47)
+- Salivary cortisol and blood CRP biomarkers: non-significant across all performance measures
+
+**Critical nuance for WAIMS:**
+CMJ jump height predicts **sprint and acceleration** qualities — not endurance or total distance.
+This means CMJ is a readiness-to-perform (explosive output) signal, not purely a fatigue-from-load signal.
+The paper explicitly states practitioners should "use caution" applying CMJ to predict total distance or maximal speed.
+
+**WAIMS application:**
+- Validates CMJ jump height as the primary neuromuscular readiness marker (35pts in formula)
+- Does NOT validate CMJ peak power — confirms WAIMS correctly uses height, not power
+- RSI-Modified (25pts in WAIMS) not meta-analysed in this paper — evidence base remains Gathercole 2015 specifically
+- HRV non-significant here — supports current WAIMS decision not to include HRV in V1; revisit for V2 with better standardisation
+- Biomarkers (CK, cortisol, CRP) non-significant — confirms WAIMS correctly excludes invasive biomarkers from scoring
+
+*Citation: Janetzki SJ, Bourdon PC, Burgess DJ, Barratt GK, Bellenger CR. (2023). Assessing athlete readiness using physical, physiological, and perceptual markers: A systematic review and meta-analysis. Scientific Journal of Sport and Performance, 2(3), 339–380. https://doi.org/10.55860/AGRH6754*
 
 **Cormack et al. 2008** ★★  
 CMJ monitoring protocol — individual baseline approach superior to population norms  

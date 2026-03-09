@@ -869,7 +869,7 @@ def query_position_comparison():
 
 def parse_query(user_input):
     user_input = user_input.lower().strip()
-    if any(w in user_input for w in ["poor sleep", "bad sleep", "tired"]):
+    if any(w in user_input for w in ["poor sleep", "bad sleep", "tired", "sleep"]):
         return "poor_sleep"
     elif any(w in user_input for w in ["high risk", "at risk", "injury risk"]):
         return "high_risk"
@@ -877,6 +877,8 @@ def parse_query(user_input):
         return "readiness"
     elif "compare position" in user_input or "position comparison" in user_input:
         return "position_comparison"
+    elif any(w in user_input for w in ["back to back", "back-to-back", "b2b", "schedule", "rest"]):
+        return "back_to_back"
     return "unknown"
 
 def generate_smart_response(query_type):
@@ -912,8 +914,32 @@ def generate_smart_response(query_type):
         st.plotly_chart(fig, width='stretch')
         st.dataframe(df, width='stretch')
         return "Position comparison complete", df
+    elif query_type == "back_to_back":
+        latest_date = get_latest_date()
+        try:
+            from pathlib import Path as _p
+            import sqlite3 as _sq
+            conn = _sq.connect("waims_demo.db")
+            sched = pd.read_sql_query(
+                f"SELECT * FROM schedule WHERE date >= date('{latest_date.strftime('%Y-%m-%d')}', '-7 days')",
+                conn)
+            conn.close()
+            sched["date"] = pd.to_datetime(sched["date"])
+            b2b = sched[sched["is_back_to_back"] == 1]
+            if len(b2b) > 0:
+                response = f"**{len(b2b)} back-to-back game(s)** in the next 7 days:\n\n"
+                for _, row in b2b.iterrows():
+                    response += f"- {row['date'].strftime('%b %d')} vs {row.get('opponent','TBD')} — B2B game\n"
+                response += "\nConsider lighter sessions before B2B nights. Load Projection (Forecast tab) shows readiness impact."
+                st.subheader("Upcoming Back-to-Backs")
+                st.dataframe(b2b[["date","opponent","days_rest"]].rename(columns={"days_rest":"Days Rest"}), width="stretch")
+                return response, b2b
+            else:
+                return "No back-to-back games in the next 7 days. Schedule looks manageable.", None
+        except Exception:
+            return "Schedule data not available — run generate_database.py to populate schedule table.", None
     else:
-        return "Try: 'poor sleep', 'high risk', 'readiness', or 'compare positions'", None
+        return "Try: 'poor sleep', 'high risk', 'readiness', 'compare positions', or 'back to back'", None
 
 
 # ==============================================================================
