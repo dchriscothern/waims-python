@@ -23,6 +23,18 @@ from auth import (render_login_page, render_user_badge, is_authenticated,
                   current_role, can_see, data_access, get_visible_tabs)
 
 try:
+    from data_quality import DataQualityProcessor, show_data_quality_report
+    HAVE_DATA_QUALITY = True
+except ImportError:
+    HAVE_DATA_QUALITY = False
+
+try:
+    from model_validation import show_validation_framework_streamlit
+    HAVE_MODEL_VALIDATION = True
+except ImportError:
+    HAVE_MODEL_VALIDATION = False
+
+try:
     from improved_gauges import create_player_card_compact, create_simple_battery
     from research_citations import show_research_foundation
     HAVE_IMPROVED_GAUGES = True
@@ -1719,6 +1731,7 @@ if "ins" in tab_map:
 
     # ── VALIDATION PHILOSOPHY ────────────────────────────────────────────────
     st.markdown("---")
+    # ── MODEL VALIDATION ─────────────────────────────────────────────────────
     with st.expander("📐 Model Validation Philosophy", expanded=False):
         st.markdown("""
 ### How We Know the Model is Working
@@ -1734,46 +1747,19 @@ The meaningful V1 validation question is simpler:
 
 > *Does the readiness ranking surface the same athletes the coach was already watching?*
 
-A score that consistently surprises coaching staff is a red flag. A score that confirms
-and explains what the coach already senses — with quantified evidence — builds trust
-and gets used.
+**V1 method:** Spearman rank correlation between WAIMS daily ranking and coach informal
+assessment. Target: coach agrees with top/bottom 3 on ≥70% of days. Precision@K top 3
+per day is more meaningful than row-level accuracy.
 
-**V1 method:**
-- Spearman rank correlation between WAIMS daily ranking and coach informal assessment
-- Target: coach agrees with top/bottom 3 flagged athletes on ≥ 70% of days
-- Collected via post-morning-brief feedback, logged per session
-- No formal injury event validation required at V1 (insufficient events in demo data)
-
-**Operational framing:** WAIMS flags the right 2–3 athletes for a coach each morning.
-Precision@K (top 3) is more meaningful than row-level accuracy. The goal is not to be
-right about every player — it is to surface the most important conversations before practice.
+**Scope:** Non-contact soft tissue injuries only. Contact injuries explicitly excluded —
+model is not expected to predict these, and documenting this boundary builds staff trust.
 """)
-        st.markdown("---")
-        st.markdown("""
-### V2 Validation Upgrades *(when 1 full season of real data is available)*
 
-| Method | What it answers |
-|---|---|
-| Walk-forward time splits (train d1–45, validate d46–60) | Will it work next week? |
-| Player-holdout GroupKFold by player_id | Will it work for a new signing? |
-| PR-AUC + calibration + Brier score | When it flags risk, is it right? |
-| Precision@K top 3 per day | Are we surfacing the right conversations? |
-| Lead-time analysis | Are flags arriving 3–7 days before injury? |
-| Ablation studies (drop GPS / wellness / schedule features) | Which data streams drive signal? |
-
-**Simple baselines the model must beat:**
-- Acute load threshold rule (last 7 days)
-- ACWR heuristic alone
-- Player rolling z-score on soreness/fatigue
-
-**Scope note:** Non-contact, load-related soft tissue injuries are the primary target.
-Contact injuries are not expected to validate well — documented explicitly so staff
-understand model boundaries.
-""")
-        st.caption(
-            "Validation framework informed by Julius.ai model validation analysis (2026). "
-            "Applied and adapted for WAIMS operational context."
-        )
+    if HAVE_MODEL_VALIDATION:
+        show_validation_framework_streamlit()
+    else:
+        with st.expander("📐 Full Validation Framework (Julius.ai Recipe)", expanded=False):
+            st.info("model_validation.py not found — add it to your repo directory.")
 
     # ── EVIDENCE REVIEW ─────────────────────────────────────────────────────
     st.markdown("---")
@@ -1942,6 +1928,21 @@ understand model boundaries.
         unsafe_allow_html=True,
     )
     correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players)
+
+    # ── DATA QUALITY AUDIT ───────────────────────────────────────────────────
+    st.markdown("---")
+    if HAVE_DATA_QUALITY:
+        dqp = DataQualityProcessor()
+        try:
+            dqp.process_wellness(wellness)
+            dqp.process_force_plate(force_plate)
+            dqp.process_gps(training_load)
+        except Exception as _dq_err:
+            pass  # log silently — expander still renders with zero-action state
+        show_data_quality_report(dqp)
+    else:
+        with st.expander("🔍 Data Quality Audit Log", expanded=False):
+            st.info("data_quality.py not found — add it to your repo directory.")
 
 
 # ==============================================================================
