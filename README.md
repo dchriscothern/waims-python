@@ -151,6 +151,120 @@ Full citations in `RESEARCH_FOUNDATION.md`.
 
 ---
 
+## Data Governance (Real-Team Deployment)
+
+> This section does not apply to the demo. It is documented here because data governance
+> is the #1 priority before any real athlete data enters WAIMS.
+
+### The Core Problem
+
+If athletes believe their wellness data affects playing time or contract negotiations,
+they will misreport. The data becomes worthless. Trust is the foundation of any
+monitoring system — governance is how you protect it.
+
+### Who Sees What
+
+| Data Type | Athlete | Coach | Assistant Coach | GM / Front Office | Medical / AT | Sport Scientist |
+|---|---|---|---|---|---|---|
+| Traffic light (READY/MONITOR/PROTECT) | Own only | ✓ All | ✓ All | ✓ Summary | ✓ All | ✓ All |
+| Readiness score (number) | Own only | ✓ All | ✓ All | ✗ | ✓ All | ✓ All |
+| Sleep hours | Own only | ✗ | ✗ | ✗ | ✓ All | ✓ All |
+| Soreness / stress / mood (raw) | Own only | ✗ | ✗ | ✗ | ✓ All | ✓ All |
+| Force plate (CMJ, RSI) | Own only | Summary flag only | ✗ | ✗ | ✓ All | ✓ All |
+| GPS / Kinexon load | Own only | ✓ All | ✓ All | ✗ | ✓ All | ✓ All |
+| Injury log | Own only | ✗ | ✗ | Availability status only | ✓ All | ✓ All |
+| Injury risk score | Own only | ✗ | ✗ | ✗ | ✓ All | ✓ All |
+| Menstrual cycle (V2) | Own only | ✗ | ✗ | ✗ | ✓ With consent | ✓ With consent |
+
+**Key principle:** Coaches see actionable outputs (traffic lights, minutes guidance).
+Medical and sport science staff see the signals behind them.
+Front office sees availability status only — not health data.
+
+### Athlete Trust Principles
+
+These should be communicated to athletes before any monitoring begins:
+
+1. **Wellness data is for health, not selection.** It informs load management,
+   not contract decisions or playing time.
+2. **Coaches see traffic lights, not your answers.** Raw soreness and mood scores
+   are not visible to coaching staff.
+3. **You own your data.** Athletes can request to see all data collected on them
+   at any time.
+4. **Data is never sold or shared** outside the organisation without explicit consent.
+5. **Opting out is possible.** Reduced data collection reduces the system's ability
+   to protect you — but participation must be voluntary.
+
+### Legal Considerations (US / WNBA Context)
+
+| Regulation | Applies When | Implication for WAIMS |
+|---|---|---|
+| **HIPAA** | Medical staff handle or store health data | Injury log, force plate, and any clinically-collected data requires HIPAA-compliant storage (encrypted at rest, access logs, BAA with any cloud vendor) |
+| **GDPR** | Any EU-national athletes on roster | Right to erasure, data portability, explicit consent for biometric collection |
+| **WNBA CBA** | All WNBA athletes | Collective bargaining agreement has specific provisions on biometric data — review before deployment |
+| **State privacy laws** | Varies | California CCPA, Texas, others — check state of team headquarters |
+
+### V2 Implementation Requirements
+
+Before real athlete data enters WAIMS:
+
+- [x] **Role-based login system built** (`auth.py`) — 5 roles: Head Coach, Asst. Coach, Sport Scientist, Medical/AT, GM. Each role sees a different tab set and data access level. Demo credentials on login screen.
+- [ ] Data encrypted at rest and in transit (AES-256 minimum)
+- [ ] Audit log — who accessed what data and when
+- [ ] Data retention policy — how long is data kept, when is it deleted
+- [ ] Athlete consent protocol — written, specific to each data type collected
+- [ ] Business Associate Agreement (BAA) with any cloud hosting vendor (HIPAA)
+- [ ] Legal review of WNBA CBA biometric provisions before deployment
+- [ ] Athlete-facing view — simplified readiness trend, no injury risk score shown to athletes
+
+*In V1 demo: all data is synthetic and anonymized. No real athlete data. No governance requirements apply.*
+
+
+---
+
+## Data Quality & Imputation
+
+WAIMS uses a tiered, auditable imputation strategy via `data_quality.py`.
+Every decision is logged — no silent fills.
+
+| Data Type | Handling | Rationale |
+|---|---|---|
+| Wellness missing (no check-in) | Flag only — `wellness_submitted=0` feature | Non-submission is informative, esp. post B2B |
+| Force plate CMJ/RSI | LOCF up to 3 days, staleness flag after | Infrequent sessions; LOCF defensible |
+| GPS spikes (>3σ) | Winsorise to 3σ, preserve original | Spikes likely device error |
+| Sleep (≤2 days missing) | Personal 14-day rolling mean | Strong personal autocorrelation |
+| Sleep (>2 days missing) | Flag only | Extended gap needs manual review |
+| ACWR (<7 days load history) | Flag as unreliable | Ratio meaningless without denominator |
+
+**Key basketball rules:**
+- Missing wellness after a B2B game → explicit `b2b_missing` flag, never imputed
+- Personal rolling mean always preferred over team/population mean (positions differ structurally)
+- WNBA rolling windows: 7–14 days (not 28+ days from soccer literature)
+- Injury day excluded from model training features (prevents leakage)
+
+The audit log is visible in the **Insights tab → Data Quality Audit Log expander**.
+
+---
+
+## Model Validation Framework
+
+WAIMS implements the full Julius.ai validation recipe in `model_validation.py`.
+
+**Two mandatory views:**
+1. Walk-forward time splits (Days 1-45 train → 46-60 validate, etc.) — "will it work next week?"
+2. Player holdout / GroupKFold — "will it work for a new signing?"
+
+**Headline metrics:**
+- Injury risk: PR-AUC + Precision@3/day + Lead-time distribution (target: 3-7 days early)
+- Readiness: Spearman rank correlation vs coach intuition (V1 target: ≥0.70 on 70%+ of days)
+
+**Baselines the model must beat:** ACWR heuristic, 7-day load spike rule, player z-score soreness
+
+**Non-contact soft tissue injuries only** — contact injuries explicitly excluded from validation scope.
+
+See RESEARCH_FOUNDATION.md for full framework documentation.
+
+---
+
 ## Privacy
 
 All player names anonymized (Player G1, Player F1, etc.).  

@@ -188,3 +188,58 @@ Back-to-back query added this session — was returning "unknown" before fix.
 
 ---
 *Last updated: March 2026. All V1 demo data is synthetic.*
+
+
+## New Modules Added (This Session)
+
+### auth.py — Role-Based Login System
+- Login screen renders before anything else — unauthenticated users see only the login page
+- 5 roles: Head Coach, Asst. Coach, Sport Scientist, Medical/AT, General Manager
+- `TAB_ACCESS` dict controls tab visibility per role
+- `DATA_ACCESS` dict controls field-level data visibility
+- Sidebar shows user badge (role + name) and Sign Out button
+- GM gets availability-only Command Center view
+- Demo credentials shown on login screen
+
+| Username | Password | Role |
+|---|---|---|
+| coach | coach123 | Head Coach |
+| acoach | acoach123 | Asst. Coach |
+| scientist | sci123 | Sport Scientist |
+| medical | med123 | Medical / AT |
+| gm | gm123 | General Manager |
+
+### data_quality.py — Tiered Imputation with Audit Log
+Tiered strategy — every decision explicit and logged:
+- Wellness missing → flag only (wellness_submitted=0 feature). NOT imputed
+- B2B missing → additional b2b_missing flag
+- Force plate → LOCF up to 3 days, staleness flag after
+- GPS spikes >3σ → winsorise, preserve original in *_original column
+- Sleep ≤2 days gap → personal 14-day rolling mean
+- Sleep >2 days gap → flag only
+- ACWR <7 days load data → flag as unreliable
+- Full audit log viewable in Insights tab → Data Quality expander
+- `DataQualityProcessor` class + `show_data_quality_report()` for Streamlit
+
+### model_validation.py — Full Julius.ai Validation Recipe
+- `generate_walk_forward_splits()` — 45-day train / 15-day validate rolling
+- `baseline_acwr()`, `baseline_soreness_zscore()`, `baseline_acute_load()` — baselines to beat
+- `precision_at_k()` — top-K flags per day vs actual injuries with lookahead window
+- `lead_time_analysis()` — days before injury model first flagged the player
+- `per_player_performance()` — catches "good overall, terrible for 3 players" problems
+- `day_to_day_stability()` — flags score whipsaw >20pts without wellness change
+- `show_validation_framework_streamlit()` — full framework docs in Insights tab expander
+
+---
+
+## Updated File Inventory (additions)
+
+| File | Purpose |
+|---|---|
+| `auth.py` | Role-based login — 5 roles, tab + data access control |
+| `data_quality.py` | Tiered imputation with full audit log |
+| `model_validation.py` | Walk-forward validation, Precision@K, lead-time, baselines |
+
+
+---
+*Last updated: March 2026. All V1 demo data is synthetic.*

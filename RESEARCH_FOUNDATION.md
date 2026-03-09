@@ -67,6 +67,115 @@ is a separate and essential layer that published research cannot replace.
 *This is how the Orlando Magic framework operates in practice: evidence sets the starting point,
 practitioners calibrate to their specific context.*
 
+
+## Data Quality & Imputation Policy
+
+### Philosophy
+Imputation is never neutral. Every fill-in makes an assumption about WHY data is missing.
+In athlete monitoring, missing data is often NOT random — a player who skipped her morning
+check-in after a back-to-back is likely the one you most need to flag.
+
+Every imputation decision in WAIMS is explicit, logged, and auditable via `data_quality.py`.
+No silent fills. Sport scientists can review every action taken on the data.
+
+### Tiered Imputation by Data Type
+
+| Data Type | Missing Handling | Rationale |
+|---|---|---|
+| Wellness check-in (missing submission) | Flag only — NOT imputed. Add `wellness_submitted=0` as model feature | Non-submission is informative, especially post B2B |
+| Force plate CMJ / RSI | LOCF up to 3 days, staleness flag after | Sessions infrequent by design; LOCF defensible for short gaps |
+| GPS / training load spikes (>3σ) | Winsorise to 3σ cap, preserve original in `*_original` column | Spikes >3σ likely device error, not athlete signal |
+| Sleep hours (≤2 consecutive missing days) | Personal 14-day rolling mean | Sleep has strong personal autocorrelation; population mean inappropriate |
+| Sleep hours (>2 consecutive missing days) | Flag only — NOT imputed | Extended gap needs manual review |
+| ACWR (<7 days load history) | Flag as unreliable | Ratio meaningless with insufficient denominator |
+
+### Basketball-Specific Notes
+- **Back-to-back scheduling**: missing wellness the morning after a B2B is likely load-related, not random.
+  NEVER silently impute — flag explicitly with `b2b_missing=1`
+- **Positional differences**: team-level mean imputation inappropriate; centers and guards have
+  structurally different baselines. Always use personal rolling mean
+- **Short WNBA season** (40 games): rolling windows use 7–14 days, not 28+ days from soccer literature
+- **Travel direction**: eastward travel is a known confounder for next-day wellness. Missing data
+  on eastward travel days gets an additional travel flag in V2
+- **Injury day exclusion**: the injury day itself is excluded from model training features
+  to prevent leakage
+
+### Alignment with Mercury WNBA Project
+Personal rolling baseline imputation for continuous metrics aligns with the standard academic
+sport science approach. LOCF for infrequent assessments. Missing as a signal (not imputed)
+for daily subjective measures. This is consistent with the imputation approach used in the
+Mercury project and with NBA/WNBA practitioner standards.
+
+### Implementation
+`data_quality.py` — `DataQualityProcessor` class handles all tiers with full audit logging.
+`show_data_quality_report()` renders the audit panel in the Insights tab.
+
+---
+
+## Model Validation Framework
+
+### Philosophy (Julius.ai Recipe)
+The biggest trap in athlete monitoring ML is validating in a way that leaks future information
+or overstates performance because data is highly autocorrelated within a player and across days.
+
+Two mandatory validation views are required:
+
+**View 1 — Walk-Forward Time Splits** ("Will it work next week?")
+```
+Train days 1-45  → Validate days 46-60
+Train days 1-60  → Validate days 61-75
+Train days 1-75  → Validate days 76-90
+```
+Prevents peeking at later-season distributions. Captures concept drift.
+
+**View 2 — Player Holdout / GroupKFold** ("Will it work for a new signing?")
+Hold out 2-3 players entirely, train on rest. Tests generalisation to new athletes.
+
+### Metrics by Model Type
+
+**Injury risk (classification, imbalanced):**
+- **PR-AUC** (headline) — handles class imbalance; "when we flag risk, how often right?"
+- **Precision@K top 3/day** — matches real operational constraint (staff can intervene on ~3/day)
+- **Lead-time distribution** — flags 3-7 days before injury are useful; same-day flags are not
+- **Calibration + Brier score** — if model says 30% risk, does injury happen ~30% of the time?
+- ROC-AUC (secondary reference only — can look great when operationally mediocre)
+
+**Readiness score (ranking):**
+- **Spearman correlation** vs coach intuition. V1 target: ≥0.70 on 70%+ of days
+- **Day-to-day stability** — score shouldn't change >20pts without a real wellness change
+- MAE/RMSE if trained against an objective performance proxy
+
+### Baselines to Beat
+| Baseline | What it tests |
+|---|---|
+| ACWR > 1.5 heuristic | Does model add value over load ratio alone? |
+| 7-day acute load spike rule | Does model add value over volume monitoring? |
+| Player z-score on soreness | Does model add value over single-metric flag? |
+
+### Ablation Studies
+Remove GPS features / wellness features / schedule features / force plate features individually.
+If performance barely changes, the ablated features are not contributing signal.
+
+### Error Analysis
+- **False positives**: were they near-misses (tightness, modified practice)? If yes, operationally correct
+- **False negatives**: contact injuries and acute trauma are expected misses; unexplained non-contact misses need investigation
+- **Per-player performance**: flag rate >30%/day is suspicious — systematic over-flagging for one player erodes coach trust
+
+### V1 vs V2 Targets
+| Stage | Method | Target |
+|---|---|---|
+| V1 Demo | Spearman vs coach intuition | ≥0.70 on 70%+ of days |
+| V2 Production | Walk-forward + GroupKFold | PR-AUC > ACWR baseline; Precision@3 > 0.40 |
+| V2 Production | Lead-time analysis | Median flag 3+ days before non-contact injury |
+| V2 Production | Per-player performance | No player with flag rate >30%/day without injury history |
+
+### Non-Contact Scope
+Non-contact soft tissue injuries are the primary validation target.
+Contact injuries are explicitly excluded — the model is not expected to predict these.
+
+### Implementation
+`model_validation.py` — contains all validation functions, baseline models, and Streamlit display.
+
 ## Recommended Evidence Sources for WAIMS
 
 ### Primary Literature (automated via research_monitor.py)

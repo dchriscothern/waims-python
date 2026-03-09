@@ -19,6 +19,8 @@ import streamlit as st
 from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 from coach_command_center import coach_command_center
 from correlation_explorer import correlation_explorer_tab
+from auth import (render_login_page, render_user_badge, is_authenticated,
+                  current_role, can_see, data_access, get_visible_tabs)
 
 try:
     from improved_gauges import create_player_card_compact, create_simple_battery
@@ -961,37 +963,102 @@ except Exception:
 start_date = end_date
 
 # ==============================================================================
+# AUTH GATE
+# ==============================================================================
+
+if not is_authenticated():
+    render_login_page()
+    st.stop()
+
+# User badge in sidebar
+render_user_badge()
+
+# ==============================================================================
 # MAIN DASHBOARD
 # ==============================================================================
 
-st.title("🏀 WAIMS READINESS WATCHLIST")
-st.markdown(f"**Date:** {end_date.strftime('%B %d, %Y')}")
+role = current_role()
 
-tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "Command Center",
-    "Today's Readiness",
-    "Athlete Profiles",
-    "Trends & Load",
-    "Jump Testing",
-    "Availability & Injuries",
-    "Forecast",
-    "Insights",
-])
+# Role-aware title strip
+role_color = {
+    "head_coach": "#1e3a5f", "asst_coach": "#2563eb",
+    "sport_scientist": "#059669", "medical": "#7c3aed", "gm": "#b45309"
+}.get(role, "#6b7280")
+role_label = {
+    "head_coach": "Head Coach", "asst_coach": "Asst. Coach",
+    "sport_scientist": "Sport Scientist", "medical": "Medical / AT",
+    "gm": "General Manager"
+}.get(role, role)
 
-with tab0:
-    coach_command_center(wellness, players, force_plate, training_load, acwr, end_date, ml_predictions=ml_predictions)
+st.markdown(
+    f'<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">'
+    f'<span style="font-size:24px;font-weight:800;color:#1e3a5f;">🏀 WAIMS</span>'
+    f'<span style="background:{role_color};color:white;padding:3px 12px;border-radius:12px;'
+    f'font-size:12px;font-weight:700;">{role_label}</span>'
+    f'<span style="font-size:13px;color:#64748b;">{end_date.strftime("%B %d, %Y")}</span>'
+    f'</div>',
+    unsafe_allow_html=True
+)
 
-with tab1:
-    enhanced_todays_readiness_tab(wellness, players, force_plate, training_load, end_date)
+# GMs get a focused banner instead of full tab nav
+if role == "gm":
+    st.info("**Executive View** — You can see roster availability and the Command Center summary. "
+            "Detailed wellness, force plate, and raw load data are restricted to performance staff.")
 
-with tab2:
-    athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries)
+# Build visible tab list for this role
+visible = get_visible_tabs()   # list of (key, label)
+tab_keys   = [v[0] for v in visible]
+tab_labels = [v[1] for v in visible]
+
+rendered_tabs = st.tabs(tab_labels)
+tab_map = dict(zip(tab_keys, rendered_tabs))
+
+# ── Command Center ────────────────────────────────────────────────────────────
+if "cc" in tab_map:
+    with tab_map["cc"]:
+        if role == "gm":
+            # GM sees readiness summary only — no raw wellness, no minutes detail
+            st.subheader("Roster Availability Summary")
+            st.caption("Executive view — traffic lights and availability only.")
+            today = wellness[wellness["date"] == pd.to_datetime(end_date)].copy()
+            today = today.merge(players[["player_id", "name", "position"]], on="player_id", how="left")
+            today["readiness_score"] = (
+                (today["sleep_hours"] / 8) * 30
+                + ((10 - today["soreness"]) / 10) * 25
+                + ((10 - today["stress"]) / 10) * 25
+                + (today["mood"] / 10) * 20
+            )
+            today["status"] = today["readiness_score"].apply(
+                lambda x: "🟢 Ready" if x >= 80 else ("🟡 Monitor" if x >= 60 else "🔴 Protect"))
+            st.dataframe(
+                today[["name", "position", "status"]].sort_values("name"),
+                hide_index=True, use_container_width=True
+            )
+            st.caption("Detailed wellness scores, load data, and force plate metrics are restricted to performance staff.")
+        else:
+            coach_command_center(wellness, players, force_plate, training_load, acwr, end_date,
+                                 ml_predictions=ml_predictions)
+
+# ── Today's Readiness ─────────────────────────────────────────────────────────
+if "rd" in tab_map:
+    with tab_map["rd"]:
+        da = data_access()
+        if not da["show_raw_wellness"]:
+            st.warning("Raw wellness data (sleep, soreness, stress, mood) is restricted to Performance and Medical staff.")
+        else:
+            enhanced_todays_readiness_tab(wellness, players, force_plate, training_load, end_date)
+
+# ── Athlete Profiles ──────────────────────────────────────────────────────────
+if "ap" in tab_map:
+    with tab_map["ap"]:
+        athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries)
 
 # ==============================================================================
 # TAB 3: TRENDS
 # ==============================================================================
 
-with tab3:
+if "tr" in tab_map:
+ with tab_map["tr"]:
     st.header("Trends & Load")
     st.caption("Raw daily values (faint) with 7-day rolling average (bold). Subjective + objective signals side by side.")
 
@@ -1131,7 +1198,8 @@ with tab3:
 # TAB 4: JUMP TESTING
 # ==============================================================================
 
-with tab4:
+if "jt" in tab_map:
+ with tab_map["jt"]:
     st.header("Jump Testing & Neuromuscular Readiness")
     st.caption("Flags based on deviation from each athlete's personal baseline, not population targets.")
 
@@ -1216,14 +1284,16 @@ with tab4:
 # TAB 5: AVAILABILITY & INJURIES
 # ==============================================================================
 
-with tab5:
+if "inj" in tab_map:
+ with tab_map["inj"]:
     availability_injuries_tab(availability, injuries, players, end_date)
 
 # ==============================================================================
 # TAB 6: FORECAST
 # ==============================================================================
 
-with tab6:
+if "fc" in tab_map:
+ with tab_map["fc"]:
     st.header("Forecast & Load Projection")
 
     st.markdown(
@@ -1582,7 +1652,8 @@ with tab6:
 # TAB 7: INSIGHTS
 # ==============================================================================
 
-with tab7:
+if "ins" in tab_map:
+ with tab_map["ins"]:
 
     # ── SECTION A: ASK ────────────────────────────────────────────────────────
     st.markdown(
