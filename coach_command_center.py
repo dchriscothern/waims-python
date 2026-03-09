@@ -546,9 +546,18 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
               f"max-effort reps and monitor warmup quality closely.")
         b1_color = "#d97706"
     else:
-        ready_count = len([r for r in summary if r["score"] >= 80])
-        b1 = (f"<b>Full squad available today.</b> {ready_count} players fully ready, "
-              f"no protect or injury watch flags.")
+        ready_count  = len([r for r in summary if r["score"] >= 80])
+        total_count  = len(summary)
+        ready_pct_b1 = int(ready_count / total_count * 100) if total_count > 0 else 0
+        if ready_pct_b1 == 100:
+            b1 = (f"<b>Full squad available.</b> All {ready_count} players fully ready — "
+                  f"no protect or injury watch flags.")
+        elif ready_pct_b1 >= 75:
+            b1 = (f"<b>Squad in good shape.</b> {ready_count} of {total_count} players fully ready "
+                  f"({ready_pct_b1}%) — no protect or injury watch flags.")
+        else:
+            b1 = (f"<b>{ready_count} of {total_count} players fully ready</b> ({ready_pct_b1}%) — "
+                  f"no protect or injury watch flags on the others, but worth a check-in.")
         b1_color = "#16a34a"
 
     # ── BULLET 2: WHAT changed overnight (biggest single movement) ───────────

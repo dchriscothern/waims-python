@@ -189,6 +189,34 @@ Contact injuries are explicitly excluded — the model is not expected to predic
 ### Implementation
 `model_validation.py` — contains all validation functions, baseline models, and Streamlit display.
 
+
+## Multi-Team Architecture (sport_config.py)
+
+WAIMS uses `sport_config.py` for sport and team-level threshold configuration.
+Thresholds are sport defaults that can be overridden per team after calibration
+with coaching and medical staff.
+
+### Springbok Analytics
+Springbok Analytics is an advanced **MRI (Match and Rotation Intelligence)** platform
+used by NBA/WNBA teams including the Dallas Wings. It is a Second Spectrum product
+providing optical tracking, lineup analytics, and play data.
+In WAIMS V2/V3, Springbok Analytics is a potential data SOURCE — not a separate sport.
+See V2 roadmap: Second Spectrum / Springbok Analytics integration for game-context load.
+
+### Architecture
+- `SPORT_CONFIGS`: Sport-level defaults (currently WNBA basketball)
+- `TEAM_CONFIGS`: Team-specific threshold overrides — no override = sport default applies
+- Adding a new WNBA team: add entry to `TEAM_CONFIGS` in `sport_config.py`
+- Adding a new sport: add entry to `SPORT_CONFIGS` with full config dict
+
+### Positional GPS Norms (V2 feature — documented, not yet built)
+Individualized positional thresholds for decel count and load are a documented V2 gap.
+A point guard's decel profile differs structurally from a center.
+Population-level thresholds don't account for this.
+V2 approach: position-group z-scores calculated within Guards / Wings / Bigs groups
+rather than whole-team baseline. Architecture already supports this via `position_groups`
+in sport_config.py and personal rolling means in data_quality.py.
+
 ## Recommended Evidence Sources for WAIMS
 
 ### Primary Literature (automated via research_monitor.py)
@@ -225,6 +253,26 @@ with one account. Not a research discovery tool. Not relevant for WAIMS monitori
 without any manual periodic searches.*
 
 ## Sleep
+
+### Sleep Research — Population Scope Note
+The core sleep physiology (7h minimum, 9h target, extension benefits) is not basketball-specific.
+Walsh et al. 2021 BJSM is a consensus statement covering all athlete populations.
+
+Male vs female differences in sleep research:
+- Females generally require slightly more sleep than males (Cellini et al. 2016)
+- Menstrual phase affects sleep quality — luteal phase associated with poorer sleep efficiency
+- This is a documented gap for V2 (menstrual phase adjustment to sleep thresholds)
+
+Recent higher-quality sleep research to monitor:
+- **Fullagar et al. 2015** — Sleep and athletic performance (mixed sports, review)
+- **Charest & Grandner 2021** — Sleep and athletic performance: impacts on physical performance, mental performance, injury risk, and recovery (Sport Medicine Reviews)
+- **Doherty et al. 2019** — Sleep and nutrition interactions in athletes (Nutrients, SR)
+- Pimenta et al. 2026 is the most specific to WNBA context and the strongest evidence for the 9h target
+
+*V3 note: personalised sleep recommendations based on genetic testing / biomarker data is a
+planned feature. Evidence base to be uploaded by user. This will be housed in a separate
+athlete-facing recommendations module.*
+
 
 ### Primary Threshold: < 7.0 hrs → yellow flag | < 6.0 hrs → red flag
 

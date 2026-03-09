@@ -332,15 +332,23 @@ class DataQualityProcessor:
                 rolling_mean = series.rolling(window=ROLLING_WINDOW, min_periods=3).mean()
                 rolling_std  = series.rolling(window=ROLLING_WINDOW, min_periods=3).std()
 
-                # Minimum std floor: prevents near-zero std (very consistent players)
-                # from making the cap so tight that normal variation triggers winsorise.
-                # Floor = 10% of rolling mean or 1.0 minimum — whichever is larger.
-                std_floor   = (rolling_mean * 0.10).clip(lower=1.0)
+                # Minimum std floor: prevents near-zero std on consistent players
+                # from creating a cap so tight that normal variation triggers winsorise.
+                # Floor = 15% of rolling mean or 2.0 minimum — whichever is larger.
+                std_floor   = (rolling_mean * 0.15).clip(lower=2.0)
                 rolling_std = rolling_std.fillna(std_floor).clip(lower=std_floor)
                 upper_cap   = rolling_mean + SPIKE_SIGMA * rolling_std
 
-                # Only flag genuine spikes — cap must also be meaningfully above zero
-                spike_mask = (series > upper_cap) & series.notna() & (upper_cap > 0)
+                # Dual threshold: value must exceed BOTH the std-based cap AND be
+                # at least 60% above the rolling mean. Belt-and-suspenders approach
+                # prevents false positives on low-variance integer columns (decel_count etc.)
+                relative_cap = rolling_mean * 1.60
+                spike_mask = (
+                    (series > upper_cap) &
+                    (series > relative_cap) &
+                    series.notna() &
+                    (upper_cap > 0)
+                )
                 if spike_mask.any():
                     spike_idx = series[spike_mask].index
                     for i in spike_idx:

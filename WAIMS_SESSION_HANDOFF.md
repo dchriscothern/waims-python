@@ -183,6 +183,7 @@ Back-to-back query added this session — was returning "unknown" before fix.
 - [ ] Verify Saw et al. 2016 citation is the correct 56-study SR version
 - [ ] Add Stojanovic 2025 basketball meta formally to RESEARCH_FOUNDATION.md
 - [ ] Hormonal cycle / menstrual phase research (Bruinvels 2017, WHSP) before V2 feature
+- [x] sport_config.py built — WNBA + Springbok rugby configured. Set ACTIVE_SPORT to switch context
 - [ ] Test back-to-back query against actual demo database schedule table
 - [ ] Upload updated coach_command_center.py to verify Windows syntax fix still clean
 
@@ -237,9 +238,55 @@ Tiered strategy — every decision explicit and logged:
 | File | Purpose |
 |---|---|
 | `auth.py` | Role-based login — 5 roles, tab + data access control |
+| `sport_config.py` | Multi-sport config: WNBA basketball + Springbok rugby. Thresholds, GPS metrics, positions, compliance per sport |
 | `data_quality.py` | Tiered imputation with full audit log |
 | `model_validation.py` | Walk-forward validation, Precision@K, lead-time, baselines |
 
 
 ---
 *Last updated: March 2026. All V1 demo data is synthetic.*
+
+## Corrections & Updates (Latest Session)
+
+### sport_config.py — Rebuilt (WNBA basketball only)
+- **Springbok Analytics** is a Second Spectrum MRI (Match & Rotation Intelligence) platform
+  used by WNBA/NBA teams including Dallas Wings — it is a V2/V3 DATA SOURCE, not a sport config
+- Rugby config removed entirely — was incorrect
+- Now contains: WNBA basketball sport defaults + TEAM_CONFIGS for Dallas Wings
+- To add another WNBA team: add entry to TEAM_CONFIGS with threshold overrides
+- Positional GPS norms documented as V2 gap (Guards/Wings/Bigs decel profiles differ)
+
+### coach_command_center.py — Morning brief squad language fixed
+- "Full squad available today. 6 players fully ready" → now uses percentage
+- "Full squad" only when 100% ready. "Squad in good shape" at 75%+. Actual X/Y count otherwise
+
+### data_quality.py — GPS false positive fixed
+- Dual threshold: value must exceed BOTH std-based cap AND be 60%+ above rolling mean
+- Prevents false positives on low-variance integer columns (decel_count etc.)
+- Synthetic demo database should now show 0 GPS winsorisations
+
+### WAIMS_Coach_Overview.pdf — Rebuilt (single page)
+- Removed "Why the Thresholds Are Set This Way" section (sport scientist content)
+- Now single page: traffic lights, Command Center features, role access, B2B, What WAIMS Is Not
+
+### RESEARCH_FOUNDATION.md updates
+- Multi-sport section corrected: Springbok Analytics = MRI platform (data source), not a sport
+- Sleep research broadened beyond basketball — Walsh 2021 covers all athletes
+- Male vs female sleep differences documented
+- Recent sleep SR/reviews added (Fullagar 2015, Charest & Grandner 2021, Doherty 2019)
+- V3 note: personalised sleep recs from genetic/biomarker data — user has research to upload
+- Positional GPS norms gap documented (V2 feature)
+
+### Key principles added
+- **Individualized positional thresholds**: Guards vs Bigs have structurally different
+  decel/load profiles. V2 uses position-group z-scores, not whole-team baseline.
+  sport_config.py position_groups already provide the grouping structure.
+- **Sleep research scope**: core thresholds are population-independent (Walsh 2021).
+  Basketball/WNBA-specific research (Mah 2011, Pimenta 2026) informs the 9h target.
+  V3: personalised recommendations from biomarker/genetic data (research to be uploaded).
+
+### Do NOT add to existing repo
+- Stock ticker / live score display concept
+- Athlete-facing gamification / biz plan → new separate repo
+- Athlete personal recommendations module → V3, new module when research is ready
+

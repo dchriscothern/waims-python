@@ -350,7 +350,7 @@ def show_validation_framework_streamlit():
     """
     import streamlit as st
 
-    with st.expander("📐 Model Validation Framework (Julius.ai Recipe)", expanded=False):
+    with st.expander("📐 Model Validation Framework", expanded=False):
         st.markdown("### Validation Philosophy")
         st.info(
             "The biggest trap in athlete monitoring ML is validating in a way that "
@@ -396,7 +396,13 @@ def show_validation_framework_streamlit():
                  "Why": "Can look great even when operationally mediocre under imbalance."},
             ])
             st.dataframe(metrics, hide_index=True, width='stretch')
-            st.caption("Non-contact soft tissue injuries only. Contact injuries excluded — model not expected to predict these.")
+            st.caption(
+                "Primary target: non-contact soft tissue injuries (load-related). "
+                "Contact injuries are explicitly excluded — no monitoring system is "
+                "expected to predict collision or trauma events. "
+                "For contact sports (e.g. rugby), this boundary is even more important "
+                "to document clearly with coaching and medical staff."
+            )
 
         with tab_rdns:
             metrics2 = pd.DataFrame([
@@ -469,15 +475,19 @@ def show_validation_framework_streamlit():
         st.markdown("---")
         st.markdown("### V1 vs V2 Validation Targets")
         targets = pd.DataFrame([
-            {"Stage": "V1 Demo",    "Method": "Spearman vs coach intuition",
+            {"Stage": "V1 Demo",       "Method": "Spearman vs coach intuition",
              "Target": "≥0.70 rank correlation on 70%+ of days"},
-            {"Stage": "V2 Prod",    "Method": "Walk-forward + GroupKFold",
+            {"Stage": "V2 Production", "Method": "Walk-forward + GroupKFold",
              "Target": "PR-AUC beats ACWR threshold rule; Precision@3 > 0.40"},
-            {"Stage": "V2 Prod",    "Method": "Lead-time analysis",
+            {"Stage": "V2 Production", "Method": "Lead-time analysis",
              "Target": "Median flag 3+ days before non-contact injury"},
-            {"Stage": "V2 Prod",    "Method": "Calibration",
+            {"Stage": "V2 Production", "Method": "Calibration",
              "Target": "Brier score < naive base rate"},
-            {"Stage": "V2 Prod",    "Method": "Per-player performance",
+            {"Stage": "V2 Production", "Method": "Per-player performance",
              "Target": "No player with flag rate >30%/day without injury history"},
+            {"Stage": "Multi-sport",   "Method": "sport_config.py",
+             "Target": "Thresholds, GPS priorities, position groups, and compliance "
+                       "rules configurable per sport (WNBA → Springbok → other). "
+                       "Validation scope (contact vs non-contact) set per sport config."},
         ])
         st.dataframe(targets, hide_index=True, width='stretch')

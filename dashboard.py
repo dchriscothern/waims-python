@@ -1752,10 +1752,11 @@ if "ins" in tab_map:
     # ── VALIDATION PHILOSOPHY ────────────────────────────────────────────────
     st.markdown("---")
     # ── MODEL VALIDATION ─────────────────────────────────────────────────────
-    with st.expander("📐 Model Validation Philosophy", expanded=False):
-        st.markdown("""
-### How We Know the Model is Working
-
+    if HAVE_MODEL_VALIDATION:
+        show_validation_framework_streamlit()
+    else:
+        with st.expander("📐 Model Validation Framework", expanded=False):
+            st.markdown("""
 **V1 (Current): Does the readiness score match coach intuition?**
 
 WAIMS does not currently operate as a trained injury classifier. The Forecast tab
@@ -1763,22 +1764,13 @@ produces a heuristic risk score — not a validated predictive model. This is in
 Without a full season of real-team injury events, formal classification validation
 would overstate confidence.
 
-The meaningful V1 validation question is simpler:
+The meaningful V1 question: *does the readiness ranking surface the athletes the coach
+was already watching?* V1 method: Spearman rank correlation vs coach assessment.
+Target: top/bottom 3 agreement on ≥70% of days.
 
-> *Does the readiness ranking surface the same athletes the coach was already watching?*
-
-**V1 method:** Spearman rank correlation between WAIMS daily ranking and coach informal
-assessment. Target: coach agrees with top/bottom 3 on ≥70% of days. Precision@K top 3
-per day is more meaningful than row-level accuracy.
-
-**Scope:** Non-contact soft tissue injuries only. Contact injuries explicitly excluded —
-model is not expected to predict these, and documenting this boundary builds staff trust.
+**Scope:** Non-contact soft tissue injuries primary target. Contact injuries explicitly
+excluded — no monitoring system is expected to predict collision events.
 """)
-
-    if HAVE_MODEL_VALIDATION:
-        show_validation_framework_streamlit()
-    else:
-        with st.expander("📐 Full Validation Framework (Julius.ai Recipe)", expanded=False):
             st.info("model_validation.py not found — add it to your repo directory.")
 
     # ── EVIDENCE REVIEW ─────────────────────────────────────────────────────
