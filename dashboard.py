@@ -1044,7 +1044,7 @@ if "cc" in tab_map:
                 lambda x: "🟢 Ready" if x >= 80 else ("🟡 Monitor" if x >= 60 else "🔴 Protect"))
             st.dataframe(
                 today[["name", "position", "status"]].sort_values("name"),
-                hide_index=True, use_container_width=True
+                hide_index=True, width='stretch'
             )
             st.caption("Detailed wellness scores, load data, and force plate metrics are restricted to performance staff.")
         else:
@@ -1729,6 +1729,26 @@ if "ins" in tab_map:
         unsafe_allow_html=True,
     )
 
+    # ── DATA QUALITY AUDIT ───────────────────────────────────────────────────
+    st.markdown("---")
+    if HAVE_DATA_QUALITY:
+        dqp = DataQualityProcessor()
+        try:
+            dqp.process_wellness(wellness)
+            dqp.process_force_plate(force_plate)
+            dqp.process_gps(training_load)
+        except Exception as _dq_err:
+            pass
+        show_data_quality_report(dqp)
+        st.caption(
+            "In production with real athlete data this log would show every imputation "
+            "decision the system made. Zero actions here confirms the synthetic demo "
+            "database has no quality issues — which is expected."
+        )
+    else:
+        with st.expander("🔍 Data Quality Audit Log", expanded=False):
+            st.info("data_quality.py not found — add it to your repo directory.")
+
     # ── VALIDATION PHILOSOPHY ────────────────────────────────────────────────
     st.markdown("---")
     # ── MODEL VALIDATION ─────────────────────────────────────────────────────
@@ -1929,20 +1949,7 @@ model is not expected to predict these, and documenting this boundary builds sta
     )
     correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players)
 
-    # ── DATA QUALITY AUDIT ───────────────────────────────────────────────────
-    st.markdown("---")
-    if HAVE_DATA_QUALITY:
-        dqp = DataQualityProcessor()
-        try:
-            dqp.process_wellness(wellness)
-            dqp.process_force_plate(force_plate)
-            dqp.process_gps(training_load)
-        except Exception as _dq_err:
-            pass  # log silently — expander still renders with zero-action state
-        show_data_quality_report(dqp)
-    else:
-        with st.expander("🔍 Data Quality Audit Log", expanded=False):
-            st.info("data_quality.py not found — add it to your repo directory.")
+
 
 
 # ==============================================================================

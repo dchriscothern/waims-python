@@ -367,7 +367,7 @@ def show_validation_framework_streamlit():
                 {"Fold": 2, "Train":   "Days 1–60",  "Validate": "Days 61–75"},
                 {"Fold": 3, "Train":   "Days 1–75",  "Validate": "Days 76–90"},
             ])
-            st.dataframe(splits_demo, hide_index=True, use_container_width=True)
+            st.dataframe(splits_demo, hide_index=True, width='stretch')
 
         with col2:
             st.markdown("**View 2 — Player Holdout (GroupKFold)**")
@@ -395,7 +395,7 @@ def show_validation_framework_streamlit():
                 {"Metric": "ROC-AUC",                    "Priority": "★ Reference only",
                  "Why": "Can look great even when operationally mediocre under imbalance."},
             ])
-            st.dataframe(metrics, hide_index=True, use_container_width=True)
+            st.dataframe(metrics, hide_index=True, width='stretch')
             st.caption("Non-contact soft tissue injuries only. Contact injuries excluded — model not expected to predict these.")
 
         with tab_rdns:
@@ -407,30 +407,52 @@ def show_validation_framework_streamlit():
                 {"Metric": "MAE / RMSE",              "Priority": "★ If proxy target exists",
                  "Why": "Only meaningful if readiness trained vs an objective performance proxy."},
             ])
-            st.dataframe(metrics2, hide_index=True, use_container_width=True)
+            st.dataframe(metrics2, hide_index=True, width='stretch')
 
         st.markdown("---")
         st.markdown("### Baselines to Beat")
         st.caption("If the RF model doesn't beat these, the model isn't adding value.")
+        st.caption(
+            "ACWR is a contextual flag in WAIMS (not a direct model scoring feature). "
+            "It appears here as a comparison baseline — the RF model should outperform "
+            "a simple ACWR threshold rule to justify its complexity."
+        )
         baselines = pd.DataFrame([
-            {"Baseline": "ACWR > 1.5 heuristic",           "Complexity": "Simple threshold",
-             "What it tests": "Does the model add value over load ratio alone?"},
-            {"Baseline": "7-day acute load spike rule",     "Complexity": "Simple threshold",
-             "What it tests": "Does the model add value over volume monitoring?"},
-            {"Baseline": "Player z-score on soreness/fatigue", "Complexity": "Personal baseline",
-             "What it tests": "Does the model add value over a single-metric flag?"},
+            {"Baseline": "ACWR > 1.5 threshold rule",
+             "Complexity": "Simple threshold",
+             "What it tests": "Does the RF model add value over load ratio alone? "
+                              "(ACWR is a flag in WAIMS, not a scored feature — "
+                              "this baseline checks whether the fuller model is worth it.)"},
+            {"Baseline": "7-day acute load spike rule",
+             "Complexity": "Simple threshold",
+             "What it tests": "Does the model add value over minutes-volume monitoring alone?"},
+            {"Baseline": "Player z-score on soreness",
+             "Complexity": "Personal baseline",
+             "What it tests": "Does the multi-signal model outperform a single subjective flag?"},
+            {"Baseline": "CMJ z-score alone",
+             "Complexity": "Personal baseline",
+             "What it tests": "Does adding wellness + load to CMJ improve predictions? "
+                              "(Basketball-specific baseline — CMJ is our strongest single signal.)"},
         ])
-        st.dataframe(baselines, hide_index=True, use_container_width=True)
+        st.dataframe(baselines, hide_index=True, width='stretch')
 
         st.markdown("---")
         st.markdown("### Ablation Studies")
         ablations = pd.DataFrame([
-            {"Ablation": "Remove GPS features",              "Question": "Is GPS actually contributing signal?"},
-            {"Ablation": "Remove wellness features",          "Question": "Is subjective data driving the model?"},
-            {"Ablation": "Remove game schedule features",     "Question": "Does schedule context add value?"},
-            {"Ablation": "Remove force plate features",       "Question": "Does CMJ/RSI improve over wellness alone?"},
+            {"Ablation": "Remove GPS features",
+             "Question": "Is GPS actually contributing signal beyond minutes load?"},
+            {"Ablation": "Remove wellness features",
+             "Question": "Is subjective data (sleep/soreness/mood) driving the model?"},
+            {"Ablation": "Remove game schedule features",
+             "Question": "Does B2B / travel context add predictive value?"},
+            {"Ablation": "Remove force plate (CMJ/RSI)",
+             "Question": "Does neuromuscular data improve over wellness + load alone? "
+                         "(Basketball-specific — CMJ is our highest-weighted signal.)"},
+            {"Ablation": "Remove RSI-Mod, keep CMJ height",
+             "Question": "Does RSI-Mod contribute independently of CMJ height? "
+                         "(Gathercole 2015 suggests yes — fatigue sensitivity vs explosive output.)"},
         ])
-        st.dataframe(ablations, hide_index=True, use_container_width=True)
+        st.dataframe(ablations, hide_index=True, width='stretch')
 
         st.markdown("---")
         st.markdown("### Error Analysis — Building Coach Trust")
@@ -450,7 +472,7 @@ def show_validation_framework_streamlit():
             {"Stage": "V1 Demo",    "Method": "Spearman vs coach intuition",
              "Target": "≥0.70 rank correlation on 70%+ of days"},
             {"Stage": "V2 Prod",    "Method": "Walk-forward + GroupKFold",
-             "Target": "PR-AUC > ACWR baseline; Precision@3 > 0.40"},
+             "Target": "PR-AUC beats ACWR threshold rule; Precision@3 > 0.40"},
             {"Stage": "V2 Prod",    "Method": "Lead-time analysis",
              "Target": "Median flag 3+ days before non-contact injury"},
             {"Stage": "V2 Prod",    "Method": "Calibration",
@@ -458,4 +480,4 @@ def show_validation_framework_streamlit():
             {"Stage": "V2 Prod",    "Method": "Per-player performance",
              "Target": "No player with flag rate >30%/day without injury history"},
         ])
-        st.dataframe(targets, hide_index=True, use_container_width=True)
+        st.dataframe(targets, hide_index=True, width='stretch')

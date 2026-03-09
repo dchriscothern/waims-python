@@ -331,9 +331,16 @@ class DataQualityProcessor:
                 # Winsorise spikes
                 rolling_mean = series.rolling(window=ROLLING_WINDOW, min_periods=3).mean()
                 rolling_std  = series.rolling(window=ROLLING_WINDOW, min_periods=3).std()
-                upper_cap    = rolling_mean + SPIKE_SIGMA * rolling_std
 
-                spike_mask = (series > upper_cap) & series.notna()
+                # Minimum std floor: prevents near-zero std (very consistent players)
+                # from making the cap so tight that normal variation triggers winsorise.
+                # Floor = 10% of rolling mean or 1.0 minimum — whichever is larger.
+                std_floor   = (rolling_mean * 0.10).clip(lower=1.0)
+                rolling_std = rolling_std.fillna(std_floor).clip(lower=std_floor)
+                upper_cap   = rolling_mean + SPIKE_SIGMA * rolling_std
+
+                # Only flag genuine spikes — cap must also be meaningfully above zero
+                spike_mask = (series > upper_cap) & series.notna() & (upper_cap > 0)
                 if spike_mask.any():
                     spike_idx = series[spike_mask].index
                     for i in spike_idx:
@@ -472,14 +479,14 @@ def show_data_quality_report(dqp: DataQualityProcessor):
             ],
         }
         import pandas as pd
-        st.dataframe(pd.DataFrame(policy_data), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(policy_data), width='stretch', hide_index=True)
 
         # Full audit log
         audit_df = dqp.get_audit_dataframe()
         if len(audit_df) > 0:
             st.markdown("---")
             st.markdown(f"**Full Audit Log** ({len(audit_df)} entries)")
-            st.dataframe(audit_df, use_container_width=True, hide_index=True)
+            st.dataframe(audit_df, width='stretch', hide_index=True)
         else:
             st.info("No data quality actions logged yet — "
                     "run DataQualityProcessor on real data to populate this log.")

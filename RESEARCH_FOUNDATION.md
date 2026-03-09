@@ -146,15 +146,28 @@ Hold out 2-3 players entirely, train on rest. Tests generalisation to new athlet
 - MAE/RMSE if trained against an objective performance proxy
 
 ### Baselines to Beat
+**Important:** ACWR is a contextual flag in WAIMS — it is NOT a direct model scoring
+feature (weight = 0 pts). It appears here as a comparison baseline: the RF model should
+outperform a simple ACWR threshold rule to justify its additional complexity.
+
 | Baseline | What it tests |
 |---|---|
-| ACWR > 1.5 heuristic | Does model add value over load ratio alone? |
-| 7-day acute load spike rule | Does model add value over volume monitoring? |
-| Player z-score on soreness | Does model add value over single-metric flag? |
+| ACWR > 1.5 threshold rule | Does the RF model add value over a simple load ratio rule? |
+| 7-day acute load spike rule | Does the model add value over minutes-volume monitoring? |
+| Player z-score on soreness | Does the multi-signal model beat a single subjective flag? |
+| CMJ z-score alone | Does adding wellness + load to CMJ improve predictions? (Basketball-specific — CMJ is our highest-weighted signal.) |
 
 ### Ablation Studies
-Remove GPS features / wellness features / schedule features / force plate features individually.
-If performance barely changes, the ablated features are not contributing signal.
+Remove feature groups individually. If performance barely changes, those features are not
+contributing signal.
+
+| Ablation | Question |
+|---|---|
+| Remove GPS features | Is GPS contributing beyond minutes load? |
+| Remove wellness features | Is subjective data (sleep/soreness/mood) driving the model? |
+| Remove schedule features | Does B2B / travel context add predictive value? |
+| Remove force plate (CMJ/RSI) | Does neuromuscular data improve over wellness + load alone? |
+| Remove RSI-Mod, keep CMJ height | Does RSI-Mod contribute independently? (Gathercole 2015 — fatigue sensitivity vs explosive output.) |
 
 ### Error Analysis
 - **False positives**: were they near-misses (tightness, modified practice)? If yes, operationally correct
