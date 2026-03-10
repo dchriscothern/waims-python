@@ -1,0 +1,3 @@
+[pytest]
+markers =
+    db: marks tests that require waims_demo.db (deselect with -k "not db")

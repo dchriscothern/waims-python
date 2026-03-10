@@ -16,11 +16,22 @@ streamlit>=1.32
 # Database (built-in, listed for clarity)
 # sqlite3 — standard library, no install needed
 
-# HTTP / API (for espn_data.py)
+# HTTP / API (for research_monitor.py PubMed + RSS)
 requests>=2.31
+feedparser>=6.0
 
-# Stats (if correlation_explorer or z_score_module uses it)
+# Stats (correlation_explorer, z_score_module, model_validation)
 scipy>=1.11
+
+# PDF generation (WAIMS_Coach_Overview.pdf, WAIMS_SportScientist_Overview.pdf)
+reportlab>=4.0
+
+# Word document generation (WAIMS_Roadmap_2026.docx, demo cheat sheet)
+# Install via npm: npm install -g docx
+# docx is a Node.js package — not pip
 
 # Optional — only needed if statsmodels was not fully removed
 # statsmodels>=0.14
+
+# Dev / testing
+pytest>=7.0
