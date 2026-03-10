@@ -1,0 +1,104 @@
+# .github/workflows/auto-changelog.yml
+#
+# WAIMS — Auto Changelog
+# ========================
+# Appends a timestamped entry to CHANGELOG.md on every push to main.
+# Does NOT overwrite existing entries — only appends new ones.
+#
+# Setup (one-time):
+#   1. Copy this file to .github/workflows/auto-changelog.yml in your repo
+#   2. Push to GitHub — the action activates automatically
+#   3. Every subsequent push to main adds a timestamped entry to CHANGELOG.md
+#
+# The entry format:
+#   ## Auto-entry — 2026-03-10 14:32 UTC
+#   **Branch:** main | **Pushed by:** dchriscothern
+#   **Files changed:** dashboard.py, coach_command_center.py
+#   **Commit:** feat(command-center): Replace clinical load language with coach language
+#
+# For clean professional entries: write good commit messages using .gitmessage
+# template — the auto-entry pulls the commit subject line directly.
+
+name: Auto Changelog
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need previous commit to diff files changed
+
+      - name: Get commit info
+        id: info
+        run: |
+          echo "DATE=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
+          echo "AUTHOR=${{ github.actor }}" >> $GITHUB_OUTPUT
+          echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          # Get commit subject (first line only)
+          MSG=$(git log -1 --pretty=format:"%s")
+          echo "MSG=$MSG" >> $GITHUB_OUTPUT
+          # Get list of changed files (max 5, then +N more)
+          FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | head -5 | tr '\n' ', ' | sed 's/,$//')
+          TOTAL=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | wc -l)
+          if [ "$TOTAL" -gt "5" ]; then
+            EXTRA=$((TOTAL - 5))
+            FILES="$FILES + $EXTRA more"
+          fi
+          echo "FILES=$FILES" >> $GITHUB_OUTPUT
+
+      - name: Skip if commit is from this action
+        if: contains(github.event.head_commit.message, '[skip changelog]') || contains(github.event.head_commit.message, 'Auto-entry')
+        run: |
+          echo "Skipping changelog update for auto-commit"
+          exit 0
+
+      - name: Prepend entry to CHANGELOG.md
+        run: |
+          DATE="${{ steps.info.outputs.DATE }}"
+          AUTHOR="${{ steps.info.outputs.AUTHOR }}"
+          BRANCH="${{ steps.info.outputs.BRANCH }}"
+          MSG="${{ steps.info.outputs.MSG }}"
+          FILES="${{ steps.info.outputs.FILES }}"
+
+          # Build the new entry block
+          ENTRY="## Auto-entry — $DATE
+**Branch:** $BRANCH | **Pushed by:** $AUTHOR
+**Files changed:** $FILES
+**Commit:** $MSG
+
+---
+
+"
+          # Prepend after the first line (title) of CHANGELOG.md
+          # This keeps the header at top and new entries appear in reverse-chron order
+          if [ -f CHANGELOG.md ]; then
+            # Insert after line 4 (after title + description + blank line)
+            head -4 CHANGELOG.md > /tmp/changelog_top.md
+            echo "" >> /tmp/changelog_top.md
+            echo "$ENTRY" >> /tmp/changelog_top.md
+            tail -n +5 CHANGELOG.md >> /tmp/changelog_top.md
+            mv /tmp/changelog_top.md CHANGELOG.md
+          else
+            echo "# WAIMS — Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "$ENTRY" >> CHANGELOG.md
+          fi
+
+      - name: Commit updated CHANGELOG
+        run: |
+          git config user.name "WAIMS Changelog Bot"
+          git config user.email "changelog@waims"
+          git add CHANGELOG.md
+          git diff --staged --quiet || git commit -m "docs: Auto-entry CHANGELOG — ${{ steps.info.outputs.DATE }} [skip changelog]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

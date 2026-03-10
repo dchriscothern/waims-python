@@ -1,0 +1,37 @@
+<type>(<scope>): <subject>
+
+# ── TYPES ───────────────────────────────────────────────────────────────────
+# feat     A new feature added to the dashboard
+# fix      A bug fix (include what broke and what file)
+# docs     Documentation only (README, CHANGELOG, guides, PDFs)
+# data     Database, CSV, or demo data changes
+# refactor Code restructure — no new feature, no bug fix
+# style    UI/visual changes only (colors, layout, labels)
+# research Evidence review, research_log.json, RESEARCH_FOUNDATION.md
+# chore    Config, requirements, GitHub Actions, tooling
+
+# ── SCOPES (optional but recommended) ───────────────────────────────────────
+# dashboard        dashboard.py changes
+# command-center   coach_command_center.py
+# athlete-profile  athlete_profile_tab.py
+# forecast         Forecast tab
+# insights         Insights tab (evidence review, correlations, ask)
+# evidence         research_monitor.py, research_log.json
+# models           train_models.py, models/
+# data             generate_database.py, waims_demo.db
+# docs             README, guides, PDFs
+# deps             requirements.txt, .env
+
+# ── EXAMPLES ────────────────────────────────────────────────────────────────
+# feat(command-center): Add positional readiness strip (Guards/Wings/Bigs)
+# fix(dashboard): Resolve datetime comparison error in Tab 1 readiness sort
+# docs(readme): Update tab count to 8, add model validation section
+# research(evidence): Tighten PubMed queries — filter clinical noise
+# style(command-center): Replace clinical load language with coach language
+# refactor(models): Unify readiness formula across all tabs via pkl scorer
+# data(database): Regenerate demo DB with GPS columns and availability table
+
+# ── RULES ────────────────────────────────────────────────────────────────────
+# Subject line: 50 chars max, imperative mood ("Add" not "Added")
+# No period at end of subject line
+# Leave blank line between subject and body if adding detail
