@@ -158,7 +158,7 @@ def render_login_page():
     with col2:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
         st.markdown('<div class="login-title">🏀 WAIMS</div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-sub">Wellness & Athlete Injury Management System<br>Dallas Wings Demo · v1.1</div>',
+        st.markdown('<div class="login-sub">Wellness & Athlete Injury Management System<br>WNBA Demo · v1.1</div>',
                     unsafe_allow_html=True)
 
         with st.form("login_form"):
@@ -218,6 +218,18 @@ def render_user_badge():
         for key in ["authenticated", "username", "role", "display_role", "user_name"]:
             st.session_state.pop(key, None)
         st.rerun()
+
+    # ── Logo at bottom of sidebar ─────────────────────────────────────────────
+    st.sidebar.markdown("<div style='flex:1;'></div>", unsafe_allow_html=True)
+    st.sidebar.markdown("---")
+    from pathlib import Path as _Path
+    _logo = _Path("assets/branding/waims_run_man_logo.png")
+    if _logo.exists():
+        st.sidebar.image(str(_logo), width=40)
+    st.sidebar.markdown(
+        "<div style='font-size:10px;color:#94a3b8;'>WAIMS v1.1 · Chris Cothern</div>",
+        unsafe_allow_html=True
+    )
 
 
 def is_authenticated() -> bool:

@@ -1952,7 +1952,7 @@ st.markdown("---")
 st.markdown(
     "<div style='text-align:center;color:#666;'>"
     "<p><strong>WAIMS</strong> -- Athlete Monitoring System | Python · Streamlit · SQLite</p>"
-    "<p>Dallas Wings inspired demo -- 90 days · 12 players · ~10,000+ data points</p>"
+    "<p>Elite Women's Basketball demo -- 90 days · 12 players · ~10,000+ data points</p>"
     "</div>",
     unsafe_allow_html=True,
 )

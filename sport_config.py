@@ -8,12 +8,12 @@ Currently supports WNBA basketball.
 
 Springbok Analytics note
 -------------------------
-Springbok Analytics is an advanced MRI (Match and Rotation Intelligence) platform
-used in NBA/WNBA by teams including the Dallas Wings. It is a Second Spectrum product
-providing optical tracking, lineup analytics, and play data.
-In WAIMS V2/V3, Springbok Analytics is a potential data SOURCE for live game load
-and contextual performance data — not a separate sport config.
-See V2 roadmap: Second Spectrum / Springbok Analytics integration.
+Springbok Analytics is an independent MRI (Match and Rotation Intelligence) platform
+used by NBA/WNBA teams for lineup analytics and play data.
+Second Spectrum is a separate company and the official NBA/WNBA optical tracking provider.
+In WAIMS V2/V3, both Springbok Analytics and Second Spectrum are potential data sources
+for live game load and contextual performance data — not sport configs.
+See V2 roadmap: optical tracking integration for game-context load.
 
 Adding a new team
 -----------------
@@ -87,7 +87,7 @@ SPORT_CONFIGS = {
         "gps_note": (
             "Deceleration count is the primary GPS metric for basketball injury risk. "
             "HSR and sprint distance miss ~70% of multidirectional load (Boskovic 2024 GPS 3.0). "
-            "V2: Springbok Analytics (Second Spectrum MRI platform) adds optical tracking "
+            "V2: Springbok Analytics (independent MRI platform) and Second Spectrum (official NBA/WNBA "
             "context for decel events in game settings."
         ),
 
@@ -154,7 +154,7 @@ SPORT_CONFIGS = {
 TEAM_CONFIGS = {
 
     "dallas_wings": {
-        "display_name": "Dallas Wings",
+        "display_name": "WNBA Demo Team",
         "sport":        "wnba_basketball",
         "demo":         True,
         "threshold_overrides": {},  # No overrides yet — using sport defaults
