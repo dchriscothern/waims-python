@@ -235,3 +235,59 @@ Start at Tab 1 (Command Center). "A coach opens this at 7am and knows in 10 seco
 
 ### "What would you add with real data?"
 "Heart rate variability (HRV) is the strongest single-day readiness signal missing here. I'd also add periodization logic — a load taper curve that adjusts recommendations based on proximity to the NCAA Tournament or playoffs. And I'd want to run the lag analysis on a full season of real data — 90 days of synthetic data gives you the methodology, but the findings would sharpen considerably with 2–3 seasons."
+
+---
+
+## Systems Thinking in WAIMS
+
+### Why Single-Metric Monitoring Fails
+
+Most athlete monitoring tools treat each signal in isolation — sleep is sleep, soreness is soreness, GPS load is GPS load. This is a linear model of a nonlinear system. The human body under training stress is a complex adaptive system: signals interact, feedback loops operate across different timescales, and the same input (a hard training session) produces different outputs depending on the current state of the whole system.
+
+A player with 7 hours of sleep, soreness of 6/10, and a CMJ drop of 1.5σ is not three separate yellow flags. She is a system showing early-stage convergent fatigue — three independent sensors detecting the same underlying state from different angles. That convergence is the signal. WAIMS is designed to detect it.
+
+### The Three-Layer Signal Architecture
+
+WAIMS deliberately uses three independent measurement sources with different failure modes:
+
+**Subjective wellness** (sleep, soreness, stress, mood) — sensitive to psychological state and perceived recovery, but athletes suppress or misreport under competitive pressure. High signal-to-noise ratio when honest, high noise when suppressed.
+
+**Objective neuromuscular** (CMJ, RSI-Modified) — cannot be suppressed. Mechanical output reflects actual neuromuscular state. But tested weekly in most protocols, so misses daily variation. Gathercole (2015) validated CMJ as the most sensitive fatigue marker, but only when compared to personal baseline — not population norms.
+
+**Objective external load** (GPS/Kinexon) — captures what the body was asked to do, not how it responded. Protective movement patterns (reduced accel/decel counts at normal distance) appear before subjective soreness peaks, making this a leading indicator. The key insight from Jaspers et al. (2018): athletes unconsciously reduce explosive direction changes before a soft-tissue injury becomes clinically apparent.
+
+When all three converge — low wellness, reduced CMJ, and protective GPS pattern — the system is in a high-risk state regardless of what the athlete reports verbally. When only one fires, it is a monitoring situation. This convergence architecture reduces both false positives (unnecessary load reductions) and false negatives (missed injury precursors).
+
+### Feedback Loops Across Timescales
+
+WAIMS operates across multiple feedback loops simultaneously:
+
+**Daily loop** — overnight wellness → morning brief → practice modification → next-day wellness. The Hidden Fatigue Flag closes this loop by detecting when accumulated load is degrading daily readiness before the score drops into PROTECT territory.
+
+**Weekly loop** — 4-day and 8-day cumulative minutes → load warning → session volume decision → weekly load trajectory. The load projection tool models this explicitly: select a game scenario tonight, see where readiness lands tomorrow.
+
+**Season loop** — evidence review (GitHub Actions weekly) → threshold updates → model retraining → improved flag accuracy. This is the meta-feedback loop — the system learns and updates its own decision rules as new research emerges and as real outcome data accumulates.
+
+**Individual adaptation loop** — the 30-day expanding personal baseline means the system continuously recalibrates to each athlete's changing state across a season. A player recovering from a mild injury will have a suppressed baseline; the z-score engine adapts rather than flagging her as perpetually flagged.
+
+### Emergent Patterns vs Threshold Crossing
+
+Traditional monitoring flags a player when a metric crosses a fixed threshold. WAIMS flags a player when a pattern emerges across multiple signals. This is the difference between a thermometer and a diagnostic system.
+
+The Conditional Risk Table in the Insights tab makes this explicit: ACWR alone carries a 2.7× relative injury risk when above 1.5. CMJ drop alone carries 2.3×. But the combination of ACWR spike + CMJ drop + accel count reduction is not additive — it is multiplicative. That is emergent risk, not summed risk. The Random Forest model captures this interaction structure; a linear model would not.
+
+### Why This Matters for High Performance Environments
+
+Elite sport is a complex system under external pressure (schedule, travel, media, competition). Athlete readiness is not a static number — it is a dynamic state that emerges from the interaction of physical load, psychological stress, sleep quality, and environmental context. A monitoring system that treats these as independent variables will consistently miss the players who are at the edge of their adaptive capacity — the players where early intervention has the highest leverage.
+
+WAIMS is designed around this principle: surface the convergent signals, translate them into coach-ready language, and close the feedback loop between monitoring data and training decisions. The goal is not to replace coach judgment — it is to give coaches a system that extends their perceptual range into dimensions they cannot observe directly.
+
+---
+
+### Interview Framing — Systems Language
+
+If the role involves a systems-oriented leader (performance director, head of sport science, medical director):
+
+*"Most monitoring tools are single-metric dashboards. WAIMS is a convergence detection system — it's looking for the state of the whole athlete, not the value of any single variable. The three-source architecture, the personal baseline engine, and the multi-timescale feedback loops are all design choices driven by how complex biological systems actually work under load."*
+
+*"The evidence review system adds a fourth loop — the system's own decision rules update as new research emerges. That's not just a monitoring tool; it's a learning system."*
