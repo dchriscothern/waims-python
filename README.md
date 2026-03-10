@@ -221,6 +221,39 @@ Before real athlete data enters WAIMS:
 
 ---
 
+
+## New Modules (v1.1)
+
+| File | Purpose |
+|---|---|
+| `auth.py` | Role-based login — 5 roles (Head Coach, Asst. Coach, Sport Scientist, Medical/AT, GM) |
+| `data_quality.py` | Tiered imputation with full audit log — no silent fills |
+| `model_validation.py` | Walk-forward validation, Precision@K, lead-time analysis, baselines |
+| `sport_config.py` | Multi-team config — WNBA basketball thresholds, position groups, compliance |
+| `healthcheck.py` | Pre-demo startup diagnostic — 10 checks, terminal + Streamlit mode |
+| `test_waims.py` | Unit tests (34 passing) — readiness formula, queries, z-scores, auth, data quality |
+| `pytest.ini` | Pytest configuration — registers db mark for database tests |
+| `.github/workflows/ci.yml` | GitHub Actions CI — runs unit tests on every push automatically |
+
+
+## Automation Overview
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| `ci.yml` | Every push to main/develop | Runs unit tests — green checkmark on GitHub repo |
+| `research_monitor.yml` | Monday 8am UTC | PubMed + RSS search, commits to research_log.json |
+| `retrain_models.yml` | Sunday 6am UTC | Retrains RF model, commits .pkl files |
+
+**Setup:** Push `.github/workflows/` files to repo. `GITHUB_TOKEN` is automatic — no config needed.
+
+**Running tests locally:**
+```bash
+pytest test_waims.py -v -k "not db"   # no database required
+pytest test_waims.py -v                # full suite with waims_demo.db
+python healthcheck.py                  # pre-demo diagnostic (terminal)
+streamlit run healthcheck.py           # pre-demo diagnostic (browser)
+```
+
 ## Data Quality & Imputation
 
 WAIMS uses a tiered, auditable imputation strategy via `data_quality.py`.

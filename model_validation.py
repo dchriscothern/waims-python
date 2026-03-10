@@ -426,9 +426,7 @@ def show_validation_framework_streamlit():
         baselines = pd.DataFrame([
             {"Baseline": "ACWR > 1.5 threshold rule",
              "Complexity": "Simple threshold",
-             "What it tests": "Does the RF model add value over load ratio alone? "
-                              "(ACWR is a flag in WAIMS, not a scored feature — "
-                              "this baseline checks whether the fuller model is worth it.)"},
+             "What it tests": "Does the RF model add value over load ratio alone? (ACWR is a flag in WAIMS, not a scored feature — this checks if the fuller model is worth the complexity.)"},
             {"Baseline": "7-day acute load spike rule",
              "Complexity": "Simple threshold",
              "What it tests": "Does the model add value over minutes-volume monitoring alone?"},
@@ -437,10 +435,18 @@ def show_validation_framework_streamlit():
              "What it tests": "Does the multi-signal model outperform a single subjective flag?"},
             {"Baseline": "CMJ z-score alone",
              "Complexity": "Personal baseline",
-             "What it tests": "Does adding wellness + load to CMJ improve predictions? "
-                              "(Basketball-specific baseline — CMJ is our strongest single signal.)"},
+             "What it tests": "Does adding wellness + load to CMJ improve predictions? Basketball-specific — CMJ is our strongest single signal."},
         ])
-        st.dataframe(baselines, hide_index=True, width='stretch')
+        st.dataframe(
+            baselines,
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "Baseline":    st.column_config.TextColumn("Baseline",    width="medium"),
+                "Complexity":  st.column_config.TextColumn("Complexity",  width="small"),
+                "What it tests": st.column_config.TextColumn("What it tests", width="large"),
+            }
+        )
 
         st.markdown("---")
         st.markdown("### Ablation Studies")
@@ -458,7 +464,15 @@ def show_validation_framework_streamlit():
              "Question": "Does RSI-Mod contribute independently of CMJ height? "
                          "(Gathercole 2015 suggests yes — fatigue sensitivity vs explosive output.)"},
         ])
-        st.dataframe(ablations, hide_index=True, width='stretch')
+        st.dataframe(
+            ablations,
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "Ablation": st.column_config.TextColumn("Ablation", width="medium"),
+                "Question": st.column_config.TextColumn("Question", width="large"),
+            }
+        )
 
         st.markdown("---")
         st.markdown("### Error Analysis — Building Coach Trust")
