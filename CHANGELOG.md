@@ -91,3 +91,5 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) · Maintain
 - MCP server architecture for live data integrations
 - Full injury event validation with real season data
 - Athlete-facing simplified readiness view (no injury risk numbers shown to athletes)
+
+
