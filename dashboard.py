@@ -1334,7 +1334,8 @@ if "fc" in tab_map:
 
         proj_player = st.selectbox("Select player to project", players["name"].tolist(), key="forecast_proj_player")
         load_scenario = st.radio("Tonight's scenario",
-                                  ["Rest / Practice only", "Typical game load (~28 min)",
+                                  ["Rest / Practice only", "DNP — did not play (game night)",
+                                   "Typical game load (~28 min)",
                                    "Heavy game load (~36 min)", "Back-to-back game"],
                                   horizontal=True, key="forecast_scenario")
 
@@ -1347,10 +1348,11 @@ if "fc" in tab_map:
             wp = w_proj.iloc[0]
 
             load_effects = {
-                "Rest / Practice only":        {"sleep_adj": +0.1, "sore_adj": -0.3, "stress_adj": -0.5, "b2b": 0},
-                "Typical game load (~28 min)": {"sleep_adj": -0.2, "sore_adj": +0.8, "stress_adj": +0.3, "b2b": 0},
-                "Heavy game load (~36 min)":   {"sleep_adj": -0.4, "sore_adj": +1.5, "stress_adj": +0.5, "b2b": 0},
-                "Back-to-back game":           {"sleep_adj": -0.7, "sore_adj": +2.5, "stress_adj": +1.5, "b2b": 1},
+                "Rest / Practice only":            {"sleep_adj": +0.1, "sore_adj": -0.3, "stress_adj": -0.5, "b2b": 0},
+                "DNP — did not play (game night)": {"sleep_adj": +0.0, "sore_adj": -0.1, "stress_adj": +0.5, "b2b": 0},
+                "Typical game load (~28 min)":     {"sleep_adj": -0.2, "sore_adj": +0.8, "stress_adj": +0.3, "b2b": 0},
+                "Heavy game load (~36 min)":       {"sleep_adj": -0.4, "sore_adj": +1.5, "stress_adj": +0.5, "b2b": 0},
+                "Back-to-back game":               {"sleep_adj": -0.7, "sore_adj": +2.5, "stress_adj": +1.5, "b2b": 1},
             }
             fx = load_effects[load_scenario]
 
@@ -1363,8 +1365,11 @@ if "fc" in tab_map:
             cmj_proj = float(fp_proj.iloc[0]["cmj_height_cm"]) if len(fp_proj) > 0 else None
             rsi_proj = float(fp_proj.iloc[0]["rsi_modified"])  if len(fp_proj) > 0 else None
 
-            cmj_degradation = {"Rest / Practice only": 0, "Typical game load (~28 min)": -0.5,
-                               "Heavy game load (~36 min)": -1.5, "Back-to-back game": -2.5}
+            cmj_degradation = {"Rest / Practice only": 0,
+                               "DNP — did not play (game night)": 0,
+                               "Typical game load (~28 min)": -0.5,
+                               "Heavy game load (~36 min)": -1.5,
+                               "Back-to-back game": -2.5}
             if cmj_proj:
                 cmj_proj = max(18, cmj_proj + cmj_degradation[load_scenario])
 
@@ -1402,7 +1407,26 @@ if "fc" in tab_map:
                         tl_4d.get("practice_minutes", pd.Series([0]*len(tl_4d))).fillna(0).sum(), 0
                     )
 
-            if tmr_status == "PROTECT":
+            if load_scenario == "DNP — did not play (game night)":
+                # DNP on a game night — deconditioning and soft tissue risk
+                # Key science: players who miss games while teammates compete
+                # accumulate relative deconditioning. Return to full load without
+                # a graduated ramp carries elevated soft tissue injury risk.
+                # Blanch & Gabbett 2016: abrupt load spikes in under-loaded players
+                # carry similar risk to overload spikes. "Low chronic load" = risk.
+                rec_color = "#d97706"; rec_bg = "#fffbeb"
+                rec_icon  = "◑";       rec_head = "DNP — Maintain Her Load Tonight"
+                rec_body  = (
+                    f"{proj_player} didn't play tonight while teammates competed. "
+                    f"Her body didn't get the stimulus the rest of the squad did — "
+                    f"if this continues over multiple games, her muscles lose the conditioning "
+                    f"base needed to handle a sudden return to full minutes. "
+                    f"Recommendation: give her 15–20 minutes of structured work tonight — "
+                    f"controlled sprints, change-of-direction drills, or a conditioning circuit. "
+                    f"Enough to maintain her load base without overloading. "
+                    f"This reduces soft tissue injury risk when she returns to game action."
+                )
+            elif tmr_status == "PROTECT":
                 if mins_4d_proj and mins_4d_proj > 90:
                     min_cap = "20–24 minutes maximum"
                     drill_note = "Remove from full-court sprints and late-game crunch situations"
