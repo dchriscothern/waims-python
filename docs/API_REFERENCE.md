@@ -20,7 +20,6 @@ waims-python/
 └── Utilities
     └── anonymize_players.py
 ```
-
 ---
 
 ## 🗄️ Database Schema
