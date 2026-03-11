@@ -92,3 +92,4 @@ conn.close()
 
 print("\n✓ Done! You can now run dashboard.py")
 print("=" * 60)
+
