@@ -1674,7 +1674,7 @@ if "ins" in tab_map:
                 <div style="font-family:Georgia,serif; font-size:20px; font-weight:700;
                     color:#0f172a; letter-spacing:-0.01em;">Ask a Question</div>
                 <div style="font-size:13px; color:#64748b; margin-top:2px;">
-                    Natural-language queries about your roster -- powered by AI
+                    Natural-language queries about your roster -- type or use your voice
                 </div>
             </div>
             """,
@@ -1684,12 +1684,104 @@ if "ins" in tab_map:
         if "query_to_run" not in st.session_state:
             st.session_state.query_to_run = ""
 
+        # ── VOICE INPUT (Web Speech API) ──────────────────────────────────────
+        # Browser-native — no extra packages. Works in Chrome/Edge.
+        # Captures speech, converts to text, writes to a hidden Streamlit
+        # text element. Coach clicks mic, speaks, result auto-fills the query.
+        import streamlit.components.v1 as _components
+        _components.html("""
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <button id="micBtn" onclick="toggleVoice()" style="
+            background:#1e3a5f;color:white;border:none;border-radius:8px;
+            padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;
+            display:flex;align-items:center;gap:8px;transition:background 0.2s;">
+            🎙 Speak Your Question
+          </button>
+          <span id="micStatus" style="font-size:12px;color:#64748b;"></span>
+          <span style="font-size:11px;color:#94a3b8;font-style:italic;">
+            Voice Preview · Chrome only · Try: "who didn't sleep well" or "who should I protect today"
+          </span>
+        </div>
+        <div id="voiceResult" style="display:none;background:#f0f9ff;border-left:4px solid #0284c7;
+             border-radius:0 8px 8px 0;padding:8px 14px;font-size:13px;color:#0f172a;
+             margin-bottom:8px;"></div>
+
+        <script>
+        let recognizing = false;
+        let recognition;
+
+        function toggleVoice() {
+          if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            document.getElementById('micStatus').textContent =
+              'Voice questions work in Chrome or Edge — open this page there to use the mic.';
+            document.getElementById('micStatus').style.color = '#d97706';
+            return;
+          }
+
+          if (recognizing) {
+            recognition.stop();
+            return;
+          }
+
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+          recognition = new SpeechRecognition();
+          recognition.lang = 'en-US';
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+
+          recognition.onstart = function() {
+            recognizing = true;
+            document.getElementById('micBtn').style.background = '#dc2626';
+            document.getElementById('micBtn').innerHTML = '🔴 Listening... (click to stop)';
+            document.getElementById('micStatus').textContent = '';
+          };
+
+          recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            const confidence = Math.round(event.results[0][0].confidence * 100);
+
+            // Show result
+            const resultDiv = document.getElementById('voiceResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<b>Heard:</b> "' + transcript + '"'
+              + ' <span style="color:#64748b;font-size:11px;">(' + confidence + '% confidence)</span>'
+              + '<br><span style="font-size:11px;color:#0369a1;">Copy this into the search box below ↓</span>';
+
+            // Try to populate the Streamlit text input
+            // Streamlit text inputs are standard HTML inputs — find by placeholder
+            const inputs = parent.document.querySelectorAll('input[type="text"]');
+            for (let inp of inputs) {
+              if (inp.placeholder && inp.placeholder.includes('poor sleep')) {
+                inp.value = transcript;
+                inp.dispatchEvent(new Event('input', { bubbles: true }));
+                inp.dispatchEvent(new Event('change', { bubbles: true }));
+                break;
+              }
+            }
+          };
+
+          recognition.onerror = function(event) {
+            document.getElementById('micStatus').textContent = '⚠ ' + event.error;
+            document.getElementById('micStatus').style.color = '#dc2626';
+          };
+
+          recognition.onend = function() {
+            recognizing = false;
+            document.getElementById('micBtn').style.background = '#1e3a5f';
+            document.getElementById('micBtn').innerHTML = '🎙 Speak Your Question';
+          };
+
+          recognition.start();
+        }
+        </script>
+        """, height=100)
+
         ask_col, btn_col = st.columns([3, 1])
 
         with ask_col:
             user_query = st.text_input(
                 "Ask a question",
-                placeholder="e.g., 'who had poor sleep?' · 'high risk players' · 'does readiness correlate with game margin?'",
+                placeholder="e.g., 'who had poor sleep?' · 'high risk players' · 'readiness'",
                 key="smart_query_input",
                 label_visibility="collapsed",
             )
@@ -1956,4 +2048,3 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True,
 )
-
