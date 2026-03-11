@@ -218,3 +218,5 @@ models/*.pkl
 
 # Database (regenerate with generate_database.py)
 waims_demo.db
+
+

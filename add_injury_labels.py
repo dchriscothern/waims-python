@@ -210,3 +210,5 @@ for source in injuries['source'].unique():
     print(f"   - {source}: {count} injuries")
 
 print("\n" + "=" * 70)
+
+

@@ -150,3 +150,5 @@ print(f"  → Injury risk: {risk:.0f}%")
 print("\n✅ Model now considers schedule factors!")
 
 conn.close()
+
+

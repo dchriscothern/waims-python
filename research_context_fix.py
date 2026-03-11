@@ -157,3 +157,5 @@ def injury_mechanism_insight_box(metrics: dict, context: str = "practice"):
     )
 
     st.markdown(html, unsafe_allow_html=True)
+
+
