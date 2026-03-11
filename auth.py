@@ -111,85 +111,69 @@ def render_login_page():
 
     st.markdown("""
     <style>
-    .login-box {
-        max-width: 420px;
-        margin: 60px auto;
-        padding: 40px;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.10);
-        border-top: 6px solid #1e3a5f;
-    }
-    .login-title {
-        font-size: 26px;
-        font-weight: 800;
-        color: #1e3a5f;
-        margin-bottom: 4px;
-    }
-    .login-sub {
-        font-size: 14px;
-        color: #64748b;
-        margin-bottom: 28px;
-    }
-    .demo-creds {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 14px 18px;
-        margin-top: 24px;
-        font-size: 13px;
-    }
-    .demo-creds h4 { color: #1e3a5f; margin: 0 0 10px 0; font-size: 13px; }
-    .cred-row { display: flex; justify-content: space-between; padding: 3px 0;
-                border-bottom: 1px solid #f1f5f9; color: #374151; }
-    .role-badge {
-        display: inline-block;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 700;
-        color: white;
-        margin-left: 6px;
-    }
+    /* Center the login form vertically */
+    section[data-testid="stMain"] > div { padding-top: 2rem; }
     </style>
     """, unsafe_allow_html=True)
 
+    # Spacer to push login box down
+    st.markdown("<div style='margin-top:40px;'></div>", unsafe_allow_html=True)
+
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown('<div class="login-box">', unsafe_allow_html=True)
-        st.markdown('<div class="login-title">🏀 WAIMS</div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-sub">Wellness & Athlete Injury Management System<br>WNBA Demo · v1.1</div>',
-                    unsafe_allow_html=True)
+        # Header
+        st.markdown(
+            '<div style="text-align:center;margin-bottom:24px;">'
+            '<div style="font-size:28px;font-weight:800;color:#1e3a5f;">🏀 WAIMS</div>'
+            '<div style="font-size:14px;color:#64748b;margin-top:4px;">'
+            'Wellness & Athlete Injury Management System<br>WNBA Demo · v1.1</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
-        with st.form("login_form"):
-            username = st.text_input("Username", placeholder="e.g. coach")
-            password = st.text_input("Password", type="password", placeholder="Password")
-            submitted = st.form_submit_button("Sign In", use_container_width=True)
+        # Login form inside a native Streamlit container
+        with st.container(border=True):
+            with st.form("login_form"):
+                username  = st.text_input("Username", placeholder="e.g. coach")
+                password  = st.text_input("Password", type="password", placeholder="Password")
+                submitted = st.form_submit_button("Sign In", use_container_width=True)
 
-        if submitted:
-            user = DEMO_USERS.get(username.strip().lower())
-            if user and user["password"] == password.strip():
-                st.session_state["authenticated"] = True
-                st.session_state["username"]      = username.strip().lower()
-                st.session_state["role"]          = user["role"]
-                st.session_state["display_role"]  = user["display"]
-                st.session_state["user_name"]     = user["name"]
-                st.rerun()
-            else:
-                st.error("Incorrect username or password.")
+            if submitted:
+                user = DEMO_USERS.get(username.strip().lower())
+                if user and user["password"] == password.strip():
+                    st.session_state["authenticated"] = True
+                    st.session_state["username"]      = username.strip().lower()
+                    st.session_state["role"]          = user["role"]
+                    st.session_state["display_role"]  = user["display"]
+                    st.session_state["user_name"]     = user["name"]
+                    st.rerun()
+                else:
+                    st.error("Incorrect username or password.")
 
         # Demo credentials panel
-        st.markdown("""
-        <div class="demo-creds">
-          <h4>Demo Credentials</h4>
-          <div class="cred-row"><span>coach / coach123</span><span style="color:#1e3a5f;font-weight:700">Head Coach</span></div>
-          <div class="cred-row"><span>acoach / acoach123</span><span style="color:#2563eb;font-weight:700">Asst. Coach</span></div>
-          <div class="cred-row"><span>scientist / sci123</span><span style="color:#059669;font-weight:700">Sport Scientist</span></div>
-          <div class="cred-row"><span>medical / med123</span><span style="color:#7c3aed;font-weight:700">Medical / AT</span></div>
-          <div class="cred-row" style="border:none"><span>gm / gm123</span><span style="color:#b45309;font-weight:700">General Manager</span></div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(
+                "<div style='font-size:12px;font-weight:700;color:#1e3a5f;"
+                "margin-bottom:10px;'>Demo Credentials</div>",
+                unsafe_allow_html=True
+            )
+            creds = [
+                ("coach / coach123",    "Head Coach",        "#1e3a5f"),
+                ("acoach / acoach123",  "Asst. Coach",       "#2563eb"),
+                ("scientist / sci123",  "Sport Scientist",   "#059669"),
+                ("medical / med123",    "Medical / AT",      "#7c3aed"),
+                ("gm / gm123",          "General Manager",   "#b45309"),
+            ]
+            for user_str, role_str, color in creds:
+                st.markdown(
+                    f'<div style="display:flex;justify-content:space-between;'
+                    f'padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">'
+                    f'<span style="color:#374151;">{user_str}</span>'
+                    f'<span style="color:{color};font-weight:700;">{role_str}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
     return False
 
