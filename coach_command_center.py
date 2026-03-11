@@ -239,7 +239,7 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
                 if yest_score - score >= 5:  # dropping ≥5% while high load
                     hidden_fatigue = True
                     if "Cleared for full training" in reason:
-                        reason = "Trending down despite heavy week — watch her closely"
+                        reason = "Trending down under high load — monitor closely"
 
         # ── Load warning — replaces hard minutes cap ──────────────────────────
         # A hard number implies precision the data doesn't support on a summary card.
@@ -248,11 +248,11 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
         # Here: warning label only — coaches use judgment on actual number.
         load_warning = None
         if score < 60 and mins_4d is not None and mins_4d > 80:
-            load_warning = "Consider easing her load today"
+            load_warning = "Manage load tonight"
         elif hidden_fatigue:
-            load_warning = "Heavy legs this week — worth watching"
+            load_warning = "High cumulative load — ease off"
         elif score < 80 and mins_4d is not None and mins_4d > 120:
-            load_warning = "High minutes this week"
+            load_warning = "High 4-day load"
 
         rows.append({
             "pid":            pid,
@@ -322,8 +322,8 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
                 alerts.append({
                     "level":  "🟡 WORKLOAD",
                     "name":   r["name"],
-                    "msg":    "She has been working hard recently — a big week on top of this could be risky.",
-                    "action": "Consider keeping the session a bit shorter today — intensity is fine, just less of it.",
+                    "msg":    "Training load has spiked this week relative to recent baseline",
+                    "action": "Cap volume today — full intensity, shorter duration",
                 })
 
         if r["cmj"] == "🔴":
@@ -331,7 +331,7 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
                 "level":  "🔴 NEURO",
                 "name":   r["name"],
                 "msg":    "Legs not responding — jump power significantly below her normal",
-                "action": "Worth pulling her from high-intensity drills today — her legs are not responding normally.",
+                "action": "No sprinting or jumping today — active recovery only",
             })
 
         if r["accel"] == "🔴":
@@ -538,7 +538,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     elif protect_list:
         names = ', '.join(protect_list[:3])
         b1 = (f"<b>{len(protect_list)} player{'s' if len(protect_list)>1 else ''} on protect "
-              f"today:</b> {names} — modified session only. Let medical know if she reports pain.")
+              f"today:</b> {names} — modified session, flag for medical if pain >7/10.")
         b1_color = "#dc2626"
     elif watch_list:
         names = ', '.join(watch_list[:3])
@@ -546,18 +546,9 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
               f"max-effort reps and monitor warmup quality closely.")
         b1_color = "#d97706"
     else:
-        ready_count  = len([r for r in summary if r["score"] >= 80])
-        total_count  = len(summary)
-        ready_pct_b1 = int(ready_count / total_count * 100) if total_count > 0 else 0
-        if ready_pct_b1 == 100:
-            b1 = (f"<b>Full squad available.</b> All {ready_count} players fully ready — "
-                  f"no protect or injury watch flags.")
-        elif ready_pct_b1 >= 75:
-            b1 = (f"<b>Squad in good shape.</b> {ready_count} of {total_count} players fully ready "
-                  f"({ready_pct_b1}%) — no protect or injury watch flags.")
-        else:
-            b1 = (f"<b>{ready_count} of {total_count} players fully ready</b> ({ready_pct_b1}%) — "
-                  f"no protect or injury watch flags on the others, but worth a check-in.")
+        ready_count = len([r for r in summary if r["score"] >= 80])
+        b1 = (f"<b>Full squad available today.</b> {ready_count} players fully ready, "
+              f"no protect or injury watch flags.")
         b1_color = "#16a34a"
 
     # ── BULLET 2: WHAT changed overnight (biggest single movement) ───────────
@@ -629,12 +620,12 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
     if high_load_players:
         names_load = ", ".join(f"{n} ({m} min)" for n,m in high_load_players[:2])
-        b3 = (f"<b>Heavy legs this week:</b> {names_load} in the last 4 days — "
-              f"consider a lighter session today regardless of how they feel. Your call on minutes.")
+        b3 = (f"<b>High cumulative load:</b> {names_load} in last 4 days — "
+              f"consider shortened practice or lighter intensity today regardless of readiness score.")
         b3_color = "#d97706"
     elif monitor_count >= 4:
-        b3 = (f"<b>{monitor_count} players worth watching today</b> — consider keeping the session a bit lighter. "
-              f"Skill work over conditioning today.")
+        b3 = (f"<b>{monitor_count} players on MONITOR today</b> — consider reducing "
+              f"total session volume by 10–15%. Focus on skill quality over conditioning load.")
         b3_color = "#d97706"
     else:
         ready_pct = round(len([r for r in summary if r["score"]>=80]) / max(len(summary),1) * 100)
@@ -669,60 +660,151 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     )
     st.markdown(brief_html, unsafe_allow_html=True)
 
-    # ── MORNING BRIEF EXPORT — immediately after brief ───────────────────────
-    _exp_col1, _exp_col2, _exp_spacer = st.columns([1.4, 1.4, 4.2])
+    # ── VOICE QUESTION (Web Speech API) ──────────────────────────────────────
+    # Coach asks a question by voice or text — answer appears right here.
+    # No tab switching required.
+    import streamlit.components.v1 as _vc
 
-    # Build data once for both buttons
-    _export_rows = []
-    for r in summary:
-        _traffic_lbl = "READY" if r["score"] >= 80 else ("MONITOR" if r["score"] >= 60 else "PROTECT")
-        _export_rows.append({
-            "Player":          r["name"],
-            "Position":        r.get("position", ""),
-            "Status":          _traffic_lbl,
-            "Readiness Score": r["score"],
-            "Sleep (hrs)":     r.get("sleep_hours", ""),
-            "Soreness":        r.get("soreness", ""),
-            "Stress":          r.get("stress", ""),
-            "Mood":            r.get("mood", ""),
-            "4-day Minutes":   r.get("mins_4d", ""),
-            "Injury Watch":    "Yes" if r.get("inj_risk", 0) >= 60 else "No",
-        })
+    st.markdown(
+        '<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;'
+        'text-transform:uppercase;color:#94a3b8;margin-bottom:8px;">Ask a Question</div>',
+        unsafe_allow_html=True,
+    )
 
-    import pandas as _pd_exp
-    _df_exp  = _pd_exp.DataFrame(_export_rows)
-    _csv_exp = _df_exp.to_csv(index=False)
+    # Voice capture component — writes transcript to a hidden div
+    # Coach clicks mic, speaks, transcript appears in text input below
+    _vc.html("""
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <button id="micBtn" onclick="toggleVoice()" style="
+        background:#1e3a5f;color:white;border:none;border-radius:8px;
+        padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;
+        display:flex;align-items:center;gap:7px;transition:background 0.2s;">
+        🎙 Ask a Question
+      </button>
+      <span id="micStatus" style="font-size:11px;color:#64748b;"></span>
+      <span style="font-size:11px;color:#94a3b8;font-style:italic;">
+        Voice Preview · Chrome only · Try: "who didn't sleep well" or "who should I protect today"
+      </span>
+    </div>
+    <div id="voiceResult" style="display:none;background:#f0f9ff;border-left:4px solid #0284c7;
+         border-radius:0 8px 8px 0;padding:6px 14px;font-size:12px;color:#0f172a;
+         margin-bottom:4px;"></div>
+    <script>
+    let recognizing = false;
+    let recognition;
+    function toggleVoice() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        document.getElementById('micStatus').textContent =
+          'Voice questions work in Chrome or Edge — open this page there to use the mic.';
+        document.getElementById('micStatus').style.color = '#d97706';
+        return;
+      }
+      if (recognizing) { recognition.stop(); return; }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.onstart = function() {
+        recognizing = true;
+        document.getElementById('micBtn').style.background = '#dc2626';
+        document.getElementById('micBtn').innerHTML = '🔴 Listening... (click to stop)';
+      };
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        // Show what was heard
+        const resultDiv = document.getElementById('voiceResult');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = 'Heard: <b>"' + transcript + '"</b> — type it below and press Enter for the answer.';
+        // Try to fill the Streamlit text input below
+        setTimeout(function() {
+          const inputs = parent.document.querySelectorAll('input[type="text"]');
+          for (let inp of inputs) {
+            if (inp.placeholder && inp.placeholder.includes('poor sleep')) {
+              inp.value = transcript;
+              inp.dispatchEvent(new Event('input', { bubbles: true }));
+              inp.dispatchEvent(new Event('change', { bubbles: true }));
+              break;
+            }
+          }
+        }, 300);
+      };
+      recognition.onerror = function() {
+        document.getElementById('micStatus').textContent =
+          'Voice questions work in Chrome or Edge — open this page there to use the mic.';
+        document.getElementById('micStatus').style.color = '#d97706';
+      };
+      recognition.onend = function() {
+        recognizing = false;
+        document.getElementById('micBtn').style.background = '#1e3a5f';
+        document.getElementById('micBtn').innerHTML = '🎙 Ask a Question';
+      };
+      recognition.start();
+    }
+    </script>
+    """, height=80)
 
-    _txt_lines = [
-        f"WAIMS Morning Brief — {pd.Timestamp(end_date).strftime('%B %d, %Y')}",
-        "=" * 45,
-    ]
-    for r in summary:
-        _lbl = "READY" if r["score"] >= 80 else ("MONITOR" if r["score"] >= 60 else "PROTECT")
-        _txt_lines.append(f"{r['name']:<20} {_lbl:<8} {r['score']:.0f}/100")
-    _txt_lines.append("")
-    _txt_lines.append("Generated by WAIMS v1.1")
-    _txt_exp = "\n".join(_txt_lines)
+    # Text input — accepts voice transcript or typed question
+    if "cc_query_to_run" not in st.session_state:
+        st.session_state.cc_query_to_run = ""
 
-    with _exp_col1:
-        st.download_button(
-            label="📋 Export CSV",
-            data=_csv_exp,
-            file_name=f"morning_brief_{pd.Timestamp(end_date).strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            help="Download today's readiness snapshot as CSV",
-            use_container_width=True,
-        )
-    with _exp_col2:
-        st.download_button(
-            label="📄 Copy as Text",
-            data=_txt_exp,
-            file_name=f"morning_brief_{pd.Timestamp(end_date).strftime('%Y%m%d')}.txt",
-            mime="text/plain",
-            help="Plain-text — paste into email or Slack",
-            use_container_width=True,
-        )
+    cc_query = st.text_input(
+        "Ask",
+        placeholder="e.g., 'poor sleep' · 'high risk' · 'readiness' · 'back to back'",
+        key="cc_voice_input",
+        label_visibility="collapsed",
+    )
 
+    if st.session_state.cc_query_to_run:
+        cc_query = st.session_state.cc_query_to_run
+        st.session_state.cc_query_to_run = ""
+
+    if cc_query:
+        # Parse and answer inline — same logic as Insights tab
+        q = cc_query.lower().strip()
+        if any(w in q for w in ["poor sleep", "bad sleep", "didn't sleep", "sleep"]):
+            latest = wellness[wellness["date"] == wellness["date"].max()].copy()
+            latest = latest.merge(players[["player_id", "name"]], on="player_id")
+            poor = latest[latest["sleep_hours"] < 7.0].sort_values("sleep_hours")
+            if len(poor) == 0:
+                st.success("✓ No players had poor sleep last night — everyone above 7 hours.")
+            else:
+                st.warning(f"**{len(poor)} players with short sleep last night:**")
+                for _, row in poor.iterrows():
+                    st.markdown(f"• **{row['name']}** — {row['sleep_hours']:.1f} hrs")
+                st.caption("Recommendation: check in with these players before practice starts.")
+
+        elif any(w in q for w in ["protect", "high risk", "at risk", "injury"]):
+            latest = wellness[wellness["date"] == wellness["date"].max()].copy()
+            latest = latest.merge(players[["player_id", "name"]], on="player_id")
+            at_risk = [r for r in summary if r["score"] < 60]
+            watch   = [r for r in summary if r.get("inj_risk", 0) and r["inj_risk"] >= 60 and r["score"] >= 60]
+            if not at_risk and not watch:
+                st.success("✓ No players on protect or injury watch today.")
+            else:
+                if at_risk:
+                    st.error(f"**{len(at_risk)} on PROTECT:** " + ", ".join(r["name"] for r in at_risk))
+                if watch:
+                    st.warning(f"**{len(watch)} on injury watch:** " + ", ".join(r["name"] for r in watch))
+
+        elif any(w in q for w in ["readiness", "ready", "status"]):
+            n_green  = sum(1 for r in summary if r["score"] >= 80)
+            n_yellow = sum(1 for r in summary if 60 <= r["score"] < 80)
+            n_red    = sum(1 for r in summary if r["score"] < 60)
+            st.info(f"🟢 Ready: **{n_green}** · 🟡 Monitor: **{n_yellow}** · 🔴 Protect: **{n_red}**")
+            for r in sorted(summary, key=lambda x: x["score"]):
+                emoji = "🔴" if r["score"] < 60 else ("🟡" if r["score"] < 80 else "🟢")
+                st.markdown(f"{emoji} **{r['name']}** — {r['reason']}")
+
+        elif any(w in q for w in ["back to back", "b2b", "back-to-back"]):
+            ctx = game_context
+            if "Back-to-Back" in ctx:
+                st.warning(f"⚠ **{ctx}** — back-to-back game. Monitor closely, manage minutes.")
+            else:
+                st.info(f"No back-to-back today. Schedule: {ctx}")
+
+        else:
+            st.info("Try: 'poor sleep' · 'high risk' · 'readiness' · 'back to back'")
 
     # ── ROW 1: Alerts + GPS Strip ─────────────────────────────────────────────
     left, right = st.columns([3, 2])
@@ -1044,6 +1126,3 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         '</div>',
         unsafe_allow_html=True,
     )
-
-
-
