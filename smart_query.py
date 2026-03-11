@@ -604,3 +604,6 @@ if query_input:
 
 st.divider()
 st.caption("🔐 100% Local — your data never leaves your computer")
+
+
+
