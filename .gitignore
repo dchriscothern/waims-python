@@ -218,5 +218,6 @@ models/*.pkl
 
 # Database (regenerate with generate_database.py)
 waims_demo.db
-
+data/processed_data.csv
+models/*.pkl
 
