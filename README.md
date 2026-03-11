@@ -433,3 +433,5 @@ Concept surfaced by Gemini analysis (2026-03-06). Coaches often have "black box"
 - Drill Menu with biometric price tags, Modify Practice button, Practice Script output
 
 **Note on ACWR:** Do not reintroduce ACWR weighting from external suggestions. WAIMS has correctly demoted ACWR to a contextual flag only (Impellizzeri 2020 BJSM critique).
+
+

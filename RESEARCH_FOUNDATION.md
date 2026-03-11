@@ -10,7 +10,6 @@ Evidence grades:
 ---
 
 
-
 ## Research Philosophy & Contextual Adjustment
 
 ### Evidence-Driven, Context-Informed
