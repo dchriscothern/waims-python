@@ -3,7 +3,7 @@
 **Professional Athlete Monitoring Dashboard**  
 Built with Python · Streamlit · SQLite · Plotly · Random Forest · Generative AI
 
-> Dallas Wings-inspired demo — 90 days · 12 players · anonymized roster  
+> Elite women's basketball demo — 90 days · 12 players · anonymized synthetic roster  
 > Live ESPN game data (2019–2025) · Evidence-based thresholds · Walsh 2021 · Gabbett 2016
 
 ---
@@ -56,7 +56,16 @@ Does not make clinical decisions — translates data into plain English for coac
 | Forecast | GM / Coach | 7-day injury risk watchlist + load projection (what happens to readiness after tonight's game) |
 | Insights | Sport Scientist | Natural-language queries + model validation philosophy + evidence review inbox + correlation heatmap |
 
-### Monitoring Signals
+### Coach Command Center Features
+
+| Feature | What it does |
+|---|---|
+| Voice Ask | Mic button — speak "who didn't sleep well" or "who should I protect" — answer appears instantly, no tab switching. Voice Preview, Chrome/Edge only. |
+| Unit Readiness Strip | Guards / Wings / Bigs average readiness above roster cards |
+| Load Warning | Heavy legs flag when player has carried high minutes over 4 days |
+| Hidden Fatigue | READY players trending down under load — "Watch Closely" badge |
+| Overnight Delta | ▲/▼ readiness change since yesterday on each card |
+| DNP Load Projection | "Did not play" scenario in Forecast — recommends maintaining load base to prevent soft tissue injury on return |
 
 - **Wellness** — Sleep (hrs + quality), soreness, stress, mood, HRV
 - **Force Plate** — CMJ height, RSI-Modified, asymmetry %
@@ -315,6 +324,7 @@ Safe for GitHub, portfolio, and professional presentations.
 | Hidden Fatigue Detection | Flags READY players trending down under high load (>100 min/4d) | Incorporate decel trend data for earlier detection | — |
 | GPS decel monitoring | z-score vs personal baseline, labelled as exposure indicator (Clubb 2025) | Individualised thresholds as % of each player's observed maximum (Pimenta 2026) | — |
 | Drill-level GPS tagging | Not built | Not in scope | PlayerMaker/Kinexon timestamp-gated drill segmentation — analyst labels drill type in app, load metrics mapped per segment |
+| Digital twin athlete modeling | Not built | Not in scope | Longitudinal athlete-specific load projections with injury history and biomechanical profiles — extends Load Projection from population-based to individual |
 | Game load integration | Practice minutes only (Kinexon) | Second Spectrum optical tracking — true week-total load across practice + games | — |
 | ML model | Random Forest on synthetic demo data — illustrative only | Retrain on 90+ days real data with real injury outcomes. Add menstrual cycle phase as feature | Walk-forward validation, PR-AUC, Precision@K |
 | Data input | SQLite / CSV manual import | Live APIs: Kinexon, ForceDecks, wellness app. MCP server architecture | — |
@@ -433,5 +443,3 @@ Concept surfaced by Gemini analysis (2026-03-06). Coaches often have "black box"
 - Drill Menu with biometric price tags, Modify Practice button, Practice Script output
 
 **Note on ACWR:** Do not reintroduce ACWR weighting from external suggestions. WAIMS has correctly demoted ACWR to a contextual flag only (Impellizzeri 2020 BJSM critique).
-
-

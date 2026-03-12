@@ -671,140 +671,183 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         unsafe_allow_html=True,
     )
 
-    # Voice capture component — writes transcript to a hidden div
-    # Coach clicks mic, speaks, transcript appears in text input below
-    _vc.html("""
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-      <button id="micBtn" onclick="toggleVoice()" style="
+    # Build a JSON snapshot of current roster data to pass into the component
+    # so it can answer questions entirely within the iframe — no Streamlit rerun needed
+    import json as _json
+    _roster_data = []
+    for _r in summary:
+        _roster_data.append({
+            "name":     str(_r["name"]),
+            "pos":      str(_r.get("pos", "")),
+            "score":    float(_r["score"]),
+            "sleep":    float(_r.get("sleep", 0)),
+            "soreness": float(_r.get("soreness", 0)),
+            "stress":   float(_r.get("stress", 0)),
+            "reason":   str(_r.get("reason", "")),
+            "inj_risk": float(_r.get("inj_risk", 0) or 0),
+        })
+    _roster_json = _json.dumps(_roster_data)
+    _ctx_json    = _json.dumps(game_context)
+
+    _vc.html(f"""
+    <style>
+      body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; }}
+      #micBtn {{
         background:#1e3a5f;color:white;border:none;border-radius:8px;
-        padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;
-        display:flex;align-items:center;gap:7px;transition:background 0.2s;">
-        🎙 Ask a Question
-      </button>
+        padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;
+        transition:background 0.2s;
+      }}
+      #queryBox {{
+        width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;
+        border:1px solid #e2e8f0;font-size:13px;margin:8px 0;
+        font-family:Arial,sans-serif;
+      }}
+      #answerBox {{
+        background:#f8fafc;border-left:4px solid #1e3a5f;border-radius:0 8px 8px 0;
+        padding:12px 16px;font-size:13px;color:#0f172a;margin-top:8px;
+        display:none;line-height:1.6;
+      }}
+      .ans-row {{ padding:3px 0;border-bottom:1px solid #f1f5f9; }}
+      .green {{ color:#16a34a;font-weight:700; }}
+      .amber {{ color:#d97706;font-weight:700; }}
+      .red   {{ color:#dc2626;font-weight:700; }}
+    </style>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button id="micBtn" onclick="toggleVoice()">🎙 Ask</button>
       <span id="micStatus" style="font-size:11px;color:#64748b;"></span>
       <span style="font-size:11px;color:#94a3b8;font-style:italic;">
-        Voice Preview · Chrome only · Try: "who didn't sleep well" or "who should I protect today"
+        Voice Preview · Chrome only · Try: "who didn't sleep well" or "who should I protect"
       </span>
     </div>
-    <div id="voiceResult" style="display:none;background:#f0f9ff;border-left:4px solid #0284c7;
-         border-radius:0 8px 8px 0;padding:6px 14px;font-size:12px;color:#0f172a;
-         margin-bottom:4px;"></div>
+
+    <input id="queryBox" type="text"
+           placeholder="Type or speak: 'poor sleep' · 'protect' · 'readiness' · 'back to back'"
+           onkeydown="if(event.key==='Enter') answerQuery(this.value)" />
+
+    <div id="answerBox"></div>
+
     <script>
+    const ROSTER = {_roster_json};
+    const CONTEXT = {_ctx_json};
+
+    function answerQuery(q) {{
+      q = q.toLowerCase().trim();
+      const box = document.getElementById('answerBox');
+      box.style.display = 'block';
+      let html = '';
+
+      if (q.includes('sleep') || q.includes('tired') || q.includes('rest')) {{
+        const poor = ROSTER.filter(p => p.sleep < 7.0).sort((a,b) => a.sleep - b.sleep);
+        if (poor.length === 0) {{
+          box.style.borderColor = '#16a34a';
+          html = '<span class="green">✓ Everyone slept well last night — all above 7 hours.</span>';
+        }} else {{
+          box.style.borderColor = '#d97706';
+          html = '<b style="color:#d97706;">Short sleep last night:</b><br>';
+          poor.forEach(p => {{
+            html += '<div class="ans-row">• <b>' + p.name + '</b> — ' + p.sleep.toFixed(1) + ' hrs</div>';
+          }});
+          html += '<div style="margin-top:6px;font-size:12px;color:#64748b;">Check in with these players before practice starts.</div>';
+        }}
+
+      }} else if (q.includes('protect') || q.includes('risk') || q.includes('injury') || q.includes('watch')) {{
+        const protect = ROSTER.filter(p => p.score < 60);
+        const watch   = ROSTER.filter(p => p.inj_risk >= 60 && p.score >= 60);
+        if (protect.length === 0 && watch.length === 0) {{
+          box.style.borderColor = '#16a34a';
+          html = '<span class="green">✓ No players on protect or injury watch today.</span>';
+        }} else {{
+          box.style.borderColor = '#dc2626';
+          if (protect.length > 0) {{
+            html += '<b class="red">PROTECT:</b> ' + protect.map(p => p.name).join(', ') + '<br>';
+          }}
+          if (watch.length > 0) {{
+            html += '<b class="amber">INJURY WATCH:</b> ' + watch.map(p => p.name).join(', ');
+          }}
+        }}
+
+      }} else if (q.includes('ready') || q.includes('readiness') || q.includes('status') || q.includes('squad')) {{
+        const green  = ROSTER.filter(p => p.score >= 80);
+        const yellow = ROSTER.filter(p => p.score >= 60 && p.score < 80);
+        const red    = ROSTER.filter(p => p.score < 60);
+        box.style.borderColor = '#1e3a5f';
+        html = '<span class="green">🟢 Ready: ' + green.length + '</span> &nbsp;'
+             + '<span class="amber">🟡 Monitor: ' + yellow.length + '</span> &nbsp;'
+             + '<span class="red">🔴 Protect: ' + red.length + '</span><br><br>';
+        ROSTER.slice().sort((a,b) => a.score - b.score).forEach(p => {{
+          const em = p.score >= 80 ? '🟢' : (p.score >= 60 ? '🟡' : '🔴');
+          html += '<div class="ans-row">' + em + ' <b>' + p.name + '</b> — ' + p.reason + '</div>';
+        }});
+
+      }} else if (q.includes('back') || q.includes('b2b') || q.includes('schedule') || q.includes('game')) {{
+        box.style.borderColor = CONTEXT.includes('Back-to-Back') ? '#dc2626' : '#1e3a5f';
+        html = '<b>Today:</b> ' + CONTEXT;
+        if (CONTEXT.includes('Back-to-Back')) {{
+          html += '<br><span class="red">⚠ Back-to-back — monitor minutes closely.</span>';
+        }}
+
+      }} else if (q.includes('soreness') || q.includes('sore') || q.includes('body')) {{
+        const sore = ROSTER.filter(p => p.soreness >= 7).sort((a,b) => b.soreness - a.soreness);
+        if (sore.length === 0) {{
+          box.style.borderColor = '#16a34a';
+          html = '<span class="green">✓ No players reporting high soreness today.</span>';
+        }} else {{
+          box.style.borderColor = '#d97706';
+          html = '<b style="color:#d97706;">High soreness reported:</b><br>';
+          sore.forEach(p => {{
+            html += '<div class="ans-row">• <b>' + p.name + '</b> — soreness ' + p.soreness.toFixed(0) + '/10</div>';
+          }});
+        }}
+
+      }} else {{
+        box.style.borderColor = '#94a3b8';
+        html = 'Try: <b>"poor sleep"</b> · <b>"who should I protect"</b> · <b>"readiness"</b> · <b>"back to back"</b> · <b>"soreness"</b>';
+      }}
+
+      document.getElementById('answerBox').innerHTML = html;
+    }}
+
+    // Voice
     let recognizing = false;
     let recognition;
-    function toggleVoice() {
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    function toggleVoice() {{
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {{
         document.getElementById('micStatus').textContent =
-          'Voice questions work in Chrome or Edge — open this page there to use the mic.';
+          'Voice questions work in Chrome or Edge.';
         document.getElementById('micStatus').style.color = '#d97706';
         return;
-      }
-      if (recognizing) { recognition.stop(); return; }
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
+      }}
+      if (recognizing) {{ recognition.stop(); return; }}
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SR();
       recognition.lang = 'en-US';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
-      recognition.onstart = function() {
+      recognition.onstart = function() {{
         recognizing = true;
         document.getElementById('micBtn').style.background = '#dc2626';
-        document.getElementById('micBtn').innerHTML = '🔴 Listening... (click to stop)';
-      };
-      recognition.onresult = function(event) {
-        const transcript = event.results[0][0].transcript;
-        // Show what was heard
-        const resultDiv = document.getElementById('voiceResult');
-        resultDiv.style.display = 'block';
-        resultDiv.innerHTML = 'Heard: <b>"' + transcript + '"</b> — type it below and press Enter for the answer.';
-        // Try to fill the Streamlit text input below
-        setTimeout(function() {
-          const inputs = parent.document.querySelectorAll('input[type="text"]');
-          for (let inp of inputs) {
-            if (inp.placeholder && inp.placeholder.includes('poor sleep')) {
-              inp.value = transcript;
-              inp.dispatchEvent(new Event('input', { bubbles: true }));
-              inp.dispatchEvent(new Event('change', { bubbles: true }));
-              break;
-            }
-          }
-        }, 300);
-      };
-      recognition.onerror = function() {
+        document.getElementById('micBtn').innerHTML = '🔴 Listening...';
+      }};
+      recognition.onresult = function(event) {{
+        const t = event.results[0][0].transcript;
+        document.getElementById('queryBox').value = t;
+        answerQuery(t);
+      }};
+      recognition.onerror = function() {{
         document.getElementById('micStatus').textContent =
-          'Voice questions work in Chrome or Edge — open this page there to use the mic.';
+          'Voice questions work in Chrome or Edge.';
         document.getElementById('micStatus').style.color = '#d97706';
-      };
-      recognition.onend = function() {
+      }};
+      recognition.onend = function() {{
         recognizing = false;
         document.getElementById('micBtn').style.background = '#1e3a5f';
-        document.getElementById('micBtn').innerHTML = '🎙 Ask a Question';
-      };
+        document.getElementById('micBtn').innerHTML = '🎙 Ask';
+      }};
       recognition.start();
-    }
+    }}
     </script>
-    """, height=80)
-
-    # Text input — accepts voice transcript or typed question
-    if "cc_query_to_run" not in st.session_state:
-        st.session_state.cc_query_to_run = ""
-
-    cc_query = st.text_input(
-        "Ask",
-        placeholder="e.g., 'poor sleep' · 'high risk' · 'readiness' · 'back to back'",
-        key="cc_voice_input",
-        label_visibility="collapsed",
-    )
-
-    if st.session_state.cc_query_to_run:
-        cc_query = st.session_state.cc_query_to_run
-        st.session_state.cc_query_to_run = ""
-
-    if cc_query:
-        # Parse and answer inline — same logic as Insights tab
-        q = cc_query.lower().strip()
-        if any(w in q for w in ["poor sleep", "bad sleep", "didn't sleep", "sleep"]):
-            latest = wellness[wellness["date"] == wellness["date"].max()].copy()
-            latest = latest.merge(players[["player_id", "name"]], on="player_id")
-            poor = latest[latest["sleep_hours"] < 7.0].sort_values("sleep_hours")
-            if len(poor) == 0:
-                st.success("✓ No players had poor sleep last night — everyone above 7 hours.")
-            else:
-                st.warning(f"**{len(poor)} players with short sleep last night:**")
-                for _, row in poor.iterrows():
-                    st.markdown(f"• **{row['name']}** — {row['sleep_hours']:.1f} hrs")
-                st.caption("Recommendation: check in with these players before practice starts.")
-
-        elif any(w in q for w in ["protect", "high risk", "at risk", "injury"]):
-            latest = wellness[wellness["date"] == wellness["date"].max()].copy()
-            latest = latest.merge(players[["player_id", "name"]], on="player_id")
-            at_risk = [r for r in summary if r["score"] < 60]
-            watch   = [r for r in summary if r.get("inj_risk", 0) and r["inj_risk"] >= 60 and r["score"] >= 60]
-            if not at_risk and not watch:
-                st.success("✓ No players on protect or injury watch today.")
-            else:
-                if at_risk:
-                    st.error(f"**{len(at_risk)} on PROTECT:** " + ", ".join(r["name"] for r in at_risk))
-                if watch:
-                    st.warning(f"**{len(watch)} on injury watch:** " + ", ".join(r["name"] for r in watch))
-
-        elif any(w in q for w in ["readiness", "ready", "status"]):
-            n_green  = sum(1 for r in summary if r["score"] >= 80)
-            n_yellow = sum(1 for r in summary if 60 <= r["score"] < 80)
-            n_red    = sum(1 for r in summary if r["score"] < 60)
-            st.info(f"🟢 Ready: **{n_green}** · 🟡 Monitor: **{n_yellow}** · 🔴 Protect: **{n_red}**")
-            for r in sorted(summary, key=lambda x: x["score"]):
-                emoji = "🔴" if r["score"] < 60 else ("🟡" if r["score"] < 80 else "🟢")
-                st.markdown(f"{emoji} **{r['name']}** — {r['reason']}")
-
-        elif any(w in q for w in ["back to back", "b2b", "back-to-back"]):
-            ctx = game_context
-            if "Back-to-Back" in ctx:
-                st.warning(f"⚠ **{ctx}** — back-to-back game. Monitor closely, manage minutes.")
-            else:
-                st.info(f"No back-to-back today. Schedule: {ctx}")
-
-        else:
-            st.info("Try: 'poor sleep' · 'high risk' · 'readiness' · 'back to back'")
+    """, height=280)
 
     # ── ROW 1: Alerts + GPS Strip ─────────────────────────────────────────────
     left, right = st.columns([3, 2])

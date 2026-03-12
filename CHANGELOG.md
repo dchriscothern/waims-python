@@ -8,6 +8,8 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) · Maintain
 ## [1.1.0] — March 2026
 
 ### Features
+- **feat(command-center):** Add voice-activated Ask a Question — Web Speech API mic button on Command Center, answers sleep/protect/readiness/soreness/back-to-back questions instantly without tab switching (Chrome/Edge, Voice Preview)
+- **feat(forecast):** Add DNP scenario to Load Projection — "Did not play (game night)" option with coach-language recommendation to maintain load base and reduce soft tissue injury risk on return (Blanch & Gabbett 2016; Hulin et al. 2016)
 - **feat(command-center):** Add positional group readiness strip — Guards / Wings / Bigs average readiness displayed above roster cards for instant tactical read by unit
 - **feat(command-center):** Add hidden fatigue detection — flags READY players trending down under high cumulative load (>100 min/4d), shows "Watch Closely" badge
 - **feat(command-center):** Add load warning labels on roster cards — warning language replaces hard minutes cap (coach judgment preserved)
@@ -88,8 +90,7 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) · Maintain
 
 ### V3 — Future
 - Drill-level GPS tagging via PlayerMaker/Kinexon timestamp-gated segmentation
+- Digital twin athlete modeling — longitudinal position-specific load projections with injury history patterns and biomechanical profiles; extends current Load Projection tool from population-based to athlete-specific scenario modeling
 - MCP server architecture for live data integrations
 - Full injury event validation with real season data
 - Athlete-facing simplified readiness view (no injury risk numbers shown to athletes)
-
----
