@@ -721,11 +721,15 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       </span>
     </div>
 
-    <input id="queryBox" type="text"
-           placeholder="Type or speak: 'poor sleep' · 'protect' · 'readiness' · 'back to back'"
+    <input id="queryBox" type="text" style="display:none;width:100%;box-sizing:border-box;
+           padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;
+           margin:8px 0;font-family:Arial,sans-serif;"
+           placeholder="Type your question and press Enter"
            onkeydown="if(event.key==='Enter') answerQuery(this.value)" />
 
-    <div id="answerBox"></div>
+    <div id="answerBox" style="display:none;background:#f8fafc;border-left:4px solid #1e3a5f;
+         border-radius:0 8px 8px 0;padding:12px 16px;font-size:13px;color:#0f172a;
+         margin-top:4px;line-height:1.6;"></div>
 
     <script>
     const ROSTER = {_roster_json};
@@ -735,6 +739,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       q = q.toLowerCase().trim();
       const box = document.getElementById('answerBox');
       box.style.display = 'block';
+      document.getElementById('queryBox').style.display = 'block';
       let html = '';
 
       if (q.includes('sleep') || q.includes('tired') || q.includes('rest')) {{
@@ -806,6 +811,11 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       }}
 
       document.getElementById('answerBox').innerHTML = html;
+      // Expand iframe to show answer
+      setTimeout(function() {{
+        const h = document.body.scrollHeight + 20;
+        resizeFrame(Math.min(h, 400));
+      }}, 50);
     }}
 
     // Voice
@@ -813,9 +823,12 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     let recognition;
     function toggleVoice() {{
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {{
-        document.getElementById('micStatus').textContent =
-          'Voice questions work in Chrome or Edge.';
+        document.getElementById('micStatus').innerHTML =
+          '⚠ Voice unavailable — <b>type your question in the box and press Enter</b>.';
         document.getElementById('micStatus').style.color = '#d97706';
+        document.getElementById('queryBox').style.display = 'block';
+        document.getElementById('queryBox').focus();
+        resizeFrame(130);
         return;
       }}
       if (recognizing) {{ recognition.stop(); return; }}
@@ -832,12 +845,16 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       recognition.onresult = function(event) {{
         const t = event.results[0][0].transcript;
         document.getElementById('queryBox').value = t;
+        document.getElementById('queryBox').style.display = 'block';
         answerQuery(t);
       }};
       recognition.onerror = function() {{
-        document.getElementById('micStatus').textContent =
-          'Voice questions work in Chrome or Edge.';
+        document.getElementById('micStatus').innerHTML =
+          '⚠ Mic blocked — <b>type your question in the box and press Enter</b>.';
         document.getElementById('micStatus').style.color = '#d97706';
+        document.getElementById('queryBox').style.display = 'block';
+        document.getElementById('queryBox').focus();
+        resizeFrame(130);
       }};
       recognition.onend = function() {{
         recognizing = false;
@@ -846,8 +863,12 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       }};
       recognition.start();
     }}
+
+    function resizeFrame(h) {{
+      try {{ window.frameElement.style.height = h + 'px'; }} catch(e) {{}}
+    }}
     </script>
-    """, height=280)
+    """, height=52)
 
     # ── ROW 1: Alerts + GPS Strip ─────────────────────────────────────────────
     left, right = st.columns([3, 2])
