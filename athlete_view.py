@@ -89,7 +89,7 @@ def _render_voice_box(payload: dict):
         <style>
           body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; }}
           #voiceShell {{
-            padding-bottom: 6px;
+            padding: 0;
           }}
           #askBtn {{
             background:#0f766e;color:white;border:none;border-radius:8px;
@@ -97,18 +97,18 @@ def _render_voice_box(payload: dict):
           }}
           #queryBox {{
             display:none;width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;
-            border:1px solid #cbd5e1;font-size:13px;margin:8px 0 0;font-family:Arial,sans-serif;
+            border:1px solid #cbd5e1;font-size:13px;margin:6px 0 0;font-family:Arial,sans-serif;
           }}
           #answerBox {{
             display:none;background:#f8fafc;border-left:4px solid #0f766e;border-radius:0 8px 8px 0;
-            padding:12px 16px;font-size:13px;color:#0f172a;margin-top:8px;line-height:1.6;
+            padding:12px 16px;font-size:13px;color:#0f172a;margin-top:6px;line-height:1.6;
           }}
           #helperText {{
             font-size:11px;color:#94a3b8;font-style:italic;
           }}
         </style>
         <div id="voiceShell">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <button id="askBtn" onclick="toggleVoice()">🎙 Ask</button>
           <span id="voiceStatus" style="font-size:11px;color:#64748b;"></span>
           <span id="helperText">
@@ -135,7 +135,7 @@ def _render_voice_box(payload: dict):
             const query = document.getElementById('queryBox');
             query.style.display = 'block';
             query.focus();
-            resizeFrame(180);
+            resizeFrame(150);
           }}
 
           function answerQuery(q) {{
@@ -169,7 +169,7 @@ def _render_voice_box(payload: dict):
 
             box.innerHTML = html;
             setTimeout(function() {{
-              resizeFrame(Math.min(document.body.scrollHeight + 22, 260));
+              resizeFrame(Math.min(document.body.scrollHeight + 16, 205));
             }}, 50);
           }}
 
@@ -192,7 +192,7 @@ def _render_voice_box(payload: dict):
               document.getElementById('askBtn').innerHTML = '🔴 Tap To Stop';
               document.getElementById('voiceStatus').innerHTML = 'Listening now — say your question, then tap again to stop.';
               document.getElementById('voiceStatus').style.color = '#64748b';
-              resizeFrame(92);
+              resizeFrame(78);
             }};
             recognition.onresult = function(event) {{
               const t = event.results[0][0].transcript;
@@ -216,7 +216,7 @@ def _render_voice_box(payload: dict):
           }}
         </script>
         """,
-        height=60,
+        height=52,
     )
 
 
