@@ -699,7 +699,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       }}
       #queryBox {{
         width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;
-        border:1px solid #e2e8f0;font-size:13px;margin:8px 0;
+        border:1px solid #e2e8f0;font-size:13px;margin:8px 0 0 0;
         font-family:Arial,sans-serif;
       }}
       #answerBox {{
@@ -737,9 +737,9 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
     function answerQuery(q) {{
       q = q.toLowerCase().trim();
+      if (!q) return;
       const box = document.getElementById('answerBox');
       box.style.display = 'block';
-      document.getElementById('queryBox').style.display = 'block';
       let html = '';
 
       if (q.includes('sleep') || q.includes('tired') || q.includes('rest')) {{
