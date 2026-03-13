@@ -21,28 +21,6 @@ Dashboard opens at `http://localhost:8501`
 
 ---
 
-## Live And Staging Workflow
-
-WAIMS now uses a simple two-environment workflow:
-
-- `main` = stable live demo
-- `codex/staging` = safe testing branch for new features before they reach live
-
-A git branch is not a separate folder on your laptop. It is another version of the same repo history. To work on staging locally:
-
-```bash
-git checkout codex/staging
-```
-
-Recommended deployment pattern:
-
-- live Streamlit app -> branch `main`
-- staging Streamlit app -> branch `codex/staging`
-
-This keeps experimental changes, UI tests, and auth updates away from the live demo until they are verified.
-
----
-
 ## What Type of AI/ML Does WAIMS Use?
 
 WAIMS combines three distinct layers:
@@ -77,10 +55,6 @@ Does not make clinical decisions — translates data into plain English for coac
 | Availability & Injuries | GM / Medical | Daily availability board, season %, injury log |
 | Forecast | GM / Coach | 7-day injury risk watchlist + load projection (what happens to readiness after tonight's game) |
 | Insights | Sport Scientist | Natural-language queries + model validation philosophy + evidence review inbox + correlation heatmap |
-
-### Athlete Role (Staging)
-
-The staging branch may include an athlete-facing role for testing. Athlete access should remain limited to that athlete's own readiness, trends, and voice/text questions. It should never expose teammate names, roster tables, or cross-athlete injury risk views.
 
 ### Coach Command Center Features
 

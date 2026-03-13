@@ -29,8 +29,6 @@ DEMO_USERS = {
                   "name": "Medical Staff Demo"},
     "gm":        {"password": "gm123",      "role": "gm",              "display": "General Manager",
                   "name": "GM Demo"},
-    "athlete":   {"password": "athlete123", "role": "athlete",         "display": "Athlete",
-                  "name": "Athlete Demo", "athlete_player_id": "P001"},
 }
 
 # ---------------------------------------------------------------------------
@@ -44,7 +42,6 @@ TAB_ACCESS = {
     "sport_scientist": dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True),
     "medical":         dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True),
     "gm":              dict(cc=True,  rd=False,  ap=False, tr=False,jt=False, inj=True,  fc=False, ins=False),
-    "athlete":         dict(ath=True),
 }
 
 # Tab labels (must match order used in dashboard.py)
@@ -57,7 +54,6 @@ TAB_LABELS = {
     "inj": "🚨 Availability & Injuries",
     "fc":  "🔮 Forecast",
     "ins": "🔍 Insights",
-    "ath": "🧍 My Readiness",
 }
 
 # Data field visibility per role (used to mask columns in dataframes)
@@ -97,13 +93,6 @@ DATA_ACCESS = {
         "show_injury_detail": False,  # availability only
         "show_gps": False,
     },
-    "athlete": {
-        "show_readiness_score": True,
-        "show_raw_wellness": True,
-        "show_force_plate_detail": False,
-        "show_injury_detail": False,
-        "show_gps": True,
-    },
 }
 
 
@@ -114,7 +103,6 @@ def get_role_color(role: str) -> str:
         "sport_scientist": "#059669",
         "medical":         "#7c3aed",
         "gm":              "#b45309",
-        "athlete":         "#0f766e",
     }.get(role, "#6b7280")
 
 
@@ -158,7 +146,6 @@ def render_login_page():
                     st.session_state["role"]          = user["role"]
                     st.session_state["display_role"]  = user["display"]
                     st.session_state["user_name"]     = user["name"]
-                    st.session_state["athlete_player_id"] = user.get("athlete_player_id")
                     st.rerun()
                 else:
                     st.error("Incorrect username or password.")
@@ -177,7 +164,6 @@ def render_login_page():
                 ("scientist / sci123",  "Sport Scientist",   "#059669"),
                 ("medical / med123",    "Medical / AT",      "#7c3aed"),
                 ("gm / gm123",          "General Manager",   "#b45309"),
-                ("athlete / athlete123","Athlete",           "#0f766e"),
             ]
             for user_str, role_str, color in creds:
                 st.markdown(
@@ -207,14 +193,13 @@ def render_user_badge():
       <div style="font-size:11px; color:#64748b; margin-top:2px;">
         {'Full access' if role in ('sport_scientist','medical')
          else 'Coach view — wellness data restricted' if role in ('head_coach','asst_coach')
-         else 'Athlete view — your data only' if role == 'athlete'
          else 'Executive view — availability only'}
       </div>
     </div>
     """, unsafe_allow_html=True)
 
     if st.sidebar.button("🚪 Sign Out", use_container_width=True):
-        for key in ["authenticated", "username", "role", "display_role", "user_name", "athlete_player_id"]:
+        for key in ["authenticated", "username", "role", "display_role", "user_name"]:
             st.session_state.pop(key, None)
         st.rerun()
 
@@ -237,10 +222,6 @@ def is_authenticated() -> bool:
 
 def current_role() -> str:
     return st.session_state.get("role", "")
-
-
-def current_athlete_player_id():
-    return st.session_state.get("athlete_player_id")
 
 
 def can_see(tab_key: str) -> bool:
