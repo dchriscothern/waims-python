@@ -1,5 +1,5 @@
-"""
-WAIMS — Coach Command Center
+﻿"""
+WAIMS â€” Coach Command Center
 30-second morning brief. Traffic lights, top alerts, GPS strip, forecast callout.
 No clicks required. Links out to deep analyst tabs via st.session_state.
 """
@@ -26,11 +26,11 @@ if _SCORER_PATH.exists():
         _READINESS_FN = None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # SHARED READINESS CALCULATOR
-# Identical to athlete_profile_tab.py — single formula, both files self-contained.
+# Identical to athlete_profile_tab.py â€” single formula, both files self-contained.
 # Uses pkl scorer when available, falls back to deterministic formula.
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _calculate_readiness(row_dict):
     if _READINESS_FN is not None:
@@ -58,9 +58,9 @@ def _calculate_readiness(row_dict):
     return round(min(100, raw * (100 / 70)), 1)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _zscore(val, series, min_std=0.1):
     s = series.dropna()
@@ -74,7 +74,7 @@ def _readiness(row):
     Uses trained readiness_scorer.pkl when available.
     Falls back to simplified formula if model not yet trained.
     The pkl version uses evidence-based weights from train_models.py:
-    - Wellness 35pts, Force plate 25pts, Schedule 10pts, z-score modifier ±10pts
+    - Wellness 35pts, Force plate 25pts, Schedule 10pts, z-score modifier Â±10pts
     - ACWR as contextual flag only (Impellizzeri 2020, 2025 meta-analysis)
     """
     if _READINESS_FN is not None:
@@ -82,10 +82,10 @@ def _readiness(row):
             return _READINESS_FN(row)
         except Exception:
             pass
-    # Fallback formula — mirrors train_models.py calculate_readiness_score weights
+    # Fallback formula â€” mirrors train_models.py calculate_readiness_score weights
     # Sleep: 15pts | Soreness: 10pts | Mood: 5pts | Stress: 5pts = 35pts wellness
     # CMJ: 15pts | RSI: 10pts = 25pts force plate
-    # Schedule: 10pts | z-modifier: ±5pts default neutral
+    # Schedule: 10pts | z-modifier: Â±5pts default neutral
     # Total possible: 100pts
     sleep_hrs = row.get("sleep_hours", 7.5)
     sleep_q   = row.get("sleep_quality", 7)
@@ -111,16 +111,16 @@ def _readiness(row):
 
     # Wellness(35) + Forceplate(25) + Schedule(10) = 70pts max in this fallback.
     # Full formula in train_models.py adds GPS(20pts) + z-modifier(10pts) = 100pts.
-    # Rescale 70→100 so READY/MONITOR/PROTECT thresholds are correct.
+    # Rescale 70â†’100 so READY/MONITOR/PROTECT thresholds are correct.
     raw   = sleep_s + sore_s + mood_s + stress_s + cmj_s + rsi_s + sched_s
     total = raw * (100 / 70)
     return round(max(0, min(100, total)), 1)
 
 
 def _traffic(score):
-    if score >= 80: return "🟢", "#16a34a", "#dcfce7"
-    if score >= 60: return "🟡", "#d97706", "#fef9c3"
-    return "🔴", "#dc2626", "#fee2e2"
+    if score >= 80: return "ðŸŸ¢", "#16a34a", "#dcfce7"
+    if score >= 60: return "ðŸŸ¡", "#d97706", "#fef9c3"
+    return "ðŸ”´", "#dc2626", "#fee2e2"
 
 
 def _gps_flag(player_id, col, today_val, tl_df, ref_date):
@@ -130,14 +130,14 @@ def _gps_flag(player_id, col, today_val, tl_df, ref_date):
         (tl_df[col] > 0)
     ].tail(30)[col]
     if len(hist) < 5:
-        return "🟡", None
+        return "ðŸŸ¡", None
     z = _zscore(today_val, hist)
-    return ("🔴", z) if z <= -2 else (("🟡", z) if z <= -1 else ("🟢", z))
+    return ("ðŸ”´", z) if z <= -2 else (("ðŸŸ¡", z) if z <= -1 else ("ðŸŸ¢", z))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # BUILD PLAYER SUMMARY TABLE
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _build_summary(wellness, players, force_plate, training_load, end_date, ml_predictions=None):
     ref = pd.Timestamp(end_date)
@@ -146,7 +146,7 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
     for _, p in players.iterrows():
         pid = p["player_id"]
 
-        # ── Wellness ──────────────────────────────────────────────────────────
+        # â”€â”€ Wellness â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         w_today = wellness[(wellness["player_id"] == pid) & (pd.to_datetime(wellness["date"]) == pd.Timestamp(ref))]
         if len(w_today) == 0:
             continue
@@ -154,20 +154,20 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
         score = _readiness(w)
         emoji, color, bg = _traffic(score)
 
-        # ── CMJ z-score ───────────────────────────────────────────────────────
+        # â”€â”€ CMJ z-score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         fp_today = force_plate[(force_plate["player_id"] == pid) & (pd.to_datetime(force_plate["date"]) == pd.Timestamp(ref))]
-        cmj_flag = "—"
+        cmj_flag = "â€”"
         if len(fp_today) > 0:
             cmj_val = fp_today.iloc[0]["cmj_height_cm"]
             hist_cmj = force_plate[
                 (force_plate["player_id"] == pid) & (pd.to_datetime(force_plate["date"]) < pd.Timestamp(ref))
             ].tail(30)["cmj_height_cm"]
             z = _zscore(cmj_val, hist_cmj, min_std=0.5)
-            cmj_flag = "🔴" if z <= -2 else ("🟡" if z <= -1 else "🟢")
+            cmj_flag = "ðŸ”´" if z <= -2 else ("ðŸŸ¡" if z <= -1 else "ðŸŸ¢")
 
-        # ── GPS flags ─────────────────────────────────────────────────────────
+        # â”€â”€ GPS flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         has_gps = "player_load" in training_load.columns
-        pl_flag = ac_flag = "—"
+        pl_flag = ac_flag = "â€”"
         if has_gps:
             gps_today = training_load[
                 (training_load["player_id"] == pid) & (training_load["date"] == ref)
@@ -177,23 +177,23 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
                 pl_flag, _ = _gps_flag(pid, "player_load", g["player_load"], training_load, ref)
                 ac_flag, _ = _gps_flag(pid, "accel_count", g["accel_count"], training_load, ref)
 
-        # Coach-language reason lines — decision-ready, no raw numbers
+        # Coach-language reason lines â€” decision-ready, no raw numbers
         # Priority: safety signals first, then performance signals
         flags = []
-        if w["sleep_hours"] < 6.0:    flags.append("Poor sleep — recovery compromised")
+        if w["sleep_hours"] < 6.0:    flags.append("Poor sleep â€” recovery compromised")
         elif w["sleep_hours"] < 7.0:  flags.append("Short sleep last night")
-        if w["soreness"] >= 9:        flags.append("Body very sore — protect today")
+        if w["soreness"] >= 9:        flags.append("Body very sore â€” protect today")
         elif w["soreness"] >= 7:      flags.append("High soreness reported")
-        if w["stress"] >= 9:          flags.append("High stress — limit demands")
+        if w["stress"] >= 9:          flags.append("High stress â€” limit demands")
         elif w["stress"] >= 7:        flags.append("Elevated stress reported")
-        if cmj_flag == "🔴":          flags.append("Power output down — legs not ready")
-        if ac_flag  == "🔴":          flags.append("Movement quality reduced")
-        if pl_flag  == "🔴":          flags.append("Below normal physical output")
-        if w["mood"] <= 3:            flags.append("Low mood — check in before session")
+        if cmj_flag == "ðŸ”´":          flags.append("Power output down â€” legs not ready")
+        if ac_flag  == "ðŸ”´":          flags.append("Movement quality reduced")
+        if pl_flag  == "ðŸ”´":          flags.append("Below normal physical output")
+        if w["mood"] <= 3:            flags.append("Low mood â€” check in before session")
         elif w["mood"] <= 4:          flags.append("Low mood today")
-        reason = " · ".join(flags[:2]) if flags else "Cleared for full training"
+        reason = " Â· ".join(flags[:2]) if flags else "Cleared for full training"
 
-        # Injury risk from ML model — loaded from processed_data.csv
+        # Injury risk from ML model â€” loaded from processed_data.csv
         inj_risk = None
         if ml_predictions is not None and len(ml_predictions) > 0:
             _risk_row = ml_predictions[
@@ -203,9 +203,9 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
             if len(_risk_row) > 0:
                 inj_risk = round(float(_risk_row.iloc[0]["injury_risk_score"]) * 100, 0)
 
-        # ── Cumulative minutes — 4-day and 8-day rolling ────────────────────
+        # â”€â”€ Cumulative minutes â€” 4-day and 8-day rolling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # Per Orlando Magic sport science: coaches think in minutes, not scores.
-        # "Minutes played in last 4 or 8 days — that's how coaches live."
+        # "Minutes played in last 4 or 8 days â€” that's how coaches live."
         # (NBA practitioner interview, 2024)
         mins_4d = mins_8d = None
         if "practice_minutes" in training_load.columns:
@@ -223,9 +223,9 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
                 mins_4d = round(last4["total_min"].sum(), 0) if len(last4) > 0 else 0
                 mins_8d = round(tl_hist["total_min"].sum(), 0)
 
-        # ── Hidden fatigue detection ─────────────────────────────────────────
+        # â”€â”€ Hidden fatigue detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # Player at READY/MONITOR but load is high AND score is trending down.
-        # This is "green on paper but declining under load" — a real risk pattern.
+        # This is "green on paper but declining under load" â€” a real risk pattern.
         # Inspired by Gemini analysis of Orlando Magic minutes framework.
         hidden_fatigue = False
         if mins_4d is not None and mins_4d > 100 and score >= 60:
@@ -236,21 +236,21 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
             ]
             if len(yest_w) > 0:
                 yest_score = _readiness(yest_w.iloc[0])
-                if yest_score - score >= 5:  # dropping ≥5% while high load
+                if yest_score - score >= 5:  # dropping â‰¥5% while high load
                     hidden_fatigue = True
                     if "Cleared for full training" in reason:
-                        reason = "Trending down under high load — monitor closely"
+                        reason = "Trending down under high load â€” monitor closely"
 
-        # ── Load warning — replaces hard minutes cap ──────────────────────────
+        # â”€â”€ Load warning â€” replaces hard minutes cap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         # A hard number implies precision the data doesn't support on a summary card.
         # Load Projection tool (Athlete Profile / Forecast) gives the specific cap
         # when a scenario is explicitly selected.
-        # Here: warning label only — coaches use judgment on actual number.
+        # Here: warning label only â€” coaches use judgment on actual number.
         load_warning = None
         if score < 60 and mins_4d is not None and mins_4d > 80:
             load_warning = "Manage load tonight"
         elif hidden_fatigue:
-            load_warning = "High cumulative load — ease off"
+            load_warning = "Heavy legs this week - ease off"
         elif score < 80 and mins_4d is not None and mins_4d > 120:
             load_warning = "High 4-day load"
 
@@ -281,9 +281,9 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
     return sorted(rows, key=lambda r: r["score"])
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # ALERT GENERATOR
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _top_alerts(summary_rows, acwr_df, end_date, n=3):
     alerts = []
@@ -303,16 +303,16 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
             if r["stress"] >= 7:   why_parts.append("high stress")
             why = " and ".join(why_parts[:2]) if why_parts else "multiple signals flagged"
             alerts.append({
-                "level":  "🔴 CRITICAL",
+                "level":  "ðŸ”´ CRITICAL",
                 "name":   r["name"],
-                "msg":    f"Not ready — {why}",
-                "action": "Modified session only — no contact, no max effort",
+                "msg":    f"Not ready â€” {why}",
+                "action": "Modified session only â€” no contact, no max effort",
             })
         elif r["score"] < 75 and r["soreness"] >= 7:
             alerts.append({
-                "level":  "🟡 MONITOR",
+                "level":  "ðŸŸ¡ MONITOR",
                 "name":   r["name"],
-                "msg":    "Body load is high — watch movement quality in warmup",
+                "msg":    "Body load is high â€” watch movement quality in warmup",
                 "action": "Reduce contact and high-speed running today",
             })
 
@@ -320,26 +320,26 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
             a = latest_acwr[latest_acwr["player_id"] == pid]
             if len(a) > 0 and a.iloc[0]["acwr"] > 1.5:
                 alerts.append({
-                    "level":  "🟡 WORKLOAD",
+                    "level":  "ðŸŸ¡ WORKLOAD",
                     "name":   r["name"],
                     "msg":    "Training load has spiked this week relative to recent baseline",
-                    "action": "Cap volume today — full intensity, shorter duration",
+                    "action": "Cap volume today â€” full intensity, shorter duration",
                 })
 
-        if r["cmj"] == "🔴":
+        if r["cmj"] == "ðŸ”´":
             alerts.append({
-                "level":  "🔴 NEURO",
+                "level":  "ðŸ”´ NEURO",
                 "name":   r["name"],
-                "msg":    "Legs not responding — jump power significantly below her normal",
-                "action": "No sprinting or jumping today — active recovery only",
+                "msg":    "Legs not responding â€” jump power significantly below her normal",
+                "action": "No sprinting or jumping today â€” active recovery only",
             })
 
-        if r["accel"] == "🔴":
+        if r["accel"] == "ðŸ”´":
             alerts.append({
-                "level":  "🟡 GPS",
+                "level":  "ðŸŸ¡ GPS",
                 "name":   r["name"],
-                "msg":    "Moving protectively — avoiding explosive cuts and changes of direction",
-                "action": "Watch warmup closely — may need to pull from drills",
+                "msg":    "Moving protectively â€” avoiding explosive cuts and changes of direction",
+                "action": "Watch warmup closely â€” may need to pull from drills",
             })
 
     # Deduplicate by name, keep highest severity
@@ -348,15 +348,15 @@ def _top_alerts(summary_rows, acwr_df, end_date, n=3):
         key = a["name"]
         if key not in seen:
             seen[key] = a
-        elif a["level"].startswith("🔴") and seen[key]["level"].startswith("🟡"):
+        elif a["level"].startswith("ðŸ”´") and seen[key]["level"].startswith("ðŸŸ¡"):
             seen[key] = a
 
     return list(seen.values())[:n]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # GPS SUMMARY STRIP
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _schedule_context(end_date, db_path="waims_demo.db"):
     """Return today's game/practice context string for header."""
@@ -387,11 +387,11 @@ def _schedule_context(end_date, db_path="waims_demo.db"):
             return "FIBA Break"
         if opp and str(opp).strip():
             home_away = "vs" if str(loc).lower() == "home" else "@"
-            context = f"Game Day — {home_away} {opp}"
+            context = f"Game Day â€” {home_away} {opp}"
             if b2b:
-                context += "  ·  Back-to-Back"
+                context += "  Â·  Back-to-Back"
             elif int(rest) <= 1:
-                context += f"  ·  {rest}d rest"
+                context += f"  Â·  {rest}d rest"
             return context
         return "Practice Day"
     except Exception:
@@ -423,9 +423,9 @@ def _gps_strip(training_load, players, end_date):
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # MINI SPARKLINE
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _sparkline(values, color="#2E86AB"):
     fig = go.Figure(go.Scatter(
@@ -442,9 +442,9 @@ def _sparkline(values, color="#2E86AB"):
     return fig
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # MAIN RENDER
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def coach_command_center(wellness, players, force_plate, training_load, acwr, end_date, ml_predictions=None):
 
@@ -454,7 +454,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     game_context    = _schedule_context(end_date)
     ref             = pd.Timestamp(end_date)
 
-    # ── HEADER: date + game/practice context + traffic light counts ───────────
+    # â”€â”€ HEADER: date + game/practice context + traffic light counts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     n_green  = sum(1 for r in summary if r["score"] >= 80)
     n_yellow = sum(1 for r in summary if 60 <= r["score"] < 80)
     n_red    = sum(1 for r in summary if r["score"] < 60)
@@ -464,7 +464,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     ctx_color   = "#f59e0b" if ctx_is_game else "#64748b"
     ctx_bg      = "rgba(245,158,11,0.12)" if ctx_is_game else "rgba(100,116,139,0.10)"
 
-    # Build header HTML as a plain string — avoids f-string + rgba() conflicts
+    # Build header HTML as a plain string â€” avoids f-string + rgba() conflicts
     # that cause Streamlit to render raw HTML instead of rendering it
     date_str   = end_date.strftime("%A, %B %d")
     header_html = (
@@ -474,7 +474,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         '<div style="display:flex;align-items:center;justify-content:space-between;'
         'flex-wrap:wrap;gap:12px;">'
 
-        # Left — date, title, context badge
+        # Left â€” date, title, context badge
         '<div>'
         f'<div style="font-size:11px;font-weight:600;letter-spacing:0.22em;'
         f'text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">{date_str}</div>'
@@ -485,7 +485,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         f'border-radius:6px;padding:3px 10px;letter-spacing:0.04em;">{game_context}</div>'
         '</div>'
 
-        # Right — traffic light counts
+        # Right â€” traffic light counts
         '<div style="display:flex;gap:24px;align-items:center;">'
 
         f'<div style="text-align:center;">'
@@ -515,34 +515,34 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     )
     st.markdown(header_html, unsafe_allow_html=True)
 
-    # ── SINCE LAST SESSION — always exactly 3 bullets ───────────────────────
+    # â”€â”€ SINCE LAST SESSION â€” always exactly 3 bullets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Framework: 3 fixed questions a coach needs answered every morning:
     #   1. WHO needs a conversation before practice? (availability / protect)
     #   2. WHAT changed overnight? (biggest wellness movement)
     #   3. WHAT do I do differently today? (load watch / injury risk)
-    # If no issue exists for a slot, show a positive confirmation — silence is
+    # If no issue exists for a slot, show a positive confirmation â€” silence is
     # ambiguous; a green light is actionable. (Kitman Labs design principle)
     yesterday = ref - pd.Timedelta(days=1)
     w_today_all = wellness[pd.to_datetime(wellness["date"]) == pd.Timestamp(ref)]
     w_yest      = wellness[pd.to_datetime(wellness["date"]) == pd.Timestamp(yesterday)]
 
-    # ── BULLET 1: WHO needs a conversation (protect + watch) ─────────────────
+    # â”€â”€ BULLET 1: WHO needs a conversation (protect + watch) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     protect_list  = [r["name"] for r in summary if r["score"] < 60]
     watch_list    = [r["name"] for r in summary if r.get("inj_risk") and r["inj_risk"] >= 60
                      and r["score"] >= 60]  # already in protect if score<60
     if protect_list and watch_list:
-        b1 = (f"<b>Check in before practice:</b> {', '.join(protect_list[:2])} on protect — "
-              f"modified session only. {', '.join(watch_list[:2])} on injury watch — limit "
+        b1 = (f"<b>Check in before practice:</b> {', '.join(protect_list[:2])} on protect â€” "
+              f"modified session only. {', '.join(watch_list[:2])} on injury watch â€” limit "
               f"max-effort reps.")
         b1_color = "#dc2626"
     elif protect_list:
         names = ', '.join(protect_list[:3])
         b1 = (f"<b>{len(protect_list)} player{'s' if len(protect_list)>1 else ''} on protect "
-              f"today:</b> {names} — modified session, flag for medical if pain >7/10.")
+              f"today:</b> {names} â€” modified session, flag for medical if pain >7/10.")
         b1_color = "#dc2626"
     elif watch_list:
         names = ', '.join(watch_list[:3])
-        b1 = (f"<b>Injury watch this week:</b> {names} — clear for today but limit "
+        b1 = (f"<b>Injury watch this week:</b> {names} â€” clear for today but limit "
               f"max-effort reps and monitor warmup quality closely.")
         b1_color = "#d97706"
     else:
@@ -551,7 +551,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
               f"no protect or injury watch flags.")
         b1_color = "#16a34a"
 
-    # ── BULLET 2: WHAT changed overnight (biggest single movement) ───────────
+    # â”€â”€ BULLET 2: WHAT changed overnight (biggest single movement) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     b2 = None
     b2_color = "#475569"
     if len(w_yest) > 0:
@@ -597,19 +597,19 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
         if biggest_drop and biggest_drop > 5:
             b2 = (f"<b>Biggest overnight drop:</b> {biggest_drop_name} "
-                  f"({biggest_drop:.0f}% readiness decline) — {biggest_drop_reason}. "
+                  f"({biggest_drop:.0f}% readiness decline) â€” {biggest_drop_reason}. "
                   f"Check in individually before session starts.")
             b2_color = "#d97706"
 
         # If no significant drops, show biggest improver as positive signal
         if b2 is None:
-            b2 = "<b>Stable overnight.</b> No significant readiness drops across the squad — wellness consistent with yesterday."
+            b2 = "<b>Stable overnight.</b> No significant readiness drops across the squad â€” wellness consistent with yesterday."
             b2_color = "#16a34a"
     else:
-        b2 = "<b>No yesterday data</b> — first session of tracking period."
+        b2 = "<b>No yesterday data</b> â€” first session of tracking period."
         b2_color = "#64748b"
 
-    # ── BULLET 3: WHAT to do differently (load context) ──────────────────────
+    # â”€â”€ BULLET 3: WHAT to do differently (load context) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     high_load_players = []
     if "practice_minutes" in training_load.columns:
         for r in summary:
@@ -620,22 +620,22 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
     if high_load_players:
         names_load = ", ".join(f"{n} ({m} min)" for n,m in high_load_players[:2])
-        b3 = (f"<b>High cumulative load:</b> {names_load} in last 4 days — "
-              f"consider shortened practice or lighter intensity today regardless of readiness score.")
+        b3 = (f"<b>Heavy legs this week:</b> {names_load} in the last 4 days - "
+              f"consider a shorter practice or lighter intensity today regardless of readiness score.")
         b3_color = "#d97706"
     elif monitor_count >= 4:
-        b3 = (f"<b>{monitor_count} players on MONITOR today</b> — consider reducing "
-              f"total session volume by 10–15%. Focus on skill quality over conditioning load.")
+        b3 = (f"<b>{monitor_count} players on MONITOR today</b> â€” consider reducing "
+              f"total session volume by 10â€“15%. Focus on skill quality over conditioning load.")
         b3_color = "#d97706"
     else:
         ready_pct = round(len([r for r in summary if r["score"]>=80]) / max(len(summary),1) * 100)
-        b3 = (f"<b>Load looks manageable.</b> {ready_pct}% of squad fully ready — "
+        b3 = (f"<b>Load looks manageable.</b> {ready_pct}% of squad fully ready â€” "
               f"normal training volume appropriate today.")
         b3_color = "#16a34a"
 
-    # ── Render all 3 bullets ─────────────────────────────────────────────────
+    # â”€â”€ Render all 3 bullets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _bullet(text, color):
-        icon = "⚠" if color == "#dc2626" else ("◑" if color == "#d97706" else "✓")
+        icon = "âš " if color == "#dc2626" else ("â—‘" if color == "#d97706" else "âœ“")
         icon_col = color
         return (
             f'<div style="display:flex;gap:12px;align-items:flex-start;'
@@ -660,8 +660,8 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     )
     st.markdown(brief_html, unsafe_allow_html=True)
 
-    # ── VOICE QUESTION (Web Speech API) ──────────────────────────────────────
-    # Coach asks a question by voice or text — answer appears right here.
+    # â”€â”€ VOICE QUESTION (Web Speech API) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # Coach asks a question by voice or text â€” answer appears right here.
     # No tab switching required.
     import streamlit.components.v1 as _vc
 
@@ -672,7 +672,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     )
 
     # Build a JSON snapshot of current roster data to pass into the component
-    # so it can answer questions entirely within the iframe — no Streamlit rerun needed
+    # so it can answer questions entirely within the iframe â€” no Streamlit rerun needed
     import json as _json
     _roster_data = []
     for _r in summary:
@@ -714,16 +714,16 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     </style>
 
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <button id="micBtn" onclick="toggleVoice()">🎙 Ask</button>
+      <button id="micBtn" onclick="toggleVoice()">Ask</button>
       <span id="micStatus" style="font-size:11px;color:#64748b;"></span>
       <span style="font-size:11px;color:#94a3b8;font-style:italic;">
-        Voice Preview · Chrome only · Try: "who didn't sleep well" or "who should I protect"
+        Voice Preview - Chrome only - Tap Ask, speak, then tap again to stop
       </span>
     </div>
 
     <input id="queryBox" type="text" style="display:none;width:100%;box-sizing:border-box;
            padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;
-           margin:8px 0;font-family:Arial,sans-serif;"
+           margin:8px 0 0 0;font-family:Arial,sans-serif;"
            placeholder="Type your question and press Enter"
            onkeydown="if(event.key==='Enter') answerQuery(this.value)" />
 
@@ -746,12 +746,12 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         const poor = ROSTER.filter(p => p.sleep < 7.0).sort((a,b) => a.sleep - b.sleep);
         if (poor.length === 0) {{
           box.style.borderColor = '#16a34a';
-          html = '<span class="green">✓ Everyone slept well last night — all above 7 hours.</span>';
+          html = '<span class="green">âœ“ Everyone slept well last night â€” all above 7 hours.</span>';
         }} else {{
           box.style.borderColor = '#d97706';
           html = '<b style="color:#d97706;">Short sleep last night:</b><br>';
           poor.forEach(p => {{
-            html += '<div class="ans-row">• <b>' + p.name + '</b> — ' + p.sleep.toFixed(1) + ' hrs</div>';
+            html += '<div class="ans-row">â€¢ <b>' + p.name + '</b> â€” ' + p.sleep.toFixed(1) + ' hrs</div>';
           }});
           html += '<div style="margin-top:6px;font-size:12px;color:#64748b;">Check in with these players before practice starts.</div>';
         }}
@@ -761,7 +761,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         const watch   = ROSTER.filter(p => p.inj_risk >= 60 && p.score >= 60);
         if (protect.length === 0 && watch.length === 0) {{
           box.style.borderColor = '#16a34a';
-          html = '<span class="green">✓ No players on protect or injury watch today.</span>';
+          html = '<span class="green">âœ“ No players on protect or injury watch today.</span>';
         }} else {{
           box.style.borderColor = '#dc2626';
           if (protect.length > 0) {{
@@ -777,44 +777,58 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         const yellow = ROSTER.filter(p => p.score >= 60 && p.score < 80);
         const red    = ROSTER.filter(p => p.score < 60);
         box.style.borderColor = '#1e3a5f';
-        html = '<span class="green">🟢 Ready: ' + green.length + '</span> &nbsp;'
-             + '<span class="amber">🟡 Monitor: ' + yellow.length + '</span> &nbsp;'
-             + '<span class="red">🔴 Protect: ' + red.length + '</span><br><br>';
+        html = '<span class="green">ðŸŸ¢ Ready: ' + green.length + '</span> &nbsp;'
+             + '<span class="amber">ðŸŸ¡ Monitor: ' + yellow.length + '</span> &nbsp;'
+             + '<span class="red">ðŸ”´ Protect: ' + red.length + '</span><br><br>';
         ROSTER.slice().sort((a,b) => a.score - b.score).forEach(p => {{
-          const em = p.score >= 80 ? '🟢' : (p.score >= 60 ? '🟡' : '🔴');
-          html += '<div class="ans-row">' + em + ' <b>' + p.name + '</b> — ' + p.reason + '</div>';
+          const em = p.score >= 80 ? 'ðŸŸ¢' : (p.score >= 60 ? 'ðŸŸ¡' : 'ðŸ”´');
+          html += '<div class="ans-row">' + em + ' <b>' + p.name + '</b> â€” ' + p.reason + '</div>';
         }});
 
       }} else if (q.includes('back') || q.includes('b2b') || q.includes('schedule') || q.includes('game')) {{
         box.style.borderColor = CONTEXT.includes('Back-to-Back') ? '#dc2626' : '#1e3a5f';
         html = '<b>Today:</b> ' + CONTEXT;
         if (CONTEXT.includes('Back-to-Back')) {{
-          html += '<br><span class="red">⚠ Back-to-back — monitor minutes closely.</span>';
+          html += '<br><span class="red">âš  Back-to-back â€” monitor minutes closely.</span>';
         }}
 
       }} else if (q.includes('soreness') || q.includes('sore') || q.includes('body')) {{
         const sore = ROSTER.filter(p => p.soreness >= 7).sort((a,b) => b.soreness - a.soreness);
         if (sore.length === 0) {{
           box.style.borderColor = '#16a34a';
-          html = '<span class="green">✓ No players reporting high soreness today.</span>';
+          html = '<span class="green">âœ“ No players reporting high soreness today.</span>';
         }} else {{
           box.style.borderColor = '#d97706';
           html = '<b style="color:#d97706;">High soreness reported:</b><br>';
           sore.forEach(p => {{
-            html += '<div class="ans-row">• <b>' + p.name + '</b> — soreness ' + p.soreness.toFixed(0) + '/10</div>';
+            html += '<div class="ans-row">â€¢ <b>' + p.name + '</b> â€” soreness ' + p.soreness.toFixed(0) + '/10</div>';
           }});
         }}
 
+      }} else if (q.includes('leg') || q.includes('load') || q.includes('heavy')) {{
+        const protect = ROSTER.filter(p => p.score < 60);
+        const monitor = ROSTER.filter(p => p.score >= 60 && p.score < 80).sort((a,b) => a.score - b.score);
+        box.style.borderColor = '#d97706';
+        html = '<b style="color:#d97706;">Heavy legs this week:</b><br>';
+        if (protect.length === 0 && monitor.length === 0) {{
+          html += '<div class="ans-row">Squad load looks manageable today.</div>';
+        }} else {{
+          protect.concat(monitor.slice(0, 3)).forEach(p => {{
+            html += '<div class="ans-row"><b>' + p.name + '</b> - ' + p.reason + '</div>';
+          }});
+        }}
+        html += '<div style="margin-top:6px;font-size:12px;color:#64748b;">Consider lighter intensity or shorter live periods for this group.</div>';
+
       }} else {{
         box.style.borderColor = '#94a3b8';
-        html = 'Try: <b>"poor sleep"</b> · <b>"who should I protect"</b> · <b>"readiness"</b> · <b>"back to back"</b> · <b>"soreness"</b>';
+        html = 'Try: <b>"poor sleep"</b> · <b>"who should I protect"</b> · <b>"heavy legs"</b> · <b>"readiness"</b> · <b>"back to back"</b>';
       }}
 
       document.getElementById('answerBox').innerHTML = html;
       // Expand iframe to show answer
       setTimeout(function() {{
-        const h = document.body.scrollHeight + 20;
-        resizeFrame(Math.min(h, 400));
+        const h = document.body.scrollHeight + 28;
+        resizeFrame(Math.min(h, 560));
       }}, 50);
     }}
 
@@ -822,13 +836,13 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     let recognizing = false;
     let recognition;
     function toggleVoice() {{
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {{
-        document.getElementById('micStatus').innerHTML =
-          '⚠ Voice unavailable — <b>type your question in the box and press Enter</b>.';
-        document.getElementById('micStatus').style.color = '#d97706';
-        document.getElementById('queryBox').style.display = 'block';
-        document.getElementById('queryBox').focus();
-        resizeFrame(130);
+      if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {{
+        document.getElementById("micStatus").innerHTML =
+          'Voice unavailable - <b>type your question in the box and press Enter</b>.';
+        document.getElementById("micStatus").style.color = '#d97706';
+        document.getElementById("queryBox").style.display = 'block';
+        document.getElementById("queryBox").focus();
+        resizeFrame(150);
         return;
       }}
       if (recognizing) {{ recognition.stop(); return; }}
@@ -839,27 +853,29 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       recognition.maxAlternatives = 1;
       recognition.onstart = function() {{
         recognizing = true;
-        document.getElementById('micBtn').style.background = '#dc2626';
-        document.getElementById('micBtn').innerHTML = '🔴 Listening...';
+        document.getElementById("micBtn").style.background = '#dc2626';
+        document.getElementById("micBtn").innerHTML = 'Tap To Stop';
+        document.getElementById("micStatus").innerHTML = 'Listening now - say your question, then tap again to stop.';
+        document.getElementById("micStatus").style.color = '#64748b';
+        resizeFrame(96);
       }};
       recognition.onresult = function(event) {{
         const t = event.results[0][0].transcript;
-        document.getElementById('queryBox').value = t;
-        document.getElementById('queryBox').style.display = 'block';
+        document.getElementById("queryBox").value = t;
         answerQuery(t);
       }};
       recognition.onerror = function() {{
-        document.getElementById('micStatus').innerHTML =
-          '⚠ Mic blocked — <b>type your question in the box and press Enter</b>.';
-        document.getElementById('micStatus').style.color = '#d97706';
-        document.getElementById('queryBox').style.display = 'block';
-        document.getElementById('queryBox').focus();
-        resizeFrame(130);
+        document.getElementById("micStatus").innerHTML =
+          'Mic blocked - <b>type your question in the box and press Enter</b>.';
+        document.getElementById("micStatus").style.color = '#d97706';
+        document.getElementById("queryBox").style.display = 'block';
+        document.getElementById("queryBox").focus();
+        resizeFrame(150);
       }};
       recognition.onend = function() {{
         recognizing = false;
-        document.getElementById('micBtn').style.background = '#1e3a5f';
-        document.getElementById('micBtn').innerHTML = '🎙 Ask';
+        document.getElementById("micBtn").style.background = '#1e3a5f';
+        document.getElementById("micBtn").innerHTML = 'Ask';
       }};
       recognition.start();
     }}
@@ -870,7 +886,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     </script>
     """, height=52)
 
-    # ── ROW 1: Alerts + GPS Strip ─────────────────────────────────────────────
+    # â”€â”€ ROW 1: Alerts + GPS Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     left, right = st.columns([3, 2])
 
     with left:
@@ -886,17 +902,17 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                 '<div style="background:#f0fdf4; border-left:4px solid #22c55e; '
                 'border-radius:0 8px 8px 0; padding:14px 18px; '
                 'color:#15803d; font-weight:600; font-size:14px;">'
-                'All clear — no priority alerts today</div>',
+                'All clear â€” no priority alerts today</div>',
                 unsafe_allow_html=True,
             )
         else:
             for a in alerts[:3]:   # hard cap at 3
-                is_red  = a["level"].startswith("🔴")
+                is_red  = a["level"].startswith("ðŸ”´")
                 border  = "#ef4444" if is_red else "#f59e0b"
                 bg      = "#fff5f5" if is_red else "#fffbeb"
-                # Plain label — strip emoji from level string
+                # Plain label â€” strip emoji from level string
                 lbl_raw = a["level"].split(" ", 1)[-1] if " " in a["level"] else a["level"]
-                lbl     = lbl_raw.replace("🔴","").replace("🟡","").strip()
+                lbl     = lbl_raw.replace("ðŸ”´","").replace("ðŸŸ¡","").strip()
                 lbl_color = "#dc2626" if is_red else "#d97706"
                 html = (
                     f'<div style="background:{bg};border-left:4px solid {border};'
@@ -927,8 +943,8 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         if gps:
             avg_load = gps["team_avg_load"]
             avg_acc  = int(round(gps["team_avg_acc"]))
-            hi_names = gps["high_load_names"] or "—"
-            lo_names = gps["low_acc_names"]   or "—"
+            hi_names = gps["high_load_names"] or "â€”"
+            lo_names = gps["low_acc_names"]   or "â€”"
             gps_html = (
                 '<div style="background:linear-gradient(135deg,#0ea5e9,#0284c7);'
                 'border-radius:12px;padding:16px 20px;color:#fff;">'
@@ -967,16 +983,16 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                 unsafe_allow_html=True,
             )
 
-    # ── ROW 2: Roster Status ─────────────────────────────────────────────────
+    # â”€â”€ ROW 2: Roster Status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Cards show: name | position | status badge | readiness % | 2 reasons max
-    # Sorted red → yellow → green (most urgent top-left)
-    # No availability %, no signal icons — badge IS the availability signal
+    # Sorted red â†’ yellow â†’ green (most urgent top-left)
+    # No availability %, no signal icons â€” badge IS the availability signal
 
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
 
-    # ── POSITIONAL GROUP READINESS STRIP ─────────────────────────────────────
+    # â”€â”€ POSITIONAL GROUP READINESS STRIP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Coaches think in units: "Are my guards fresh enough to run a high-press?"
-    # Instant tactical read — adjust practice plan before walking onto the court.
+    # Instant tactical read â€” adjust practice plan before walking onto the court.
     # Gemini analysis (2026-03-06): positional grouping is highest-utility
     # coach-facing addition alongside minutes context.
     _pos_groups = {"G": [], "F": [], "C": []}
@@ -1002,7 +1018,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             f'<div style="font-size:22px;font-weight:800;color:{color};line-height:1;">'
             f'{avg:.0f}%</div>'
             f'<div style="font-size:10px;color:{color};font-weight:600;margin-top:2px;">'
-            f'{status} &nbsp;·&nbsp; {len(scores)} players</div>'
+            f'{status} &nbsp;Â·&nbsp; {len(scores)} players</div>'
             f'</div>'
         )
 
@@ -1053,7 +1069,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         c = CARD[k]
 
         inj_risk = r.get("inj_risk")
-        # Risk indicator — only show when elevated (≥30%). 
+        # Risk indicator â€” only show when elevated (â‰¥30%). 
         # "Low risk" adds noise without adding decision value for a coach.
         # Coaches act on alerts, not confirmations. (Kitman Labs design principle 2024)
         if inj_risk is not None and inj_risk >= 60:
@@ -1063,7 +1079,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                 f'font-weight:700;padding:2px 7px;border-radius:4px;'
                 f'border:1px solid {risk_color}44;white-space:nowrap;">{risk_txt}</span>'
             )
-            risk_tooltip = "7-day injury risk ≥60% — limit max-effort reps, monitor warmup"
+            risk_tooltip = "7-day injury risk â‰¥60% â€” limit max-effort reps, monitor warmup"
         elif inj_risk is not None and inj_risk >= 30:
             risk_txt, risk_color, risk_bg = "Watch closely", "#d97706", "#fef3c7"
             risk_badge = (
@@ -1071,16 +1087,16 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                 f'font-weight:700;padding:2px 7px;border-radius:4px;'
                 f'border:1px solid {risk_color}44;white-space:nowrap;">{risk_txt}</span>'
             )
-            risk_tooltip = "7-day injury risk 30–60% — monitor closely this week"
+            risk_tooltip = "7-day injury risk 30â€“60% â€” monitor closely this week"
         else:
-            # No badge when low risk — absence of alert IS the signal
+            # No badge when low risk â€” absence of alert IS the signal
             risk_badge   = ""
             risk_tooltip = ""
 
-        # overnight change — compare yesterday's score if available
+        # overnight change â€” compare yesterday's score if available
         overnight = r.get("overnight_delta")
         if overnight is not None and abs(overnight) >= 2:
-            arrow     = "▲" if overnight > 0 else "▼"
+            arrow     = "â–²" if overnight > 0 else "â–¼"
             ov_color  = "#16a34a" if overnight > 0 else "#dc2626"
             ov_html   = (f'<span style="font-size:11px;color:{ov_color};'
                          f'margin-left:6px;font-weight:600;">'
@@ -1119,7 +1135,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             + (
                 f'<div style="font-size:11px;color:#64748b;margin-top:3px;">'
                 + (
-                    # Hidden fatigue flag — trending down under high load
+                    # Hidden fatigue flag â€” trending down under high load
                     f'<span style="background:#fef3c7;color:#d97706;font-size:10px;'
                     f'font-weight:700;padding:1px 6px;border-radius:3px;margin-right:6px;'
                     f'border:1px solid #d9770644;">HIDDEN FATIGUE</span>'
@@ -1127,8 +1143,8 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                 )
                 + f'<b style="color:#334155;">{r["mins_4d"]:.0f} min</b> last 4 days'
                 + (
-                    # Load warning label — context flag, not a hard cap
-                    f' &nbsp;·&nbsp; <span style="background:#e0f2fe;color:#0369a1;'
+                    # Load warning label â€” context flag, not a hard cap
+                    f' &nbsp;Â·&nbsp; <span style="background:#e0f2fe;color:#0369a1;'
                     f'font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;'
                     f'border:1px solid #0369a122;">{r["load_warning"]}</span>'
                     if r.get("load_warning") else ""
@@ -1140,7 +1156,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             # Divider
             + f'<div style="border-top:1px solid {c["border"]}55;margin:4px 0;"></div>'
 
-            # Row 4: reason — plain English, coach-decision language only (no raw numbers)
+            # Row 4: reason â€” plain English, coach-decision language only (no raw numbers)
             + f'<div style="font-size:11px;color:#475569;line-height:1.4;">{r["reason"]}</div>'
 
             + f'</div>'
@@ -1169,23 +1185,23 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         with cols[i % 4]:
             st.markdown(_card_html(r), unsafe_allow_html=True)
 
-    # ── LEGEND — scrollable reference at bottom of roster ────────────────────
+    # â”€â”€ LEGEND â€” scrollable reference at bottom of roster â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     st.markdown("<div style='margin-top:18px;'></div>", unsafe_allow_html=True)
     st.markdown(
         '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;'
         'padding:12px 18px;font-size:11px;color:#64748b;">'
         '<span style="font-weight:700;color:#334155;margin-right:12px;">KEY</span>'
         '<span style="margin-right:16px;">'
-        '<b style="color:#16a34a;">READY</b> ≥80% — full training, no restrictions</span>'
+        '<b style="color:#16a34a;">READY</b> â‰¥80% â€” full training, no restrictions</span>'
         '<span style="margin-right:16px;">'
-        '<b style="color:#d97706;">MONITOR</b> 60–79% — modified load, watch closely</span>'
+        '<b style="color:#d97706;">MONITOR</b> 60â€“79% â€” modified load, watch closely</span>'
         '<span style="margin-right:16px;">'
-        '<b style="color:#dc2626;">PROTECT</b> &lt;60% — restricted session, flag for medical</span>'
+        '<b style="color:#dc2626;">PROTECT</b> &lt;60% â€” restricted session, flag for medical</span>'
         '<span style="display:block;margin-top:6px;">'
-        '<b>Injury watch</b> = 7-day risk ≥60% &nbsp;·&nbsp; '
-        '<b>Watch closely</b> = 30–60% &nbsp;·&nbsp; '
-        'No badge = low risk (&lt;30%) &nbsp;·&nbsp; '
-        '<b>▲/▼ overnight</b> = readiness change vs yesterday &nbsp;·&nbsp; '
+        '<b>Injury watch</b> = 7-day risk â‰¥60% &nbsp;Â·&nbsp; '
+        '<b>Watch closely</b> = 30â€“60% &nbsp;Â·&nbsp; '
+        'No badge = low risk (&lt;30%) &nbsp;Â·&nbsp; '
+        '<b>â–²/â–¼ overnight</b> = readiness change vs yesterday &nbsp;Â·&nbsp; '
         '<b>min last 4/8 days</b> = practice + game minutes combined</span>'
         '</div>',
         unsafe_allow_html=True,
