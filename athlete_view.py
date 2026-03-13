@@ -294,6 +294,7 @@ def athlete_home_view(
         st.metric("Soreness", f'{int(today.get("soreness", 0))}/10')
         st.metric("Stress", f'{int(today.get("stress", 0))}/10')
 
+    st.markdown("<div style='margin-top:-24px;'></div>", unsafe_allow_html=True)
     st.markdown(
         '<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;'
         'color:#94a3b8;margin:4px 0 6px 0;">Ask a Question</div>',
