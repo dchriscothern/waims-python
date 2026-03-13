@@ -250,7 +250,7 @@ def _build_summary(wellness, players, force_plate, training_load, end_date, ml_p
         if score < 60 and mins_4d is not None and mins_4d > 80:
             load_warning = "Manage load tonight"
         elif hidden_fatigue:
-            load_warning = "High cumulative load — ease off"
+            load_warning = "Heavy legs this week — ease off"
         elif score < 80 and mins_4d is not None and mins_4d > 120:
             load_warning = "High 4-day load"
 
@@ -620,8 +620,8 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
     if high_load_players:
         names_load = ", ".join(f"{n} ({m} min)" for n,m in high_load_players[:2])
-        b3 = (f"<b>High cumulative load:</b> {names_load} in last 4 days — "
-              f"consider shortened practice or lighter intensity today regardless of readiness score.")
+        b3 = (f"<b>Heavy legs this week:</b> {names_load} in the last 4 days — "
+              f"consider a shorter practice or lighter intensity today regardless of readiness score.")
         b3_color = "#d97706"
     elif monitor_count >= 4:
         b3 = (f"<b>{monitor_count} players on MONITOR today</b> — consider reducing "
@@ -692,13 +692,26 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     _vc.html(f"""
     <style>
       body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; }}
+      #voiceShell {{
+        display:flex;flex-direction:column;gap:8px;
+      }}
+      #voiceRow {{
+        display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      }}
+      #inputRow {{
+        display:none;align-items:center;gap:8px;width:100%;
+      }}
       #micBtn {{
         background:#1e3a5f;color:white;border:none;border-radius:8px;
         padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;
         transition:background 0.2s;
       }}
+      #sendBtn {{
+        display:none;background:#0f766e;color:white;border:none;border-radius:8px;
+        padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;
+      }}
       #queryBox {{
-        width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;
+        flex:1;box-sizing:border-box;padding:8px 12px;border-radius:8px;
         border:1px solid #e2e8f0;font-size:13px;margin:8px 0;
         font-family:Arial,sans-serif;
       }}
@@ -713,19 +726,24 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       .red   {{ color:#dc2626;font-weight:700; }}
     </style>
 
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <button id="micBtn" onclick="toggleVoice()">🎙 Ask</button>
-      <span id="micStatus" style="font-size:11px;color:#64748b;"></span>
-      <span style="font-size:11px;color:#94a3b8;font-style:italic;">
-        Voice Preview · Chrome only · Try: "who didn't sleep well" or "who should I protect"
-      </span>
-    </div>
+    <div id="voiceShell">
+      <div id="voiceRow">
+        <button id="micBtn" onclick="toggleVoice()">Ask</button>
+        <span id="micStatus" style="font-size:11px;color:#64748b;"></span>
+        <span style="font-size:11px;color:#94a3b8;font-style:italic;">
+          Voice Preview · Chrome only · Try: "who didn't sleep well" or "who should I protect"
+        </span>
+      </div>
 
-    <input id="queryBox" type="text" style="display:none;width:100%;box-sizing:border-box;
-           padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;
-           margin:8px 0;font-family:Arial,sans-serif;"
-           placeholder="Type your question and press Enter"
-           onkeydown="if(event.key==='Enter') answerQuery(this.value)" />
+      <div id="inputRow">
+        <input id="queryBox" type="text" style="display:block;flex:1;box-sizing:border-box;
+               padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;
+               margin:0;font-family:Arial,sans-serif;"
+               placeholder="Type your question and press Enter"
+               onkeydown="if(event.key==='Enter') answerQuery(this.value)" />
+        <button id="sendBtn" onclick="answerQuery(document.getElementById('queryBox').value)">Ask</button>
+      </div>
+    </div>
 
     <div id="answerBox" style="display:none;background:#f8fafc;border-left:4px solid #1e3a5f;
          border-radius:0 8px 8px 0;padding:12px 16px;font-size:13px;color:#0f172a;
@@ -737,9 +755,10 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
     function answerQuery(q) {{
       q = q.toLowerCase().trim();
+      if (!q) return;
       const box = document.getElementById('answerBox');
       box.style.display = 'block';
-      document.getElementById('queryBox').style.display = 'block';
+      showTypedInput();
       let html = '';
 
       if (q.includes('sleep') || q.includes('tired') || q.includes('rest')) {{
@@ -818,15 +837,20 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       }}, 50);
     }}
 
+    function showTypedInput() {{
+      document.getElementById('inputRow').style.display = 'flex';
+      document.getElementById('sendBtn').style.display = 'inline-block';
+    }}
+
     // Voice
     let recognizing = false;
     let recognition;
     function toggleVoice() {{
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {{
         document.getElementById('micStatus').innerHTML =
-          '⚠ Voice unavailable — <b>type your question in the box and press Enter</b>.';
+          'Voice unavailable — type your question below and press Ask.';
         document.getElementById('micStatus').style.color = '#d97706';
-        document.getElementById('queryBox').style.display = 'block';
+        showTypedInput();
         document.getElementById('queryBox').focus();
         resizeFrame(130);
         return;
@@ -840,26 +864,30 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       recognition.onstart = function() {{
         recognizing = true;
         document.getElementById('micBtn').style.background = '#dc2626';
-        document.getElementById('micBtn').innerHTML = '🔴 Listening...';
+        document.getElementById('micBtn').innerHTML = 'Tap To Stop';
+        document.getElementById('micStatus').innerHTML =
+          'Listening now — say your question, then tap again to stop.';
+        document.getElementById('micStatus').style.color = '#64748b';
+        showTypedInput();
+        resizeFrame(122);
       }};
       recognition.onresult = function(event) {{
         const t = event.results[0][0].transcript;
         document.getElementById('queryBox').value = t;
-        document.getElementById('queryBox').style.display = 'block';
         answerQuery(t);
       }};
       recognition.onerror = function() {{
         document.getElementById('micStatus').innerHTML =
-          '⚠ Mic blocked — <b>type your question in the box and press Enter</b>.';
+          'Mic blocked — type your question below and press Ask.';
         document.getElementById('micStatus').style.color = '#d97706';
-        document.getElementById('queryBox').style.display = 'block';
+        showTypedInput();
         document.getElementById('queryBox').focus();
         resizeFrame(130);
       }};
       recognition.onend = function() {{
         recognizing = false;
         document.getElementById('micBtn').style.background = '#1e3a5f';
-        document.getElementById('micBtn').innerHTML = '🎙 Ask';
+        document.getElementById('micBtn').innerHTML = 'Ask';
       }};
       recognition.start();
     }}
