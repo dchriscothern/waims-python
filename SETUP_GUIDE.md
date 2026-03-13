@@ -180,3 +180,26 @@ python generate_database.py && python train_models.py
    ```
 4. Note: `waims_demo.db` must be committed to repo for cloud deployment  
    (or add DB generation to app startup)
+
+---
+
+## Live And Staging Workflow
+
+Use two branches and two Streamlit apps:
+
+- `main` = stable live WAIMS demo
+- `codex/staging` = safe test branch for new features
+- live Streamlit app -> `main` + `dashboard.py`
+- staging Streamlit app -> `codex/staging` + `dashboard.py`
+
+This lets you test role changes, UI updates, and new features without touching the live demo until you merge.
+
+### Athlete View In Staging
+
+The staging branch currently includes a demo athlete role:
+
+- login: `athlete / athlete123`
+- scope: only the logged-in athlete's own data
+- surface: readiness, trends, voice/text questions, and simple recovery guidance
+
+Do not expose teammate names, roster tables, or cross-athlete injury-risk views in the athlete role.

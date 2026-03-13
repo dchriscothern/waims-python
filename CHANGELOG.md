@@ -42,10 +42,10 @@ Format: [Conventional Commits](https://www.conventionalcommits.org/) · Maintain
 - **research:** Add model validation framework to RESEARCH_FOUNDATION.md — V1 Spearman/coach intuition, V2 walk-forward splits, PR-AUC, Precision@K
 
 ### Documentation
-- **docs:** Update README — 8 tabs (down from 10), model validation section, V1/V2/V3 roadmap table
-- **docs:** Update SETUP_GUIDE.md — file structure reflects current module count, research tools documented
-- **docs:** Update README_PYTHON.md — architecture diagram, 8-tab reference, research module entries
-- **docs:** Update LEARNING_GUIDE.md — 8 tabs explained, model validation and evidence review sections added, interview talking points updated
+- **docs:** Update README — live vs staging workflow, branch-based testing notes, athlete staging role note
+- **docs:** Update SETUP_GUIDE.md — Streamlit live/staging setup documented, athlete staging scope added
+- **docs:** Update README_PYTHON.md — auth/athlete staging modules and branch workflow documented
+- **docs:** Update LEARNING_GUIDE.md — athlete-view framing and live/staging workflow added
 - **docs:** Add WAIMS_GLOBAL_CONTEXT.md — session context file for Claude AI sessions
 - **docs:** Rebuild WAIMS_Coach_Overview.pdf — one-pager with readable table headers, model validation row
 - **docs:** Rebuild WAIMS_SportScientist_Overview.pdf — two-pager with V1/V2/V3 table, model validation and evidence review sections

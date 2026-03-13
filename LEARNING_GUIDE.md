@@ -30,6 +30,37 @@ Pro tools (Catapult, Kinexon, Teamworks) all structure their interfaces around r
 
 ---
 
+## Athlete View In Staging
+
+The `codex/staging` branch adds a third experience for demo testing: an athlete-facing home view.
+
+Why it is intentionally narrow:
+- athletes should only see their own data
+- the language should be simple and actionable
+- teammate comparisons and roster-wide risk views should stay staff-only
+
+The athlete view includes:
+- a plain-language readiness summary
+- recent sleep, soreness, and stress trends
+- simple "if you didn't play" guidance
+- voice/text questions limited to a supported set
+
+This is the right V1 athlete pattern: private, useful, and easy to understand.
+
+---
+
+## Live And Staging Workflow
+
+WAIMS now uses a simple professional-style branch setup:
+
+- `main` = stable live demo
+- `codex/staging` = safe test branch
+- staging Streamlit app = place to test new features before merge
+
+This is important because the same files exist on both branches. The branch determines whether a change is live, not a separate copy of `dashboard.py`.
+
+---
+
 ## 10 Tabs Explained
 
 ### 🏀 Tab 1 — Command Center

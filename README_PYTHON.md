@@ -203,6 +203,40 @@ All thresholds tagged ★★★ (RCT/systematic review), ★★ (observational c
 
 ---
 
+## Staging Additions
+
+The current `codex/staging` branch extends the app with a privacy-safe athlete role.
+
+### `auth.py`
+- controls role-based login and tab access
+- stores the athlete demo user's `player_id` in session state
+- keeps the athlete experience limited to one athlete only
+
+### `athlete_view.py`
+- athlete-only home screen for the logged-in athlete
+- plain-language readiness summary
+- sleep, soreness, and stress trend views
+- voice/text Q&A limited to a narrow supported question set
+- typed fallback when microphone access is blocked
+
+Supported athlete questions in V1:
+- "How am I doing today?"
+- "Am I ready to train?"
+- "How was my sleep?"
+- "How is my soreness this week?"
+- "What should I do if I didn't play?"
+
+### Live And Staging Workflow
+
+- `main` = live stable demo
+- `codex/staging` = safe testing branch
+- the files keep the same names on both branches
+- the branch, not the filename, determines whether a change is live or staging
+
+Use the staging Streamlit app to validate new roles and UI changes before merging to `main`.
+
+---
+
 ## Upgrade Paths
 
 | Current | Upgrade | What changes |
