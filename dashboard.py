@@ -1778,28 +1778,37 @@ if "ins" in tab_map:
 
         ask_col, btn_col = st.columns([3, 1])
 
+        queued_query = st.session_state.query_to_run
+        if queued_query:
+            st.session_state.smart_query_input = queued_query
+            st.session_state.query_to_run = ""
+
         with ask_col:
-            user_query = st.text_input(
-                "Ask a question",
-                placeholder="e.g., 'who had poor sleep?' · 'high risk players' · 'readiness'",
-                key="smart_query_input",
-                label_visibility="collapsed",
-            )
-            if st.session_state.query_to_run:
-                user_query = st.session_state.query_to_run
-                st.session_state.query_to_run = ""
-            if user_query:
-                query_type = parse_query(user_query)
-                st.info(f"Understood as: {query_type.replace('_', ' ').title()}")
-                response, data = generate_smart_response(query_type)
-                st.markdown(response)
-                if data is not None and len(data) > 0:
-                    st.download_button(
-                        "Download Results",
-                        data=data.to_csv(index=False),
-                        file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv",
-                    )
+            with st.form("smart_query_form", clear_on_submit=False):
+                user_query = st.text_input(
+                    "Ask a question",
+                    placeholder="e.g., 'who had poor sleep?' · 'high risk players' · 'readiness'",
+                    key="smart_query_input",
+                    label_visibility="collapsed",
+                )
+                run_query = st.form_submit_button("Run Query", width="stretch")
+
+            if run_query or queued_query:
+                cleaned_query = (user_query or "").strip()
+                if cleaned_query:
+                    query_type = parse_query(cleaned_query)
+                    st.info(f"Understood as: {query_type.replace('_', ' ').title()}")
+                    response, data = generate_smart_response(query_type)
+                    st.markdown(response)
+                    if data is not None and len(data) > 0:
+                        st.download_button(
+                            "Download Results",
+                            data=data.to_csv(index=False),
+                            file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv",
+                        )
+                else:
+                    st.warning("Type a question or use one of the quick queries.")
 
         with btn_col:
             st.markdown(
