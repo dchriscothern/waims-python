@@ -296,11 +296,12 @@ def athlete_home_view(
 
     st.markdown(
         '<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;'
-        'color:#94a3b8;margin:8px 0;">Ask a Question</div>',
+        'color:#94a3b8;margin:4px 0 6px 0;">Ask a Question</div>',
         unsafe_allow_html=True,
     )
     _render_voice_box(_build_answer_payload(today, week_df))
 
+    st.markdown("<div style='margin-top:-8px;'></div>", unsafe_allow_html=True)
     card1, card2, card3 = st.columns(3)
     with card1:
         st.markdown("**This Week**")
