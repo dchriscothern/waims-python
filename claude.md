@@ -36,10 +36,6 @@ It is a Python + Streamlit athlete monitoring dashboard using synthetic demo dat
 
 \- Keep sport scientist outputs more technical.
 
-\- Athlete-facing views must show only the logged-in athlete's own data.
-
-\- Athlete voice is keyword-safe V1 only, not open-ended natural-language reasoning.
-
 \- Do not casually change evidence-based thresholds.
 
 \- Prefer editing real source files instead of generated outputs.
