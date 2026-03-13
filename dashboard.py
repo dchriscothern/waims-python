@@ -17,10 +17,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from athlete_profile_tab import athlete_profile_tab, create_radar_chart
+from athlete_view import athlete_home_view
 from coach_command_center import coach_command_center
 from correlation_explorer import correlation_explorer_tab
 from auth import (render_login_page, render_user_badge, is_authenticated,
-                  current_role, can_see, data_access, get_visible_tabs)
+                  current_role, current_athlete_player_id, can_see, data_access, get_visible_tabs)
 
 try:
     from data_quality import DataQualityProcessor, show_data_quality_report
@@ -994,12 +995,13 @@ role = current_role()
 # Role-aware title strip
 role_color = {
     "head_coach": "#1e3a5f", "asst_coach": "#2563eb",
-    "sport_scientist": "#059669", "medical": "#7c3aed", "gm": "#b45309"
+    "sport_scientist": "#059669", "medical": "#7c3aed", "gm": "#b45309",
+    "athlete": "#0f766e",
 }.get(role, "#6b7280")
 role_label = {
     "head_coach": "Head Coach", "asst_coach": "Asst. Coach",
     "sport_scientist": "Sport Scientist", "medical": "Medical / AT",
-    "gm": "General Manager"
+    "gm": "General Manager", "athlete": "Athlete"
 }.get(role, role)
 
 st.markdown(
@@ -1016,6 +1018,8 @@ st.markdown(
 if role == "gm":
     st.info("**Executive View** — You can see roster availability and the Command Center summary. "
             "Detailed wellness, force plate, and raw load data are restricted to performance staff.")
+elif role == "athlete":
+    st.info("**Athlete View** — This page shows only your own readiness, trends, and recovery guidance.")
 
 # Build visible tab list for this role
 visible = get_visible_tabs()   # list of (key, label)
@@ -1024,6 +1028,17 @@ tab_labels = [v[1] for v in visible]
 
 rendered_tabs = st.tabs(tab_labels)
 tab_map = dict(zip(tab_keys, rendered_tabs))
+
+if "ath" in tab_map:
+    with tab_map["ath"]:
+        athlete_home_view(
+            current_athlete_player_id(),
+            wellness,
+            players,
+            force_plate,
+            training_load,
+            end_date,
+        )
 
 # ── Command Center ────────────────────────────────────────────────────────────
 if "cc" in tab_map:
