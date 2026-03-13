@@ -135,7 +135,7 @@ def _render_voice_box(payload: dict):
             const query = document.getElementById('queryBox');
             query.style.display = 'block';
             query.focus();
-            resizeFrame(138);
+            resizeFrame(180);
           }}
 
           function answerQuery(q) {{
@@ -169,7 +169,7 @@ def _render_voice_box(payload: dict):
 
             box.innerHTML = html;
             setTimeout(function() {{
-              resizeFrame(Math.min(document.body.scrollHeight + 18, 220));
+              resizeFrame(Math.min(document.body.scrollHeight + 22, 260));
             }}, 50);
           }}
 
@@ -192,7 +192,7 @@ def _render_voice_box(payload: dict):
               document.getElementById('askBtn').innerHTML = '🔴 Tap To Stop';
               document.getElementById('voiceStatus').innerHTML = 'Listening now — say your question, then tap again to stop.';
               document.getElementById('voiceStatus').style.color = '#64748b';
-              resizeFrame(82);
+              resizeFrame(92);
             }};
             recognition.onresult = function(event) {{
               const t = event.results[0][0].transcript;
