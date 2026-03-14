@@ -207,8 +207,23 @@ def render_user_badge():
     </div>
     """, unsafe_allow_html=True)
 
-    if st.sidebar.button("Sign Out", use_container_width=True):
-        for key in ["authenticated", "username", "role", "display_role", "user_name", "player_id"]:
+    if st.sidebar.button(
+        "Sign Out",
+        use_container_width=True,
+        key="sidebar_sign_out",
+    ):
+        for key in [
+            "authenticated",
+            "username",
+            "role",
+            "display_role",
+            "user_name",
+            "player_id",
+            "_coach_active_query",
+            "_coach_voice_applied",
+            "_athlete_voice_applied",
+            "query_to_run",
+        ]:
             st.session_state.pop(key, None)
         st.rerun()
 
