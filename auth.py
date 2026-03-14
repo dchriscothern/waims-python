@@ -29,6 +29,10 @@ DEMO_USERS = {
                   "name": "Medical Staff Demo"},
     "gm":        {"password": "gm123",      "role": "gm",              "display": "General Manager",
                   "name": "GM Demo"},
+    "athlete":   {"password": "athlete123", "role": "athlete",         "display": "Athlete",
+                  "name": "Athlete Demo", "player_id": "P001"},
+    "athlete2":  {"password": "athlete234", "role": "athlete",         "display": "Athlete",
+                  "name": "Athlete Demo 2", "player_id": "P002"},
 }
 
 # ---------------------------------------------------------------------------
@@ -37,23 +41,24 @@ DEMO_USERS = {
 # ---------------------------------------------------------------------------
 TAB_ACCESS = {
     #                            CC     Readiness  Profiles  Trends  Jumps  Injuries  Forecast  Insights
-    "head_coach":      dict(cc=True,  rd=True,   ap=False, tr=True, jt=False, inj=True,  fc=True,  ins=False),
-    "asst_coach":      dict(cc=True,  rd=True,   ap=False, tr=True, jt=False, inj=True,  fc=True,  ins=False),
+    "head_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False),
+    "asst_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False),
     "sport_scientist": dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True),
     "medical":         dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True),
     "gm":              dict(cc=True,  rd=False,  ap=False, tr=False,jt=False, inj=True,  fc=False, ins=False),
+    "athlete":         dict(cc=False, rd=True,   ap=False, tr=False,jt=False, inj=False, fc=False, ins=False),
 }
 
 # Tab labels (must match order used in dashboard.py)
 TAB_LABELS = {
-    "cc":  "🏀 Command Center",
-    "rd":  "📊 Today's Readiness",
-    "ap":  "👤 Athlete Profiles",
-    "tr":  "📈 Trends & Load",
-    "jt":  "💪 Jump Testing",
-    "inj": "🚨 Availability & Injuries",
-    "fc":  "🔮 Forecast",
-    "ins": "🔍 Insights",
+    "cc":  "Command Center",
+    "rd":  "Today's Readiness",
+    "ap":  "Athlete Profiles",
+    "tr":  "Trends & Load",
+    "jt":  "Jump Testing",
+    "inj": "Availability & Injuries",
+    "fc":  "Forecast",
+    "ins": "Insights",
 }
 
 # Data field visibility per role (used to mask columns in dataframes)
@@ -103,6 +108,7 @@ def get_role_color(role: str) -> str:
         "sport_scientist": "#059669",
         "medical":         "#7c3aed",
         "gm":              "#b45309",
+        "athlete":         "#0f766e",
     }.get(role, "#6b7280")
 
 
@@ -124,9 +130,9 @@ def render_login_page():
         # Header
         st.markdown(
             '<div style="text-align:center;margin-bottom:24px;">'
-            '<div style="font-size:28px;font-weight:800;color:#1e3a5f;">🏀 WAIMS</div>'
+            '<div style="font-size:28px;font-weight:800;color:#1e3a5f;">WAIMS</div>'
             '<div style="font-size:14px;color:#64748b;margin-top:4px;">'
-            'Wellness & Athlete Injury Management System<br>WNBA Demo · v1.1</div>'
+            'Wellness & Athlete Injury Management System<br>WNBA Demo | v1.1</div>'
             '</div>',
             unsafe_allow_html=True
         )
@@ -146,6 +152,7 @@ def render_login_page():
                     st.session_state["role"]          = user["role"]
                     st.session_state["display_role"]  = user["display"]
                     st.session_state["user_name"]     = user["name"]
+                    st.session_state["player_id"]     = user.get("player_id")
                     st.rerun()
                 else:
                     st.error("Incorrect username or password.")
@@ -164,6 +171,8 @@ def render_login_page():
                 ("scientist / sci123",  "Sport Scientist",   "#059669"),
                 ("medical / med123",    "Medical / AT",      "#7c3aed"),
                 ("gm / gm123",          "General Manager",   "#b45309"),
+                ("athlete / athlete123","Athlete",           "#0f766e"),
+                ("athlete2 / athlete234","Athlete",          "#0f766e"),
             ]
             for user_str, role_str, color in creds:
                 st.markdown(
@@ -192,14 +201,14 @@ def render_user_badge():
       <div style="font-size:15px; font-weight:800; color:#1f2937; margin-top:2px;">{name}</div>
       <div style="font-size:11px; color:#64748b; margin-top:2px;">
         {'Full access' if role in ('sport_scientist','medical')
-         else 'Coach view — wellness data restricted' if role in ('head_coach','asst_coach')
-         else 'Executive view — availability only'}
+         else 'Coach view - wellness data restricted' if role in ('head_coach','asst_coach')
+         else 'Executive view - availability only'}
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    if st.sidebar.button("🚪 Sign Out", use_container_width=True):
-        for key in ["authenticated", "username", "role", "display_role", "user_name"]:
+    if st.sidebar.button("Sign Out", use_container_width=True):
+        for key in ["authenticated", "username", "role", "display_role", "user_name", "player_id"]:
             st.session_state.pop(key, None)
         st.rerun()
 
@@ -222,6 +231,10 @@ def is_authenticated() -> bool:
 
 def current_role() -> str:
     return st.session_state.get("role", "")
+
+
+def current_athlete_player_id():
+    return st.session_state.get("player_id")
 
 
 def can_see(tab_key: str) -> bool:

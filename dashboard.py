@@ -19,8 +19,10 @@ import streamlit as st
 from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 from coach_command_center import coach_command_center
 from correlation_explorer import correlation_explorer_tab
+from athlete_view import athlete_home_view
 from auth import (render_login_page, render_user_badge, is_authenticated,
                   current_role, can_see, data_access, get_visible_tabs)
+from readiness_logic import calculate_readiness_score as shared_calculate_readiness_score
 
 try:
     from data_quality import DataQualityProcessor, show_data_quality_report
@@ -52,9 +54,20 @@ if not LOGO_PATH.exists():
 
 st.set_page_config(
     page_title="WAIMS Readiness Watchlist",
-    page_icon=str(LOGO_PATH) if LOGO_PATH.exists() else "🏀",
+    page_icon=str(LOGO_PATH) if LOGO_PATH.exists() else "W",
     layout="wide",
     initial_sidebar_state="collapsed",
+)
+
+st.markdown(
+    """
+    <style>
+    [data-testid="stMetricValue"] {
+        letter-spacing: -0.02em;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 # ==============================================================================
@@ -105,20 +118,20 @@ def _html_oneliner(s: str) -> str:
 
 
 def create_mini_battery(value, show_label=True):
-    """Emoji + percentage only -- no battery bar."""
+    """Compact text badge + percentage only -- no battery bar."""
     color = "#10b981" if value >= 80 else ("#f59e0b" if value >= 60 else "#ef4444")
-    emoji = "🟢"       if value >= 80 else ("🟡"       if value >= 60 else "🔴")
+    badge = "READY" if value >= 80 else ("MONITOR" if value >= 60 else "PROTECT")
     if show_label:
         html = (
             f'<div style="display:flex;align-items:center;gap:8px;">'
-            f'<span style="font-size:18px;">{emoji}</span>'
+            f'<span style="font-size:10px;font-weight:800;letter-spacing:0.08em;color:{color};">{badge}</span>'
             f'<span style="font-size:13px;font-weight:700;color:{color};">{value:.0f}%</span>'
             f'</div>'
         )
     else:
         html = (
             f'<div style="display:inline-flex;align-items:center;gap:4px;">'
-            f'<span style="font-size:16px;">{emoji}</span>'
+            f'<span style="font-size:9px;font-weight:800;letter-spacing:0.08em;color:{color};">{badge}</span>'
             f'<span style="font-size:12px;font-weight:700;color:{color};">{value:.0f}</span>'
             f'</div>'
         )
@@ -129,8 +142,8 @@ def create_summary_card(label, count, color, icon):
     html = (
         f'<div style="background:linear-gradient(135deg,{color}15 0%,{color}05 100%);'
         f'border-left:4px solid {color};padding:20px;border-radius:10px;text-align:center;">'
-        f'<div style="font-size:48px;margin-bottom:8px;">{icon}</div>'
-        f'<div style="font-size:36px;font-weight:700;color:{color};margin-bottom:4px;">{count}</div>'
+        f'<div style="font-size:10px;font-weight:800;letter-spacing:0.16em;color:{color};margin-bottom:8px;text-transform:uppercase;">{icon}</div>'
+        f'<div style="font-size:24px;font-weight:700;color:{color};margin-bottom:4px;">{count}</div>'
         f'<div style="font-size:14px;color:#6b7280;font-weight:600;">{label}</div>'
         f'</div>'
     )
@@ -138,25 +151,7 @@ def create_summary_card(label, count, color, icon):
 
 
 def calculate_readiness_score(row):
-    """Unified formula -- mirrors train_models.py. Rescaled 0-100. Walsh 2021 thresholds."""
-    sleep_hrs = row.get("sleep_hours", 7.5)
-    sleep_q   = row.get("sleep_quality", 7)
-    sleep_s   = min(15, (sleep_hrs / 8.0) * 10 + (sleep_q / 10) * 5)
-    sore_s    = ((10 - row.get("soreness", 4)) / 10) * 10
-    mood_s    = (row.get("mood", 7) / 10) * 5
-    stress_s  = ((10 - row.get("stress", 4)) / 10) * 5
-    cmj       = row.get("cmj_height_cm")
-    pos       = str(row.get("position", "F"))
-    bench     = 38 if "G" in pos else (30 if "C" in pos else 34)
-    cmj_s     = min(15, (cmj / bench) * 15) if cmj and cmj > 0 else 11
-    rsi       = row.get("rsi_modified")
-    rsi_s     = min(10, (rsi / 0.45) * 10) if rsi and rsi > 0 else 8
-    sched_s   = 10
-    if row.get("is_back_to_back", 0): sched_s -= 4
-    if row.get("days_rest", 3) <= 1:  sched_s -= 2
-    sched_s   = max(0, sched_s)
-    raw = sleep_s + sore_s + mood_s + stress_s + cmj_s + rsi_s + sched_s
-    return round(min(100, raw * (100 / 70)), 1)
+    return shared_calculate_readiness_score(row)
 
 
 def get_status_color(score):
@@ -314,7 +309,7 @@ def classify_player_full(player_id, today_wellness_row, today_fp_row, wellness_d
 
 def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_df, end_date):
     st.header("Today's Readiness Status")
-    st.caption(f"📅 {end_date.strftime('%B %d, %Y')}")
+    st.caption(f"Date: {end_date.strftime('%B %d, %Y')}")
 
     _qa1, _qa2, _qa3 = st.columns(3)
     with _qa1:
@@ -370,23 +365,23 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
     yellow_count = (today_wellness["zscore_status"] == "yellow").sum()
     red_count    = (today_wellness["zscore_status"] == "red").sum()
     avg_sleep    = today_wellness["sleep_hours"].mean()
-    sleep_icon   = "🟢" if avg_sleep >= 8 else ("🟡" if avg_sleep >= 7 else "🔴")
+    sleep_icon   = "SLEEP"
     fp_coverage  = len(latest_fp["player_id"].unique())
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(create_summary_card("Ready",     green_count,         "#10b981", "🟢"), unsafe_allow_html=True)
+        st.markdown(create_summary_card("Ready",     green_count,         "#10b981", "READY"), unsafe_allow_html=True)
     with c2:
-        st.markdown(create_summary_card("Monitor",   yellow_count,        "#f59e0b", "🟡"), unsafe_allow_html=True)
+        st.markdown(create_summary_card("Monitor",   yellow_count,        "#f59e0b", "MONITOR"), unsafe_allow_html=True)
     with c3:
-        st.markdown(create_summary_card("At Risk",   red_count,           "#ef4444", "🔴"), unsafe_allow_html=True)
+        st.markdown(create_summary_card("At Risk",   red_count,           "#ef4444", "AT RISK"), unsafe_allow_html=True)
     with c4:
         st.markdown(create_summary_card("Avg Sleep", f"{avg_sleep:.1f}h", "#3b82f6", sleep_icon), unsafe_allow_html=True)
 
     coverage_parts = [f"Force plate: {fp_coverage}/{len(today_wellness)} athletes"]
     if has_gps:
         coverage_parts.append(f"GPS/Kinexon: {gps_coverage}/{len(today_wellness)} athletes")
-    st.caption(" · ".join(coverage_parts) + ". CMJ/RSI deviations weighted higher than subjective wellness.")
+    st.caption(" - ".join(coverage_parts) + ". CMJ/RSI deviations weighted higher than subjective wellness.")
     st.markdown("---")
 
     today_wellness["readiness_score"] = today_wellness.apply(calculate_readiness_score, axis=1)
@@ -394,9 +389,7 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
     today_wellness["physical_pct"] = ((10 - today_wellness["soreness"]) / 10 * 100)
     today_wellness["mental_pct"]   = (today_wellness["mood"] / 10 * 100)
     today_wellness["stress_pct"]   = ((10 - today_wellness["stress"]) / 10 * 100)
-    today_wellness["status"]       = today_wellness["zscore_status"].map(
-        {"green": "🟢 Ready", "yellow": "🟡 Monitor", "red": "🔴 At Risk"}
-    )
+    today_wellness["status"]       = today_wellness["zscore_status"].map({"green": "Ready", "yellow": "Monitor", "red": "At Risk"})
     today_wellness["status_color"] = today_wellness["zscore_status"].map(
         {"green": "green", "yellow": "orange", "red": "red"}
     )
@@ -482,7 +475,7 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
 
     else:
         for _, player in today_wellness.iterrows():
-            emoji   = "🟢" if player["readiness_score"] >= 80 else ("🟡" if player["readiness_score"] >= 60 else "🔴")
+            emoji   = "READY" if player["readiness_score"] >= 80 else ("MONITOR" if player["readiness_score"] >= 60 else "PROTECT")
             fp_row  = get_fp_row(player["player_id"])
             gps_row = get_gps_row(player["player_id"], training_load_df, ref_date) if has_gps else None
 
@@ -524,9 +517,9 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
                         ac_emoji, ac_z = _gps_zscore_flag(player["player_id"], "accel_count", ac_val, training_load_df, ref_date)
                         dc_emoji, dc_z = _gps_zscore_flag(player["player_id"], "decel_count", dc_val, training_load_df, ref_date)
 
-                        pl_delta = f"{pl_z:+.1f}σ" if pl_z is not None else "--"
-                        ac_delta = f"{ac_z:+.1f}σ" if ac_z is not None else "--"
-                        dc_delta = f"{dc_z:+.1f}σ" if dc_z is not None else "--"
+                        pl_delta = f"{pl_z:+.1f} SD" if pl_z is not None else "--"
+                        ac_delta = f"{ac_z:+.1f} SD" if ac_z is not None else "--"
+                        dc_delta = f"{dc_z:+.1f} SD" if dc_z is not None else "--"
 
                         st.metric("Player Load",  f"{pl_emoji} {pl_val:.0f}",  delta=pl_delta, delta_color="off")
                         st.metric("Accel Count",  f"{ac_emoji} {ac_val:.0f}",  delta=ac_delta, delta_color="off")
@@ -542,11 +535,11 @@ def enhanced_todays_readiness_tab(wellness_df, players_df, fp_df, training_load_
                 st.markdown("---")
                 st.markdown("**Flags:**")
                 for note in player["flag_notes"]:
-                    st.write(f"• {note}")
+                    st.write(f"- {note}")
                 if gps_row and has_gps:
                     gps_notes = build_gps_flag_notes(player["player_id"], gps_row, training_load_df, ref_date)
                     for note in gps_notes:
-                        st.write(f"• 📡 {note}")
+                        st.write(f"- GPS - {note}")
 
 # ==============================================================================
 # TAB 5: AVAILABILITY & INJURIES
@@ -994,17 +987,18 @@ role = current_role()
 # Role-aware title strip
 role_color = {
     "head_coach": "#1e3a5f", "asst_coach": "#2563eb",
-    "sport_scientist": "#059669", "medical": "#7c3aed", "gm": "#b45309"
+    "sport_scientist": "#059669", "medical": "#7c3aed", "gm": "#b45309",
+    "athlete": "#0f766e"
 }.get(role, "#6b7280")
 role_label = {
     "head_coach": "Head Coach", "asst_coach": "Asst. Coach",
     "sport_scientist": "Sport Scientist", "medical": "Medical / AT",
-    "gm": "General Manager"
+    "gm": "General Manager", "athlete": "Athlete"
 }.get(role, role)
 
 st.markdown(
     f'<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">'
-    f'<span style="font-size:24px;font-weight:800;color:#1e3a5f;">🏀 WAIMS</span>'
+    f'<span style="font-size:24px;font-weight:800;color:#1e3a5f;">WAIMS</span>'
     f'<span style="background:{role_color};color:white;padding:3px 12px;border-radius:12px;'
     f'font-size:12px;font-weight:700;">{role_label}</span>'
     f'<span style="font-size:13px;color:#64748b;">{end_date.strftime("%B %d, %Y")}</span>'
@@ -1014,24 +1008,27 @@ st.markdown(
 
 # GMs get a focused banner instead of full tab nav
 if role == "gm":
-    st.info("**Executive View** — You can see roster availability and the Command Center summary. "
+    st.info("**Executive View** - You can see roster availability and the Command Center summary. "
             "Detailed wellness, force plate, and raw load data are restricted to performance staff.")
 
 # Build visible tab list for this role
-visible = get_visible_tabs()   # list of (key, label)
-tab_keys   = [v[0] for v in visible]
-tab_labels = [v[1] for v in visible]
-
-rendered_tabs = st.tabs(tab_labels)
-tab_map = dict(zip(tab_keys, rendered_tabs))
+tab_map = {}
+if role == "athlete":
+    athlete_home_view(wellness, players, training_load, end_date)
+else:
+    visible = get_visible_tabs()   # list of (key, label)
+    tab_keys   = [v[0] for v in visible]
+    tab_labels = [v[1] for v in visible]
+    rendered_tabs = st.tabs(tab_labels)
+    tab_map = dict(zip(tab_keys, rendered_tabs))
 
 # ── Command Center ────────────────────────────────────────────────────────────
 if "cc" in tab_map:
     with tab_map["cc"]:
         if role == "gm":
-            # GM sees readiness summary only — no raw wellness, no minutes detail
+            # GM sees readiness summary only - no raw wellness, no minutes detail
             st.subheader("Roster Availability Summary")
-            st.caption("Executive view — traffic lights and availability only.")
+            st.caption("Executive view - traffic lights and availability only.")
             today = wellness[wellness["date"] == pd.to_datetime(end_date)].copy()
             today = today.merge(players[["player_id", "name", "position"]], on="player_id", how="left")
             today["readiness_score"] = (
@@ -1041,7 +1038,7 @@ if "cc" in tab_map:
                 + (today["mood"] / 10) * 20
             )
             today["status"] = today["readiness_score"].apply(
-                lambda x: "🟢 Ready" if x >= 80 else ("🟡 Monitor" if x >= 60 else "🔴 Protect"))
+                lambda x: "Ready" if x >= 80 else ("Monitor" if x >= 60 else "Protect"))
             st.dataframe(
                 today[["name", "position", "status"]].sort_values("name"),
                 hide_index=True, width='stretch'
@@ -1161,7 +1158,7 @@ if "tr" in tab_map:
                 with r4:
                     st.plotly_chart(dual_trace_chart(trend_w, "stress","stress_roll","Stress (0–10)",[0,10]), width='stretch')
 
-                st.markdown("#### 💪 Objective Load Signals")
+                st.markdown("#### Objective Load Signals")
                 st.caption("Cormack 2008 + Labban 2024 SR: CMJ is the most sensitive daily neuromuscular fatigue marker. Player load provides external training context.")
                 r5, r6 = st.columns(2)
                 with r5:
@@ -1175,8 +1172,8 @@ if "tr" in tab_map:
                     else:
                         st.info("No GPS data in selected window.")
 
-                st.markdown("#### ⚠️ ACWR -- Contextual Flag Only")
-                st.caption("Impellizzeri et al. 2020 + 2025 meta-analysis (22 cohort studies): ACWR should be used 'with caution as a tool', not as a standalone predictor. Shown here for context only -- not used in readiness scoring.")
+                st.markdown("#### ACWR - Contextual Flag Only")
+                st.caption("Impellizzeri et al. 2020 + 2025 meta-analysis (22 cohort studies): ACWR should be used 'with caution as a tool', not as a standalone predictor. Shown here for context only - not used in readiness scoring.")
                 if len(trend_acwr) > 0:
                     fig_acwr = go.Figure()
                     for i, name in enumerate(selected):
@@ -1225,36 +1222,36 @@ if "jt" in tab_map:
                 history = force_plate[(force_plate["player_id"] == player_id) & (force_plate["date"] < latest_date)].tail(30)
                 flags   = []
                 if len(history) < 5:
-                    cmj_status = "🔴" if today_cmj < 25 else ("🟡" if today_cmj < 30 else "🟢")
-                    rsi_status = "🔴" if today_rsi < 0.25 else ("🟡" if today_rsi < 0.35 else "🟢")
+                    cmj_status = "ALERT" if today_cmj < 25 else ("WATCH" if today_cmj < 30 else "OK")
+                    rsi_status = "ALERT" if today_rsi < 0.25 else ("WATCH" if today_rsi < 0.35 else "OK")
                     return cmj_status, rsi_status, ["Insufficient history -- absolute thresholds used"]
 
                 cmj_mean = history["cmj_height_cm"].mean()
                 cmj_std  = max(history["cmj_height_cm"].std(), 0.5)
                 cmj_z    = (today_cmj - cmj_mean) / cmj_std
                 if cmj_z <= -2.0:
-                    cmj_status = "🔴"; flags.append(f"CMJ {today_cmj:.1f} cm -- {abs(cmj_z):.1f}σ below her norm ({cmj_mean:.1f} cm avg)")
+                    cmj_status = "ALERT"; flags.append(f"CMJ {today_cmj:.1f} cm - {abs(cmj_z):.1f} SD below her norm ({cmj_mean:.1f} cm avg)")
                 elif cmj_z <= -1.0:
-                    cmj_status = "🟡"; flags.append(f"CMJ {today_cmj:.1f} cm -- {abs(cmj_z):.1f}σ below her norm ({cmj_mean:.1f} cm avg)")
+                    cmj_status = "WATCH"; flags.append(f"CMJ {today_cmj:.1f} cm - {abs(cmj_z):.1f} SD below her norm ({cmj_mean:.1f} cm avg)")
                 else:
-                    cmj_status = "🟢"
+                    cmj_status = "OK"
 
                 rsi_mean = history["rsi_modified"].mean()
                 rsi_std  = max(history["rsi_modified"].std(), 0.01)
                 rsi_z    = (today_rsi - rsi_mean) / rsi_std
                 if rsi_z <= -2.0:
-                    rsi_status = "🔴"; flags.append(f"RSI {today_rsi:.2f} -- {abs(rsi_z):.1f}σ below her norm ({rsi_mean:.2f} avg)")
+                    rsi_status = "ALERT"; flags.append(f"RSI {today_rsi:.2f} - {abs(rsi_z):.1f} SD below her norm ({rsi_mean:.2f} avg)")
                 elif rsi_z <= -1.0:
-                    rsi_status = "🟡"; flags.append(f"RSI {today_rsi:.2f} -- {abs(rsi_z):.1f}σ below her norm ({rsi_mean:.2f} avg)")
+                    rsi_status = "WATCH"; flags.append(f"RSI {today_rsi:.2f} - {abs(rsi_z):.1f} SD below her norm ({rsi_mean:.2f} avg)")
                 else:
-                    rsi_status = "🟢"
+                    rsi_status = "OK"
 
                 return cmj_status, rsi_status, flags if flags else ["Within normal range for this athlete"]
 
             today_fp[["cmj_status", "rsi_status", "jump_flags"]] = today_fp.apply(
                 lambda r: pd.Series(jump_zscore_status(r["player_id"], r["cmj_height_cm"], r["rsi_modified"])), axis=1
             )
-            today_fp["flag_count"] = today_fp.apply(lambda r: (r["cmj_status"] != "🟢") + (r["rsi_status"] != "🟢"), axis=1)
+            today_fp["flag_count"] = today_fp.apply(lambda r: (r["cmj_status"] != "OK") + (r["rsi_status"] != "OK"), axis=1)
             today_fp = today_fp.sort_values("flag_count", ascending=False)
 
             c1, c2, c3 = st.columns(3)
@@ -1264,7 +1261,7 @@ if "jt" in tab_map:
             st.markdown("---")
 
             for _, row in today_fp.iterrows():
-                with st.expander(f"{row['cmj_status']} {row['rsi_status']}  **{row['name']}**  -- CMJ {row['cmj_height_cm']:.1f} cm  ·  RSI {row['rsi_modified']:.2f}"):
+                with st.expander(f"{row['cmj_status']} | {row['rsi_status']}  **{row['name']}**  - CMJ {row['cmj_height_cm']:.1f} cm  |  RSI {row['rsi_modified']:.2f}"):
                     ca, cb = st.columns(2)
                     ca.metric("CMJ Height",   f"{row['cmj_height_cm']:.1f} cm")
                     cb.metric("RSI-Modified", f"{row['rsi_modified']:.2f}")
@@ -1272,7 +1269,7 @@ if "jt" in tab_map:
                         st.caption(f"Asymmetry index: {row['asymmetry_index']:.1f}%")
                     st.markdown("**Assessment:**")
                     for note in row["jump_flags"]:
-                        st.write(f"• {note}")
+                        st.write(f"- {note}")
 
             st.markdown("---")
             st.subheader("Team CMJ -- 7-Day Trend")
@@ -1306,31 +1303,46 @@ if "inj" in tab_map:
 
 if "fc" in tab_map:
     with tab_map["fc"]:
+        coach_view = current_role() in ("head_coach", "asst_coach")
+        staff_forecast_view = current_role() in ("sport_scientist", "medical")
         st.header("Forecast & Load Projection")
 
-        st.markdown(
-            '<div style="background:#f0f9ff;border-left:4px solid #0284c7;border-radius:0 8px 8px 0;'
-            'padding:12px 18px;margin-bottom:16px;">'
-            '<div style="font-size:12px;color:#1e293b;line-height:1.6;">'
-            '<b>Load Projection:</b> Select a player and scenario -- see projected readiness '
-            'tomorrow and a specific staff recommendation. &nbsp;|&nbsp; '
-            '<b>7-Day Risk:</b> ML model flags players showing injury warning patterns from the last 90 days. '
-            'Not a guarantee -- a signal to act on. &nbsp;|&nbsp; '
-            '<b>Risk score 90/100</b> means high-density warning cluster, same pattern seen before '
-            'injuries in training data.'
-            '</div></div>',
-            unsafe_allow_html=True,
-        )
+        if coach_view:
+            st.markdown(
+                '<div style="background:#f0f9ff;border-left:4px solid #0284c7;border-radius:0 8px 8px 0;'
+                'padding:12px 18px;margin-bottom:16px;">'
+                '<div style="font-size:12px;color:#1e293b;line-height:1.6;">'
+                '<b>Load Projection:</b> Select a player and scenario to see projected tomorrow status and a practical coaching recommendation.'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="background:#f0f9ff;border-left:4px solid #0284c7;border-radius:0 8px 8px 0;'
+                'padding:12px 18px;margin-bottom:16px;">'
+                '<div style="font-size:12px;color:#1e293b;line-height:1.6;">'
+                '<b>Load Projection:</b> Select a player and scenario -- see projected readiness '
+                'tomorrow and a specific staff recommendation. &nbsp;|&nbsp; '
+                '<b>7-Day Risk:</b> ML model flags players showing injury warning patterns from the last 90 days. '
+                'Not a guarantee -- a signal to act on. &nbsp;|&nbsp; '
+                '<b>Risk score 90/100</b> means high-density warning cluster, same pattern seen before '
+                'injuries in training data.'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
 
         st.markdown("---")
         st.markdown("### Load Projection")
-        st.caption(
-            "If a player takes a full game load tonight, where does her readiness land tomorrow? "
-            "Adjustments based on female-specific basketball recovery evidence: "
-            "Pernigoni et al. 2024 (44-study basketball SR), Goulart et al. 2022 (female SR/meta-analysis), "
-            "Charest et al. 2021 (NBA B2B sleep/travel), Walsh 2021 BJSM (sleep consensus). "
-            "Note: female players show substantially faster CMJ/neuromuscular recovery than male literature."
-        )
+        if coach_view:
+            st.caption("See how tonight's load is likely to affect tomorrow's status and what adjustment to make.")
+        else:
+            st.caption(
+                "If a player takes a full game load tonight, where does her readiness land tomorrow"
+                "Adjustments based on female-specific basketball recovery evidence: "
+                "Pernigoni et al. 2024 (44-study basketball SR), Goulart et al. 2022 (female SR/meta-analysis), "
+                "Charest et al. 2021 (NBA B2B sleep/travel), Walsh 2021 BJSM (sleep consensus). "
+                "Note: female players show substantially faster CMJ/neuromuscular recovery than male literature."
+            )
 
         proj_player = st.selectbox("Select player to project", players["name"].tolist(), key="forecast_proj_player")
         load_scenario = st.radio("Tonight's scenario",
@@ -1404,30 +1416,30 @@ if "fc" in tab_map:
 
             if tmr_status == "PROTECT":
                 if mins_4d_proj and mins_4d_proj > 90:
-                    min_cap = "20–24 minutes maximum"
+                    min_cap = "20-24 minutes maximum"
                     drill_note = "Remove from full-court sprints and late-game crunch situations"
                 else:
-                    min_cap = "22–26 minutes"
+                    min_cap = "22-26 minutes"
                     drill_note = "Limit explosive acceleration drills in warmup"
-                rec_color = "#dc2626"; rec_bg = "#fef2f2"; rec_icon = "⚠"; rec_head = "Restrict Tonight"
+                rec_color = "#dc2626"; rec_bg = "#fef2f2"; rec_icon = "Protect"; rec_head = "Restrict Tonight"
                 rec_body  = (f"Cap {proj_player} at {min_cap} tonight. {drill_note}. "
-                            f"Check in individually before practice -- ask about sleep and leg fatigue. "
+                            f"Check in individually before practice - ask about sleep and leg fatigue. "
                             f"Projected readiness tomorrow: {tomorrow_score:.0f}% (PROTECT).")
             elif tmr_status == "MONITOR":
                 if mins_4d_proj and mins_4d_proj > 100:
-                    min_cap = "26–30 minutes"
+                    min_cap = "26-30 minutes"
                     drill_note = "Reduce high-intensity interval reps in practice; prioritise skill work"
                 else:
                     min_cap = "standard minutes with close monitoring"
-                    drill_note = "Watch warmup quality -- if movement looks laboured, reduce early"
-                rec_color = "#d97706"; rec_bg = "#fffbeb"; rec_icon = "◑"; rec_head = "Monitor Closely"
+                    drill_note = "Watch warmup quality - if movement looks laboured, reduce early"
+                rec_color = "#d97706"; rec_bg = "#fffbeb"; rec_icon = "Monitor"; rec_head = "Monitor Closely"
                 rec_body  = (f"{proj_player}: {drill_note}. Target {min_cap} tonight. "
-                            f"Re-check soreness in warmup -- if ≥7/10, pull back further. "
+                            f"Re-check soreness in warmup - if it reaches 7/10 or higher, pull back further. "
                             f"Projected readiness tomorrow: {tomorrow_score:.0f}% (MONITOR).")
             else:
-                rec_color = "#16a34a"; rec_bg = "#f0fdf4"; rec_icon = "✓"; rec_head = "Clear for Full Load"
+                rec_color = "#16a34a"; rec_bg = "#f0fdf4"; rec_icon = "Clear"; rec_head = "Clear for Full Load"
                 rec_body  = (f"{proj_player} is projected to recover well. "
-                            f"No restrictions needed tonight -- full minutes available. "
+                            f"No restrictions needed tonight - full minutes available. "
                             f"Projected readiness tomorrow: {tomorrow_score:.0f}% ({tmr_status}).")
 
             st.markdown(
@@ -1443,154 +1455,157 @@ if "fc" in tab_map:
         else:
             st.info("No current wellness data for projection.")
 
-        st.markdown("---")
-        st.markdown("### 7-Day Injury Risk (ML Model)")
-        st.caption(
-            "Random Forest model trained on 90-day monitoring history. "
-            "Flags players whose current wellness + force plate + GPS pattern matches "
-            "pre-injury windows in training data. Not a guarantee -- a signal to act on."
-        )
-        if len(ml_predictions) > 0:
-            ml_today = ml_predictions[
-                pd.to_datetime(ml_predictions["date"]) == pd.Timestamp(end_date)
-            ].merge(players[["player_id","name","position"]], on="player_id", how="left"
-            ).sort_values("injury_risk_score", ascending=False)
 
-            if len(ml_today) > 0:
-                ml_cols = st.columns(4)
-                for i, (_, row) in enumerate(ml_today.iterrows()):
-                    risk_pct = row["injury_risk_score"] * 100
-                    ready    = row["readiness_score"] * 100 if row["readiness_score"] <= 1 else row["readiness_score"]
-                    if risk_pct >= 60:
-                        risk_label, risk_color, risk_bg = "INJURY WATCH", "#dc2626", "#fee2e2"
-                    elif risk_pct >= 30:
-                        risk_label, risk_color, risk_bg = "WATCH CLOSELY", "#d97706", "#fef3c7"
-                    else:
-                        risk_label, risk_color, risk_bg = "LOW RISK", "#16a34a", "#dcfce7"
-                    with ml_cols[i % 4]:
-                        st.markdown(
-                            f'<div style="background:{risk_bg};border-left:4px solid {risk_color};'
-                            f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
-                            f'<div style="font-weight:800;font-size:13px;color:#0f172a;">{row["name"]}</div>'
-                            f'<div style="font-size:10px;font-weight:700;color:{risk_color};letter-spacing:0.06em;margin:2px 0;">{risk_label}</div>'
-                            f'<div style="font-size:11px;color:#475569;">Today: {ready:.0f}% · Risk: {risk_pct:.0f}/100</div>'
-                            f'</div>',
-                            unsafe_allow_html=True
-                        )
-            else:
-                st.info("No ML predictions found for today. Run `python train_models.py` to generate.")
-        else:
-            st.info("ML model not yet trained. Run `python train_models.py` then restart.")
-
-        st.markdown("---")
-        if len(wellness) > 0:
-            latest_date = wellness["date"].max()
-            ref_date    = pd.to_datetime(latest_date)
-            latest_fp   = force_plate[force_plate["date"] == latest_date]
-            has_gps_fc  = "player_load" in training_load.columns
-
-            def get_fp_row_fc(pid):
-                row = latest_fp[latest_fp["player_id"] == pid]
-                return row.iloc[0].to_dict() if len(row) > 0 else None
-
-            recent_data = (
-                wellness[wellness["date"] == latest_date]
-                .copy()
-                .merge(players[["player_id", "name", "position", "age", "injury_history_count"]], on="player_id", how="left")
+        if staff_forecast_view:
+            st.markdown("---")
+            st.markdown("### 7-Day Injury Risk (ML Model)")
+            st.caption(
+                "Random Forest model trained on 90-day monitoring history. "
+                "Flags players whose current wellness + force plate + GPS pattern matches "
+                "pre-injury windows in training data. Not a guarantee - a signal to act on."
             )
+            if len(ml_predictions) > 0:
+                ml_today = ml_predictions[
+                    pd.to_datetime(ml_predictions["date"]) == pd.Timestamp(end_date)
+                ].merge(players[["player_id","name","position"]], on="player_id", how="left"
+                ).sort_values("injury_risk_score", ascending=False)
 
-            if len(recent_data) > 0:
-                def full_risk(row):
-                    status, flags, notes = classify_player_full(
-                        row["player_id"], row, get_fp_row_fc(row["player_id"]),
-                        wellness, force_plate, ref_date,
-                    )
-                    if has_gps_fc:
-                        gps_row = get_gps_row(row["player_id"], training_load, ref_date)
-                        gps_notes = build_gps_flag_notes(row["player_id"], gps_row, training_load, ref_date)
-                        flags += len(gps_notes)
-                        notes.extend([f"📡 {n}" for n in gps_notes])
-                    risk_score = min(100, flags * 15)
-                    risk_level = "High" if risk_score >= 60 else ("Moderate" if risk_score >= 20 else "Low")
-                    risk_emoji = "🔴" if risk_score >= 60 else ("🟡" if risk_score >= 20 else "🟢")
-                    return pd.Series({"risk_score": risk_score, "flag_notes": notes,
-                                       "risk_emoji": risk_emoji, "risk_level": risk_level})
+                if len(ml_today) > 0:
+                    ml_cols = st.columns(4)
+                    for i, (_, row) in enumerate(ml_today.iterrows()):
+                        risk_pct = row["injury_risk_score"] * 100
+                        ready = row["readiness_score"] * 100 if row["readiness_score"] <= 1 else row["readiness_score"]
+                        if risk_pct >= 60:
+                            risk_label, risk_color, risk_bg = "INJURY WATCH", "#dc2626", "#fee2e2"
+                        elif risk_pct >= 30:
+                            risk_label, risk_color, risk_bg = "WATCH CLOSELY", "#d97706", "#fef3c7"
+                        else:
+                            risk_label, risk_color, risk_bg = "LOW RISK", "#16a34a", "#dcfce7"
+                        with ml_cols[i % 4]:
+                            st.markdown(
+                                f'<div style="background:{risk_bg};border-left:4px solid {risk_color};'
+                                f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
+                                f'<div style="font-weight:800;font-size:13px;color:#0f172a;">{row["name"]}</div>'
+                                f'<div style="font-size:10px;font-weight:700;color:{risk_color};letter-spacing:0.06em;margin:2px 0;">{risk_label}</div>'
+                                f'<div style="font-size:11px;color:#475569;">Today: {ready:.0f}% | Risk: {risk_pct:.0f}/100</div>'
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
+                else:
+                    st.info("No ML predictions found for today. Run `python train_models.py` to generate.")
+            else:
+                st.info("ML model not yet trained. Run `python train_models.py` then restart.")
 
-                recent_data[["risk_score", "flag_notes", "risk_emoji", "risk_level"]] = recent_data.apply(full_risk, axis=1)
-                recent_data = recent_data.sort_values("risk_score", ascending=False)
+            st.markdown("---")
+            if len(wellness) > 0:
+                latest_date = wellness["date"].max()
+                ref_date = pd.to_datetime(latest_date)
+                latest_fp = force_plate[force_plate["date"] == latest_date]
+                has_gps_fc = "player_load" in training_load.columns
 
-                fp_coverage = len(latest_fp["player_id"].unique())
-                gps_cov_str = ""
-                if has_gps_fc:
-                    today_gps_fc = training_load[training_load["date"] == ref_date]
-                    gps_cov      = len(today_gps_fc["player_id"].unique())
-                    gps_cov_str  = f" · GPS/Kinexon: {gps_cov}/{len(recent_data)} athletes"
+                def get_fp_row_fc(pid):
+                    row = latest_fp[latest_fp["player_id"] == pid]
+                    return row.iloc[0].to_dict() if len(row) > 0 else None
 
-                st.caption(
-                    f"Force plate: {fp_coverage}/{len(recent_data)} athletes{gps_cov_str}. "
-                    "CMJ/RSI deviations weighted 1.5× vs subjective metrics. "
-                    "Risk score: each warning flag = 15 pts. Gathercole 2015 · Walsh 2021 · Gabbett 2016."
+                recent_data = (
+                    wellness[wellness["date"] == latest_date]
+                    .copy()
+                    .merge(players[["player_id", "name", "position", "age", "injury_history_count"]], on="player_id", how="left")
                 )
 
-                high_risk = recent_data[recent_data["risk_score"] >= 60]
-                if len(high_risk) > 0:
-                    st.markdown(
-                        '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;'
-                        'padding:12px 16px;margin-bottom:12px;">'
-                        '<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#991b1b;margin-bottom:8px;">Action Required This Week</div>'
-                        + "".join(
-                            f'<div style="font-size:13px;color:#1e293b;margin-bottom:4px;">'
-                            f'<b>{row["name"]}</b> -- Risk {row["risk_score"]:.0f}/100 · '
-                            f'{", ".join(str(n) for n in row["flag_notes"][:2])}</div>'
-                            for _, row in high_risk.iterrows()
+                if len(recent_data) > 0:
+                    def full_risk(row):
+                        status, flags, notes = classify_player_full(
+                            row["player_id"], row, get_fp_row_fc(row["player_id"]),
+                            wellness, force_plate, ref_date,
                         )
-                        + '</div>',
-                        unsafe_allow_html=True
+                        if has_gps_fc:
+                            gps_row = get_gps_row(row["player_id"], training_load, ref_date)
+                            gps_notes = build_gps_flag_notes(row["player_id"], gps_row, training_load, ref_date)
+                            flags += len(gps_notes)
+                            notes.extend([f"GPS: {n}" for n in gps_notes])
+                        risk_score = min(100, flags * 15)
+                        risk_level = "High" if risk_score >= 60 else ("Moderate" if risk_score >= 20 else "Low")
+                        risk_label = "ALERT" if risk_score >= 60 else ("WATCH" if risk_score >= 20 else "OK")
+                        return pd.Series({"risk_score": risk_score, "flag_notes": notes,
+                                           "risk_label": risk_label, "risk_level": risk_level})
+
+                    recent_data[["risk_score", "flag_notes", "risk_label", "risk_level"]] = recent_data.apply(full_risk, axis=1)
+                    recent_data = recent_data.sort_values("risk_score", ascending=False)
+
+                    fp_coverage = len(latest_fp["player_id"].unique())
+                    gps_cov_str = ""
+                    if has_gps_fc:
+                        today_gps_fc = training_load[training_load["date"] == ref_date]
+                        gps_cov = len(today_gps_fc["player_id"].unique())
+                        gps_cov_str = f" | GPS/Kinexon: {gps_cov}/{len(recent_data)} athletes"
+
+                    st.caption(
+                        f"Force plate: {fp_coverage}/{len(recent_data)} athletes{gps_cov_str}. "
+                        "CMJ/RSI deviations weighted 1.5x vs subjective metrics. "
+                        "Risk score: each warning flag = 15 pts. Gathercole 2015 | Walsh 2021 | Gabbett 2016."
                     )
 
-                st.markdown("**Full watchlist -- expand each player for details:**")
+                    high_risk = recent_data[recent_data["risk_score"] >= 60]
+                    if len(high_risk) > 0:
+                        st.markdown(
+                            '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;'
+                            'padding:12px 16px;margin-bottom:12px;">'
+                            '<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#991b1b;margin-bottom:8px;">Action Required This Week</div>'
+                            + "".join(
+                                f'<div style="font-size:13px;color:#1e293b;margin-bottom:4px;">'
+                                f'<b>{row["name"]}</b> - Risk {row["risk_score"]:.0f}/100 | '
+                                f'{", ".join(str(n) for n in row["flag_notes"][:2])}</div>'
+                                for _, row in high_risk.iterrows()
+                            )
+                            + '</div>',
+                            unsafe_allow_html=True
+                        )
 
-                for _, player in recent_data.head(6).iterrows():
-                    fp_row  = get_fp_row_fc(player["player_id"])
-                    gps_row = get_gps_row(player["player_id"], training_load, ref_date) if has_gps_fc else None
-                    top_flag = str(player["flag_notes"][0]) if len(player["flag_notes"]) > 0 else "multiple signals"
-                    expander_title = (
-                        f"{player['risk_emoji']} **{player['name']}** ({player.get('position','')})  --  "
-                        f"{player['risk_level']} risk ({player['risk_score']:.0f}/100)  ·  {top_flag}"
-                    )
-                    with st.expander(expander_title):
-                        c1, c2, c3, c4 = st.columns(4)
-                        c1.metric("Sleep",    f"{player['sleep_hours']:.1f} hrs")
-                        c2.metric("Soreness", f"{player['soreness']:.0f}/10")
-                        c3.metric("Stress",   f"{player['stress']:.0f}/10")
-                        if fp_row:
-                            c4.metric("CMJ", f"{fp_row['cmj_height_cm']:.1f} cm")
-                            ca, cb = st.columns(2)
-                            ca.metric("RSI-Modified", f"{fp_row['rsi_modified']:.2f}")
-                            cb.metric("Force Plate",  "Available")
-                        else:
-                            c4.metric("CMJ", "No data")
+                    st.markdown("**Full watchlist - expand each player for details:**")
 
-                        if gps_row and has_gps_fc:
-                            st.markdown("**GPS / Kinexon**")
-                            g1, g2, g3 = st.columns(3)
-                            pl_val = gps_row.get("player_load", 0)
-                            ac_val = gps_row.get("accel_count", 0)
-                            dc_val = gps_row.get("decel_count", 0)
-                            pl_emoji, pl_z = _gps_zscore_flag(player["player_id"], "player_load", pl_val, training_load, ref_date)
-                            ac_emoji, ac_z = _gps_zscore_flag(player["player_id"], "accel_count", ac_val, training_load, ref_date)
-                            dc_emoji, dc_z = _gps_zscore_flag(player["player_id"], "decel_count", dc_val, training_load, ref_date)
-                            g1.metric("Player Load", f"{pl_emoji} {pl_val:.0f}", delta=f"{pl_z:+.1f}σ" if pl_z else "--", delta_color="off")
-                            g2.metric("Accel Count", f"{ac_emoji} {ac_val:.0f}", delta=f"{ac_z:+.1f}σ" if ac_z else "--", delta_color="off")
-                            g3.metric("Decel Count", f"{dc_emoji} {dc_val:.0f}", delta=f"{dc_z:+.1f}σ" if dc_z else "--", delta_color="off")
+                    for _, player in recent_data.head(6).iterrows():
+                        fp_row = get_fp_row_fc(player["player_id"])
+                        gps_row = get_gps_row(player["player_id"], training_load, ref_date) if has_gps_fc else None
+                        top_flag = str(player["flag_notes"][0]) if len(player["flag_notes"]) > 0 else "multiple signals"
+                        expander_title = (
+                            f"{player['risk_label']} **{player['name']}** ({player.get('position','')}) - "
+                            f"{player['risk_level']} risk ({player['risk_score']:.0f}/100) | {top_flag}"
+                        )
+                        with st.expander(expander_title):
+                            c1, c2, c3, c4 = st.columns(4)
+                            c1.metric("Sleep", f"{player['sleep_hours']:.1f} hrs")
+                            c2.metric("Soreness", f"{player['soreness']:.0f}/10")
+                            c3.metric("Stress", f"{player['stress']:.0f}/10")
+                            if fp_row:
+                                c4.metric("CMJ", f"{fp_row['cmj_height_cm']:.1f} cm")
+                                ca, cb = st.columns(2)
+                                ca.metric("RSI-Modified", f"{fp_row['rsi_modified']:.2f}")
+                                cb.metric("Force Plate", "Available")
+                            else:
+                                c4.metric("CMJ", "No data")
 
-                        st.markdown("**Why she's here:**")
-                        for note in player["flag_notes"]:
-                            st.write(f"• {note}")
+                            if gps_row and has_gps_fc:
+                                st.markdown("**GPS / Kinexon**")
+                                g1, g2, g3 = st.columns(3)
+                                pl_val = gps_row.get("player_load", 0)
+                                ac_val = gps_row.get("accel_count", 0)
+                                dc_val = gps_row.get("decel_count", 0)
+                                pl_emoji, pl_z = _gps_zscore_flag(player["player_id"], "player_load", pl_val, training_load, ref_date)
+                                ac_emoji, ac_z = _gps_zscore_flag(player["player_id"], "accel_count", ac_val, training_load, ref_date)
+                                dc_emoji, dc_z = _gps_zscore_flag(player["player_id"], "decel_count", dc_val, training_load, ref_date)
+                                g1.metric("Player Load", f"{pl_emoji} {pl_val:.0f}", delta=f"{pl_z:+.1f} SD" if pl_z else "--", delta_color="off")
+                                g2.metric("Accel Count", f"{ac_emoji} {ac_val:.0f}", delta=f"{ac_z:+.1f} SD" if ac_z else "--", delta_color="off")
+                                g3.metric("Decel Count", f"{dc_emoji} {dc_val:.0f}", delta=f"{dc_z:+.1f} SD" if dc_z else "--", delta_color="off")
+
+                            st.markdown("**Why she's here:**")
+                            for note in player["flag_notes"]:
+                                st.write(f"- {note}")
+                else:
+                    st.info("No data available for the most recent day.")
             else:
-                st.info("No data available for the most recent day.")
-        else:
-            st.info("Add wellness + training load data to show forecast watchouts.")
+                st.info("Add wellness + training load data to show forecast watchouts.")
+
 
         if "practice_minutes" in training_load.columns:
             st.markdown("---")
@@ -1633,32 +1648,35 @@ if "fc" in tab_map:
                 st.caption("Thresholds: 4d >120 min = high; 8d >220 min = high. "
                            "Clinical estimates -- no published WNBA-specific cumulative load thresholds.")
 
-        st.markdown("---")
-        st.caption(
-            "Risk scoring: hard safety floors (sleep <7 hrs, soreness/stress >7) always flag. "
-            "Personal deviations >1.5σ from 30-day baseline add flags. "
-            "CMJ/RSI drops weighted ×1.5 vs subjective metrics. "
-            "GPS load/accel/decel drops >1σ below personal baseline add flags. "
-            "Gathercole et al. (2015) · Walsh et al. 2021 (BJSM sleep consensus) · Gabbett (2016)"
-        )
 
-        with st.expander("Model details (staff)"):
-            model_path = "models/injury_risk_model.pkl"
-            if os.path.exists(model_path):
-                st.success("Forecast model available")
-                try:
-                    with open(model_path, "rb") as f:
-                        pickle.load(f)
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Algorithm", "RandomForest")
-                    c2.metric("Status",    "Ready")
-                    c3.metric("Model file","injury_risk_model.pkl")
-                    st.info("Features: sleep, soreness, stress, training load, ACWR, CMJ, RSI, player load, accel/decel + z-score deviations from personal baseline.")
-                except Exception as e:
-                    st.error(f"Error loading model: {e}")
-            else:
-                st.warning("Forecast model not yet trained")
-                st.code("python train_models.py", language="bash")
+        if staff_forecast_view:
+            st.markdown("---")
+            st.caption(
+                "Risk scoring: hard safety floors (sleep <7 hrs, soreness/stress >7) always flag. "
+                "Personal deviations >1.5 SD from 30-day baseline add flags. "
+                "CMJ/RSI drops weighted x1.5 vs subjective metrics. "
+                "GPS load/accel/decel drops >1 SD below personal baseline add flags. "
+                "Gathercole et al. (2015) | Walsh et al. 2021 | Gabbett (2016)"
+            )
+
+            with st.expander("Model details (staff)"):
+                model_path = "models/injury_risk_model.pkl"
+                if os.path.exists(model_path):
+                    st.success("Forecast model available")
+                    try:
+                        with open(model_path, "rb") as f:
+                            pickle.load(f)
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("Algorithm", "RandomForest")
+                        c2.metric("Status", "Ready")
+                        c3.metric("Model file", "injury_risk_model.pkl")
+                        st.info("Features: sleep, soreness, stress, training load, ACWR, CMJ, RSI, player load, accel/decel + z-score deviations from personal baseline.")
+                    except Exception as e:
+                        st.error(f"Error loading model: {e}")
+                else:
+                    st.warning("Forecast model not yet trained")
+                    st.code("python train_models.py", language="bash")
+
 
 # ==============================================================================
 # TAB 7: INSIGHTS
@@ -1672,9 +1690,9 @@ if "ins" in tab_map:
             """
             <div style="margin-bottom:6px;">
                 <div style="font-family:Georgia,serif; font-size:20px; font-weight:700;
-                    color:#0f172a; letter-spacing:-0.01em;">Ask a Question</div>
+                    color:#0f172a; letter-spacing:-0.01em;">Insights Query & Export</div>
                 <div style="font-size:13px; color:#64748b; margin-top:2px;">
-                    Natural-language queries about your roster -- type or use your voice
+                    Use this for deeper roster lookups, downloads, and quick comparisons. Command Center remains the fast sideline version.
                 </div>
             </div>
             """,
@@ -1695,11 +1713,11 @@ if "ins" in tab_map:
             background:#1e3a5f;color:white;border:none;border-radius:8px;
             padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;
             display:flex;align-items:center;gap:8px;transition:background 0.2s;">
-            🎙 Speak Your Question
+            Voice Query
           </button>
           <span id="micStatus" style="font-size:12px;color:#64748b;"></span>
           <span style="font-size:11px;color:#94a3b8;font-style:italic;">
-            Voice Preview · Chrome only · Try: "who didn't sleep well" or "who should I protect today"
+            Voice Preview - Chrome only - Fills the query box below for deeper analysis
           </span>
         </div>
         <div id="voiceResult" style="display:none;background:#f0f9ff;border-left:4px solid #0284c7;
@@ -1711,9 +1729,9 @@ if "ins" in tab_map:
         let recognition;
 
         function toggleVoice() {
-          if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+          if (!(('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window))) {
             document.getElementById('micStatus').textContent =
-              'Voice questions work in Chrome or Edge — open this page there to use the mic.';
+              'Voice queries work in Chrome or Edge - open this page there to use the mic.';
             document.getElementById('micStatus').style.color = '#d97706';
             return;
           }
@@ -1732,96 +1750,117 @@ if "ins" in tab_map:
           recognition.onstart = function() {
             recognizing = true;
             document.getElementById('micBtn').style.background = '#dc2626';
-            document.getElementById('micBtn').innerHTML = '🔴 Listening... (click to stop)';
+            document.getElementById('micBtn').innerHTML = 'Listening... (click to stop)';
             document.getElementById('micStatus').textContent = '';
           };
 
           recognition.onresult = function(event) {
             const transcript = event.results[0][0].transcript;
             const confidence = Math.round(event.results[0][0].confidence * 100);
-
-            // Show result
             const resultDiv = document.getElementById('voiceResult');
+            const normalized = transcript.toLowerCase();
             resultDiv.style.display = 'block';
             resultDiv.innerHTML = '<b>Heard:</b> "' + transcript + '"'
               + ' <span style="color:#64748b;font-size:11px;">(' + confidence + '% confidence)</span>'
-              + '<br><span style="font-size:11px;color:#0369a1;">Copy this into the search box below ↓</span>';
+              + '<br><span style="font-size:11px;color:#0369a1;">Running query now...</span>';
 
-            // Try to populate the Streamlit text input
-            // Streamlit text inputs are standard HTML inputs — find by placeholder
-            const inputs = parent.document.querySelectorAll('input[type="text"]');
-            for (let inp of inputs) {
-              if (inp.placeholder && inp.placeholder.includes('poor sleep')) {
-                inp.value = transcript;
-                inp.dispatchEvent(new Event('input', { bubbles: true }));
-                inp.dispatchEvent(new Event('change', { bubbles: true }));
-                break;
+            try {
+              const parentDoc = window.parent.document;
+              let buttonLabel = null;
+              if (normalized.includes('poor sleep') || normalized.includes('bad sleep') || normalized.includes('sleep') || normalized.includes('tired')) {
+                buttonLabel = 'Poor Sleep';
+              } else if (normalized.includes('high risk') || normalized.includes('at risk') || normalized.includes('injury risk') || normalized.includes('protect')) {
+                buttonLabel = 'High Risk';
+              } else if (normalized.includes('readiness') || normalized.includes('ready')) {
+                buttonLabel = 'Readiness';
+              } else if (normalized.includes('back to back') || normalized.includes('back-to-back') || normalized.includes('b2b') || normalized.includes('schedule') || normalized.includes('rest')) {
+                buttonLabel = 'Back-to-Backs';
               }
+
+              setTimeout(() => {
+                if (buttonLabel) {
+                  const buttons = Array.from(parentDoc.querySelectorAll('button'));
+                  const quickButton = buttons.find((btn) => (btn.textContent || '').trim() === buttonLabel);
+                  if (quickButton) {
+                    quickButton.click();
+                    return;
+                  }
+                }
+
+                const targetUrl = new URL(window.parent.location.href);
+                targetUrl.searchParams.set('ins_q', transcript);
+                targetUrl.searchParams.set('ins_q_nonce', String(Date.now()));
+                window.parent.location.href = targetUrl.toString();
+              }, 150);
+            } catch (e) {
+              const targetUrl = new URL(window.parent.location.href);
+              targetUrl.searchParams.set('ins_q', transcript);
+              targetUrl.searchParams.set('ins_q_nonce', String(Date.now()));
+              window.parent.location.href = targetUrl.toString();
             }
           };
 
           recognition.onerror = function(event) {
-            document.getElementById('micStatus').textContent = '⚠ ' + event.error;
+            document.getElementById('micStatus').textContent = 'Mic issue: ' + event.error;
             document.getElementById('micStatus').style.color = '#dc2626';
           };
 
           recognition.onend = function() {
             recognizing = false;
             document.getElementById('micBtn').style.background = '#1e3a5f';
-            document.getElementById('micBtn').innerHTML = '🎙 Speak Your Question';
+            document.getElementById('micBtn').innerHTML = 'Voice Query';
           };
 
           recognition.start();
         }
         </script>
         """, height=100)
-
-        ask_col, btn_col = st.columns([3, 1])
+        insight_prefill = st.query_params.get("ins_q")
+        insight_nonce = st.query_params.get("ins_q_nonce")
+        insight_prefill_key = f"{insight_nonce}:{insight_prefill}" if insight_prefill else ""
+        if insight_prefill and st.session_state.get("_insights_voice_applied") != insight_prefill_key:
+            st.session_state.query_to_run = insight_prefill
+            st.session_state["_insights_voice_applied"] = insight_prefill_key
 
         queued_query = st.session_state.query_to_run
         if queued_query:
-            st.session_state.smart_query_input = queued_query
             st.session_state.query_to_run = ""
+            try:
+                st.query_params.pop("ins_q")
+                st.query_params.pop("ins_q_nonce")
+            except Exception:
+                pass
 
-        with ask_col:
-            with st.form("smart_query_form", clear_on_submit=False):
-                user_query = st.text_input(
-                    "Ask a question",
-                    placeholder="e.g., 'who had poor sleep?' · 'high risk players' · 'readiness'",
-                    key="smart_query_input",
-                    label_visibility="collapsed",
+        effective_query = (queued_query or insight_prefill or "").strip()
+        if effective_query:
+            st.info(f"Understood as: {parse_query(effective_query).replace('_', ' ').title()}")
+            query_type = parse_query(effective_query)
+            response, data = generate_smart_response(query_type)
+            st.markdown(response)
+            if data is not None and len(data) > 0:
+                st.download_button(
+                    "Download Results",
+                    data=data.to_csv(index=False),
+                    file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
                 )
-                run_query = st.form_submit_button("Run Query", width="stretch")
 
-            if run_query or queued_query:
-                cleaned_query = (user_query or "").strip()
-                if cleaned_query:
-                    query_type = parse_query(cleaned_query)
-                    st.info(f"Understood as: {query_type.replace('_', ' ').title()}")
-                    response, data = generate_smart_response(query_type)
-                    st.markdown(response)
-                    if data is not None and len(data) > 0:
-                        st.download_button(
-                            "Download Results",
-                            data=data.to_csv(index=False),
-                            file_name=f"query_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv",
-                        )
-                else:
-                    st.warning("Type a question or use one of the quick queries.")
-
-        with btn_col:
-            st.markdown(
-                '<div style="font-size:12px; font-weight:600; color:#64748b; '
-                'letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">Quick queries</div>',
-                unsafe_allow_html=True,
-            )
-            if st.button("Poor Sleep",    width='stretch', key="qs_sleep"):
-                st.session_state.query_to_run = "poor sleep";   st.rerun()
-            if st.button("High Risk",     width='stretch', key="qs_risk"):
-                st.session_state.query_to_run = "high risk";    st.rerun()
-            if st.button("Readiness",     width='stretch', key="qs_ready"):
-                st.session_state.query_to_run = "readiness";    st.rerun()
+        st.markdown(
+            '<div style="font-size:12px; font-weight:600; color:#64748b; '
+            'letter-spacing:0.08em; text-transform:uppercase; margin:18px 0 8px;">Quick queries</div>',
+            unsafe_allow_html=True,
+        )
+        q1, q2, q3, q4 = st.columns(4)
+        with q1:
+            if st.button("Poor Sleep", width='stretch', key="qs_sleep"):
+                st.session_state.query_to_run = "poor sleep"; st.rerun()
+        with q2:
+            if st.button("High Risk", width='stretch', key="qs_risk"):
+                st.session_state.query_to_run = "high risk"; st.rerun()
+        with q3:
+            if st.button("Readiness", width='stretch', key="qs_ready"):
+                st.session_state.query_to_run = "readiness"; st.rerun()
+        with q4:
             if st.button("Back-to-Backs", width='stretch', key="qs_b2b"):
                 st.session_state.query_to_run = "back to back"; st.rerun()
 
