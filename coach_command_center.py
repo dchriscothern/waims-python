@@ -902,6 +902,11 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
       document.getElementById('sendBtn').style.display = 'inline-block';
     }}
 
+    function showTypedInput() {{
+      document.getElementById('inputRow').style.display = 'flex';
+      document.getElementById('sendBtn').style.display = 'inline-block';
+    }}
+
     // Voice
     let recognizing = false;
     let recognition;
