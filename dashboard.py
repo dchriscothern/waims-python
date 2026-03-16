@@ -2725,12 +2725,23 @@ if "ins" in tab_map:
 
         # ── EVIDENCE REVIEW ─────────────────────────────────────────────────────
         st.markdown("---")
-        st.markdown("### Evidence Review")
-        st.caption(
-            "Formal evidence review policy: no WAIMS threshold change without a "
-            "meta-analysis or systematic review. Papers flagged weekly by GitHub Actions. "
-            "Decide here -- decisions saved to research_log.json."
-        )
+        header_cols = st.columns([2, 1])
+        with header_cols[0]:
+            st.markdown("### Evidence Review")
+            st.caption(
+                "Formal evidence review policy: no WAIMS threshold change without a "
+                "meta-analysis or systematic review. Papers flagged weekly by GitHub Actions. "
+                "Decide here -- decisions saved to research_log.json."
+            )
+        with header_cols[1]:
+            if HAVE_IMPROVED_GAUGES:
+                with st.expander("📚 Research Foundation", expanded=False):
+                    show_research_foundation()
+            else:
+                st.caption(
+                    "Research Foundation summary available when improved gauges package "
+                    "is installed (includes research_citations.py)."
+                )
 
         import json as _ej
         from pathlib import Path as _ep
