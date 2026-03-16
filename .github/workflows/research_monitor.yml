@@ -1,0 +1,37 @@
+name: WAIMS Evidence Review
+
+on:
+  schedule:
+    # 13:00 UTC Monday = 8:00 AM America/Chicago during daylight saving time.
+    # GitHub Actions cron uses UTC, so this will run at 7:00 AM during standard time.
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run evidence monitor
+        run: python research_monitor.py --days 7 --save --html
+
+      - name: Commit updated review artifacts
+        run: |
+          git config user.name "WAIMS Evidence Monitor"
+          git config user.email "monitor@waims"
+          git add research_log.json research_report_*.html
+          git diff --staged --quiet || git commit -m "Evidence review $(date +%Y-%m-%d)"
+          git push
