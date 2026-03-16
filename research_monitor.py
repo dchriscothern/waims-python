@@ -404,6 +404,10 @@ def paper_identity(paper):
     """Stable identity for a paper across reruns and source-specific IDs."""
     if paper.get("pmid"):
         return f"pmid:{paper['pmid']}"
+    if paper.get("source_type") in ("expert_practitioner", "practitioner_journal", "journal_blog"):
+        title = re.sub(r"\s+", " ", (paper.get("title") or "").strip().lower())
+        if title:
+            return f"rss_title:{title}"
     if paper.get("url"):
         return f"url:{paper['url'].strip().lower()}"
     title = re.sub(r"\s+", " ", (paper.get("title") or "").strip().lower())
