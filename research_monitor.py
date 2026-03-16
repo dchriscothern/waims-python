@@ -38,6 +38,7 @@ import json
 import argparse
 import time
 import re
+import hashlib
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -337,8 +338,10 @@ def fetch_rss(source, days):
             if pub_date and pub_date < cutoff:
                 continue
             score, labels = score_paper(title)
+            stable_key = link or title.lower()
+            stable_id = hashlib.sha1(stable_key.encode("utf-8")).hexdigest()[:12]
             items.append({
-                "id": f"rss_{re.sub(r'[^a-z0-9]','_',title.lower())[:35]}_{abs(hash(link)) % 10000:04d}",
+                "id": f"rss_{re.sub(r'[^a-z0-9]','_',title.lower())[:35]}_{stable_id}",
                 "source": source["name"], "source_type": source["type"],
                 "trust_level": source["trust_level"],
                 "title": title, "url": link,
@@ -385,6 +388,69 @@ def apply_gate(papers):
 
 
 # ==============================================================================
+# DEDUPLICATION
+# ==============================================================================
+DECISION_PRIORITY = {
+    "INTEGRATED": 5,
+    "APPROVED": 4,
+    "WATCHLIST": 3,
+    "REJECTED": 2,
+    "PENDING": 1,
+    "": 0,
+}
+
+
+def paper_identity(paper):
+    """Stable identity for a paper across reruns and source-specific IDs."""
+    if paper.get("pmid"):
+        return f"pmid:{paper['pmid']}"
+    if paper.get("url"):
+        return f"url:{paper['url'].strip().lower()}"
+    title = re.sub(r"\s+", " ", (paper.get("title") or "").strip().lower())
+    source = (paper.get("source") or paper.get("source_type") or "unknown").strip().lower()
+    return f"title:{source}:{title}"
+
+
+def _paper_rank(paper):
+    decision_score = DECISION_PRIORITY.get((paper.get("decision") or "").upper(), 0)
+    filled_fields = sum(1 for v in paper.values() if v not in ("", None, [], {}))
+    notes_score = 1 if paper.get("decision_notes") else 0
+    return (decision_score, notes_score, filled_fields)
+
+
+def merge_paper_records(primary, secondary):
+    """Merge two records, preserving the richer review state and filling blanks."""
+    winner, loser = (primary, secondary) if _paper_rank(primary) >= _paper_rank(secondary) else (secondary, primary)
+    merged = dict(winner)
+
+    for key, value in loser.items():
+        if merged.get(key) in ("", None, [], {}):
+            merged[key] = value
+
+    for date_key in ("date_found", "decision_date"):
+        dates = [paper.get(date_key, "") for paper in (primary, secondary) if paper.get(date_key)]
+        if dates:
+            merged[date_key] = min(dates) if date_key == "date_found" else max(dates)
+
+    return merged
+
+
+def dedupe_items(items):
+    deduped = {}
+    order = []
+
+    for paper in items:
+        key = paper_identity(paper)
+        if key not in deduped:
+            deduped[key] = paper
+            order.append(key)
+        else:
+            deduped[key] = merge_paper_records(deduped[key], paper)
+
+    return [deduped[key] for key in order]
+
+
+# ==============================================================================
 # SAVE LOG
 # ==============================================================================
 def save_log(new_items, output_path="research_log.json"):
@@ -395,10 +461,11 @@ def save_log(new_items, output_path="research_log.json"):
             existing = json.loads(log_path.read_text(encoding="utf-8"))
         except Exception:
             pass
-    existing_ids = {p.get("id") or p.get("pmid") or p.get("url", "") for p in existing}
+    existing = dedupe_items(existing)
+    existing_ids = {paper_identity(p) for p in existing}
     to_add = []
     for p in new_items:
-        pid = p.get("id") or p.get("pmid") or p.get("url", "")
+        pid = paper_identity(p)
         if pid not in existing_ids:
             p["date_found"]     = datetime.now().strftime("%Y-%m-%d")
             p["decision"]       = "PENDING"
@@ -406,9 +473,31 @@ def save_log(new_items, output_path="research_log.json"):
             p["decision_date"]  = ""
             p["decision_notes"] = ""
             to_add.append(p)
-    combined = to_add + existing
+            existing_ids.add(pid)
+    combined = dedupe_items(to_add + existing)
     log_path.write_text(json.dumps(combined, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"  Saved {len(to_add)} new items to {output_path} (total: {len(combined)})\n")
+
+
+def dedupe_log_file(output_path="research_log.json"):
+    log_path = Path(output_path)
+    if not log_path.exists():
+        print(f"  No log found at {output_path}")
+        return 0
+
+    try:
+        items = json.loads(log_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"  Could not read {output_path}: {e}")
+        return 0
+
+    before = len(items)
+    after_items = dedupe_items(items)
+    after = len(after_items)
+    log_path.write_text(json.dumps(after_items, indent=2, ensure_ascii=False), encoding="utf-8")
+    removed = before - after
+    print(f"  Dedupe complete for {output_path}: removed {removed} duplicates (total now {after})")
+    return removed
 
 
 # ==============================================================================
@@ -659,8 +748,12 @@ if __name__ == "__main__":
     parser.add_argument("--output",        type=str, default="research_log.json",
                         help="Output path for research log (default: research_log.json)")
     parser.add_argument("--github-action", action="store_true")
+    parser.add_argument("--dedupe-log",    action="store_true",
+                        help="Deduplicate the existing research log and exit")
     args = parser.parse_args()
     if args.github_action:
         print(GITHUB_YAML)
+    elif args.dedupe_log:
+        dedupe_log_file(args.output)
     else:
         run_monitor(days=args.days, save=args.save, html=args.html, output_path=args.output)
