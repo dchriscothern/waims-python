@@ -558,6 +558,61 @@ def _resolve_oura_source_status(latest_date):
     return _normalize_source_status("Not connected", "not_connected", "—")
 
 
+def _get_oura_preview(latest_date):
+    target_day = _format_sync_label(latest_date, latest_date)
+    target_iso = None
+    try:
+        target_ts = pd.to_datetime(latest_date, errors="coerce")
+        if not pd.isna(target_ts):
+            target_iso = target_ts.strftime("%Y-%m-%d")
+    except Exception:
+        target_iso = None
+
+    try:
+        import oura_connector  # type: ignore
+    except ImportError:
+        return None
+
+    get_summary = getattr(oura_connector, "get_latest_oura_summary", None)
+    if not callable(get_summary):
+        return None
+
+    try:
+        raw = get_summary(day=target_iso)
+        if not isinstance(raw, dict):
+            return None
+    except Exception:
+        return None
+
+    mapped = None
+    try:
+        import oura_mapper  # type: ignore
+
+        mapper = getattr(oura_mapper, "map_oura_to_wellness_schema", None)
+        if callable(mapper):
+            mapped = mapper(raw)
+    except Exception:
+        mapped = None
+
+    if not isinstance(mapped, dict):
+        sleep_duration = raw.get("total_sleep_duration")
+        try:
+            sleep_hours = round(float(sleep_duration) / 3600.0, 2) if sleep_duration is not None else None
+        except Exception:
+            sleep_hours = None
+        mapped = {
+            "date": raw.get("day"),
+            "readiness": raw.get("readiness_score"),
+            "sleep_hours": sleep_hours,
+            "hrv": raw.get("average_hrv"),
+            "rhr": raw.get("resting_heart_rate"),
+            "demo_mode": bool(raw.get("demo_mode", False)),
+        }
+
+    mapped["sync_label"] = _format_sync_label(mapped.get("date") or target_iso or target_day, latest_date)
+    return mapped
+
+
 def _render_data_source_card(source):
     st.markdown(
         f'<div style="border:1px solid #e2e8f0;border-left:4px solid {source["status_color"]};'
@@ -579,17 +634,18 @@ def _render_data_source_card(source):
 
 
 def render_wearable_recovery_card(latest_date):
-    """Small athlete-facing wearable recovery card. Honest about connection state."""
+    """Compact wearable summary for the scientist-facing athlete profile."""
     oura_status = _resolve_oura_source_status(latest_date)
+    oura_preview = _get_oura_preview(latest_date)
 
     if oura_status["kind"] == "active":
         border = "#16a34a"
         title = "Wearable Recovery"
-        body = "Oura data connected. Sleep/recovery inputs can be layered into the athlete view when synced."
+        body = "Oura data connected. Latest wearable recovery signals are available below."
     elif oura_status["kind"] == "demo":
         border = "#2563eb"
         title = "Wearable Recovery"
-        body = "Oura is shown in demo mode. This section is reserved for sleep, HRV, resting HR, and readiness when wearable sync is active."
+        body = "Oura is shown in demo mode. This preview demonstrates how wearable recovery signals can be surfaced in WAIMS."
     elif oura_status["kind"] == "error":
         border = "#d97706"
         title = "Wearable Recovery"
@@ -597,18 +653,47 @@ def render_wearable_recovery_card(latest_date):
     else:
         border = "#94a3b8"
         title = "Wearable Recovery"
-        body = "No wearable connected. Connect Oura or WHOOP later to bring sleep and recovery signals into this athlete view."
+        body = "No wearable connected. Connect Oura or WHOOP later to bring sleep and recovery signals into this profile."
 
     sync_text = oura_status.get("last_sync", "?")
     status_text = oura_status.get("text", "Not connected")
+    preview_html = ""
+
+    if oura_preview and oura_status["kind"] in {"active", "demo"}:
+        readiness_val = oura_preview.get("readiness")
+        sleep_val = oura_preview.get("sleep_hours")
+        hrv_val = oura_preview.get("hrv")
+        rhr_val = oura_preview.get("rhr")
+        sync_text = oura_preview.get("sync_label", sync_text)
+
+        preview_items = [
+            ("Readiness", f"{float(readiness_val):.0f}" if readiness_val is not None else "—"),
+            ("Sleep", f"{float(sleep_val):.1f} hrs" if sleep_val is not None else "—"),
+            ("HRV", f"{float(hrv_val):.0f}" if hrv_val is not None else "—"),
+            ("RHR", f"{float(rhr_val):.0f} bpm" if rhr_val is not None else "—"),
+        ]
+
+        preview_html = (
+            '<div style="display:grid;grid-template-columns:repeat(4,minmax(88px,1fr));gap:10px;margin-top:12px;">'
+            + "".join(
+                f'<div style="background:#ffffff;border:1px solid #e2e8f0;border-top:2px solid {border};'
+                f'border-radius:10px;padding:10px 12px;">'
+                f'<div style="font-size:10px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#94a3b8;">{label}</div>'
+                f'<div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:6px;">{value}</div>'
+                f'</div>'
+                for label, value in preview_items
+            )
+            + "</div>"
+        )
 
     st.markdown(
         f'<div style="background:#ffffff;border:1px solid #e2e8f0;border-left:4px solid {border};'
-        f'border-radius:0 10px 10px 0;padding:12px 14px;margin:10px 0 6px 0;">'
+        f'border-radius:0 10px 10px 0;padding:12px 14px;margin:12px 0 8px 0;">'
         f'<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">'
         f'<div style="min-width:0;">'
         f'<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#64748b;">{title}</div>'
         f'<div style="font-size:13px;color:#0f172a;line-height:1.55;margin-top:6px;">{body}</div>'
+        f'{preview_html}'
         f'</div>'
         f'<div style="text-align:right;white-space:nowrap;">'
         f'<div style="font-size:12px;font-weight:700;color:{oura_status["color"]};">{status_text}</div>'
@@ -929,6 +1014,8 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             st.markdown(create_metric_card("Accels", f"{ac_val}{delta_str}", s), unsafe_allow_html=True)
         else:
             st.markdown(create_metric_card("Accels", "No GPS", "warning"), unsafe_allow_html=True)
+
+    render_wearable_recovery_card(latest_date)
 
     # ==========================================================================
     # ── LOAD PROJECTION ───────────────────────────────────────────────────────

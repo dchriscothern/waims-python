@@ -49,7 +49,7 @@ Does not make clinical decisions — translates data into plain English for coac
 |-----|----------|---------|
 | Command Center | Coach | Morning brief — status badges, unit readiness strip (G/F/C), roster cards with minutes cap + hidden fatigue flag, overnight delta |
 | Today's Readiness | Analyst | Z-score flags, wellness + force plate + GPS per player |
-| Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, 7-day risk score, load projection, basketball-specific risk context |
+| Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, 7-day risk score, load projection, basketball-specific risk context, and visible wearable recovery preview |
 | Athlete View | Athlete | Simplified personal readiness brief — today status, sleep / soreness / stress, compact context, plan, recovery checklist, wearable recovery, ask-a-question |
 | Trends & Load | Analyst | 7-day rolling averages — sleep, soreness, mood, stress + GPS/Kinexon load merged into single tab |
 | Jump Testing | Analyst | CMJ & RSI vs personal baseline, 7-day team trend |
