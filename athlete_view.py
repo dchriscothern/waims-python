@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -223,11 +224,106 @@ def _rollup_stat(series: pd.Series) -> float | None:
     return float(clean.mean()) if len(clean) else None
 
 
+def _truthy_flag(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _get_runtime_setting(*keys):
+    for key in keys:
+        env_value = os.getenv(key)
+        if env_value not in (None, ""):
+            return env_value
+        try:
+            if key in st.secrets:
+                secret_value = st.secrets[key]
+                if secret_value not in (None, ""):
+                    return str(secret_value)
+        except Exception:
+            pass
+    return ""
+
+
+def _resolve_oura_status_label() -> tuple[str, str, str]:
+    demo_flag = _truthy_flag(_get_runtime_setting("OURA_DEMO_MODE", "WAIMS_OURA_DEMO_MODE", "WAIMS_DEMO_MODE"))
+    try:
+        import oura_connector  # type: ignore
+    except ImportError:
+        return ("Demo mode", "Sample data", "#2563eb") if demo_flag else ("Not connected", "?", "#94a3b8")
+
+    get_status = getattr(oura_connector, "get_oura_status", None)
+    if callable(get_status):
+        try:
+            raw = get_status()
+            if isinstance(raw, dict):
+                if raw.get("error"):
+                    return "Error", "?", "#d97706"
+                if raw.get("demo_mode") is True:
+                    return "Demo mode", "Sample data", "#2563eb"
+                if raw.get("connected") is True:
+                    sync = raw.get("last_sync") or raw.get("last_sync_at") or raw.get("synced_at") or raw.get("updated_at") or "Recent"
+                    return "Active", str(sync), "#16a34a"
+            elif isinstance(raw, str):
+                lowered = raw.lower()
+                if "demo" in lowered:
+                    return "Demo mode", "Sample data", "#2563eb"
+                if "active" in lowered or "connected" in lowered:
+                    return "Active", "Recent", "#16a34a"
+        except Exception:
+            return "Error", "?", "#d97706"
+
+    return ("Demo mode", "Sample data", "#2563eb") if demo_flag else ("Not connected", "?", "#94a3b8")
+
+
+def _render_wearable_recovery_panel() -> None:
+    status_text, sync_text, accent = _resolve_oura_status_label()
+    if status_text == "Active":
+        body = "Oura recovery data is connected. Sleep and recovery signals can support your daily readiness view."
+    elif status_text == "Demo mode":
+        body = "Wearable recovery is shown in demo mode. This space is reserved for sleep, HRV, resting HR, and readiness when a device is connected."
+    elif status_text == "Error":
+        body = "Wearable recovery data is currently unavailable because the connector needs attention."
+    else:
+        body = "No wearable connected yet. Oura or WHOOP can be added later to bring sleep and recovery signals into this view."
+
+    st.markdown(
+        f'<div style="background:#f8fafc;border-left:4px solid {accent};border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0 14px 0;">'
+        f'<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">'
+        f'<div>'
+        f'<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px;">Wearable Recovery</div>'
+        f'<div style="font-size:13px;color:#334155;line-height:1.6;">{body}</div>'
+        f'</div>'
+        f'<div style="text-align:right;white-space:nowrap;">'
+        f'<div style="font-size:12px;font-weight:700;color:{accent};">{status_text}</div>'
+        f'<div style="font-size:11px;color:#94a3b8;margin-top:4px;">{sync_text}</div>'
+        f'</div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def _render_info_panel(title: str, body: str, accent: str) -> None:
     st.markdown(
         f'<div style="background:#f8fafc;border-left:4px solid {accent};border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:14px;">'
         f'<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px;">{title}</div>'
         f'<div style="font-size:13px;color:#334155;line-height:1.6;">{body}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_compact_context_card(title: str, line_one: str, line_two: str) -> None:
+    st.markdown(
+        '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;'
+        'padding:12px 14px;min-height:92px;">'
+        f'<div style="font-size:11px;font-weight:700;letter-spacing:0.14em;'
+        f'text-transform:uppercase;color:#94a3b8;margin-bottom:8px;">{title}</div>'
+        f'<div style="font-size:13px;color:#0f172a;line-height:1.45;">{line_one}</div>'
+        f'<div style="font-size:12px;color:#64748b;line-height:1.45;margin-top:4px;">{line_two}</div>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -283,127 +379,21 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
     st.markdown("## My Readiness")
     st.caption("Your athlete view shows only your own data. No teammate information appears here.")
 
-    left, right = st.columns([2.2, 1])
-    with left:
+    top_left, top_right = st.columns([1.05, 1.35], gap="large")
+    with top_left:
         st.markdown(
-            f'<div style="background:{status_bg};border-left:4px solid {status_color};border-radius:0 10px 10px 0;padding:18px 20px;min-height:120px;">'
-            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;color:{status_color};text-transform:uppercase;margin-bottom:10px;">Today</div>'
-            f'<div style="font-size:28px;font-weight:800;color:#0f172a;margin-bottom:10px;">{status} - {readiness:.0f}/100</div>'
-            f'<div style="font-size:14px;color:#334155;">{guidance}</div>'
+            f'<div style="background:{status_bg};border-left:4px solid {status_color};border-radius:0 10px 10px 0;padding:14px 16px;">'
+            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;color:{status_color};text-transform:uppercase;margin-bottom:8px;">Today</div>'
+            f'<div style="font-size:22px;font-weight:800;color:#0f172a;margin-bottom:8px;">{status} - {readiness:.0f}/100</div>'
+            f'<div style="font-size:13px;color:#334155;line-height:1.5;">{guidance}</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
-    with right:
-        st.metric("Sleep", f"{float(athlete.get('sleep_hours', 0.0)):.1f} hrs")
-        st.metric("Soreness", f"{float(athlete.get('soreness', 0.0)):.0f}/10")
-        st.metric("Stress", f"{float(athlete.get('stress', 0.0)):.0f}/10")
-
-    st.markdown('<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#94a3b8;margin:18px 0 8px;">Ask a Question</div>', unsafe_allow_html=True)
-    components.html(
-        """
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button id="athMicBtn" onclick="toggleAthleteVoice()" style="background:#0f766e;color:white;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;">Ask</button>
-          <span id="athMicStatus" style="font-size:11px;color:#64748b;"></span>
-          <span style="font-size:11px;color:#94a3b8;font-style:italic;">Voice Preview - Chrome only - Tap Ask, speak, then tap again to stop</span>
-        </div>
-        <script>
-        let recognizing = false;
-        let recognition;
-        function runAthleteQuickAction(text) {
-          const clean = (text || '').trim();
-          if (!clean) { return; }
-          document.getElementById('athMicStatus').textContent = 'Running your question now...';
-          document.getElementById('athMicStatus').style.color = '#0f766e';
-          const normalized = clean.toLowerCase();
-          let buttonLabel = 'How Am I Doing?';
-          if (normalized.includes('sleep')) {
-            buttonLabel = 'Sleep';
-          } else if (normalized.includes('sore') || normalized.includes('soreness') || normalized.includes('stress')) {
-            buttonLabel = 'Soreness & Stress';
-          } else if (normalized.includes("didn't play") || normalized.includes('didnt play') || normalized.includes('did not play')) {
-            buttonLabel = "Didn't Play";
-          } else if (normalized.includes('points') || normalized.includes('assists') || normalized.includes('rebounds') || normalized.includes('stats') || normalized.includes('game')) {
-            buttonLabel = 'Game Stats';
-          }
-          try {
-            const parentDoc = window.parent.document;
-            const buttons = Array.from(parentDoc.querySelectorAll('button'));
-            const quickButton = buttons.find((btn) => (btn.textContent || '').trim() === buttonLabel);
-            if (quickButton) {
-              setTimeout(() => quickButton.click(), 150);
-            } else {
-              document.getElementById('athMicStatus').textContent = 'Voice heard you, but the athlete action button was not found.';
-              document.getElementById('athMicStatus').style.color = '#d97706';
-            }
-          } catch (err) {
-            document.getElementById('athMicStatus').textContent = 'Voice heard you, but the page could not run the athlete action.';
-            document.getElementById('athMicStatus').style.color = '#d97706';
-          }
-        }
-        function toggleAthleteVoice() {
-          if (!(('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window))) {
-            document.getElementById('athMicStatus').textContent = 'Voice questions work in Chrome or Edge.';
-            document.getElementById('athMicStatus').style.color = '#d97706';
-            return;
-          }
-          if (recognizing) { recognition.stop(); return; }
-          const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-          recognition = new SR();
-          recognition.lang = 'en-US';
-          recognition.interimResults = false;
-          recognition.maxAlternatives = 1;
-          recognition.onstart = function() {
-            recognizing = true;
-            document.getElementById('athMicBtn').style.background = '#dc2626';
-            document.getElementById('athMicBtn').innerHTML = 'Tap To Stop';
-            document.getElementById('athMicStatus').textContent = 'Listening now - say your question, then tap again to stop.';
-          };
-          recognition.onresult = function(event) { runAthleteQuickAction(event.results[0][0].transcript); };
-          recognition.onerror = function() {
-            document.getElementById('athMicStatus').textContent = 'Mic blocked in Chrome - allow microphone access, or use one of the quick options below.';
-            document.getElementById('athMicStatus').style.color = '#d97706';
-          };
-          recognition.onend = function() {
-            recognizing = false;
-            document.getElementById('athMicBtn').style.background = '#0f766e';
-            document.getElementById('athMicBtn').innerHTML = 'Ask';
-          };
-          recognition.start();
-        }
-        </script>
-        """,
-        height=56,
-    )
-
-    q1, q2, q3, q4, q5 = st.columns(5)
-    with q1:
-        if st.button("How Am I Doing?", width='stretch', key="ath_q_today"):
-            st.session_state["athlete_query_to_run"] = "how am i doing today"
-            st.rerun()
-    with q2:
-        if st.button("Sleep", width='stretch', key="ath_q_sleep"):
-            st.session_state["athlete_query_to_run"] = "sleep"
-            st.rerun()
-    with q3:
-        if st.button("Soreness & Stress", width='stretch', key="ath_q_sore"):
-            st.session_state["athlete_query_to_run"] = "soreness and stress"
-            st.rerun()
-    with q4:
-        if st.button("Didn't Play", width='stretch', key="ath_q_dnp"):
-            st.session_state["athlete_query_to_run"] = "did not play"
-            st.rerun()
-    with q5:
-        if st.button("Game Stats", width='stretch', key="ath_q_game"):
-            st.session_state["athlete_query_to_run"] = "game stats"
-            st.rerun()
-
-    effective_query = (st.session_state.pop("athlete_query_to_run", "") or st.session_state.get("_athlete_active_query", "")).strip()
-    if effective_query:
-        st.session_state["_athlete_active_query"] = effective_query
-    athlete_answer = _athlete_answer(effective_query, athlete, recent, load7, today_load)
-    if athlete_answer:
-        border_color, answer_html = athlete_answer
-        st.markdown(f'<div style="background:#f8fafc;border-left:4px solid {border_color};border-radius:0 8px 8px 0;padding:12px 16px;font-size:13px;color:#0f172a;margin-top:8px;margin-bottom:16px;line-height:1.6;">{answer_html}</div>', unsafe_allow_html=True)
+    with top_right:
+        metric_cols = st.columns(3)
+        metric_cols[0].metric("Sleep", f"{float(athlete.get('sleep_hours', 0.0)):.1f} hrs")
+        metric_cols[1].metric("Soreness", f"{float(athlete.get('soreness', 0.0)):.0f}/10")
+        metric_cols[2].metric("Stress", f"{float(athlete.get('stress', 0.0)):.0f}/10")
 
     practice_minutes = float(recent_load["practice_minutes"].fillna(0).sum()) if len(recent_load) and "practice_minutes" in recent_load.columns else 0.0
     game_minutes = float(recent_load["game_minutes"].fillna(0).sum()) if len(recent_load) and "game_minutes" in recent_load.columns else 0.0
@@ -411,68 +401,37 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
     soreness_today = float(athlete.get("soreness", 0.0) or 0.0)
     stress_today = float(athlete.get("stress", 0.0) or 0.0)
     did_not_play_recently = game_minutes < 5 and practice_minutes > 0
-    _render_stat_grid(
-        "Load Snapshot",
-        [
-            ("7-Day Load", _format_stat_value(load7, " AU"), "Last 7 days"),
-            ("Today's Load", _format_stat_value(today_load, " AU"), "Today"),
-            ("Practice Min", _format_stat_value(practice_minutes), "Last 7 days"),
-            ("Game Min", _format_stat_value(game_minutes), "Last 7 days"),
-        ],
-        "#0f766e",
-    )
-
-    if latest_game is not None:
-        efg_val = latest_game.get('efg_pct')
-        game_cards = [
-            ("PTS", _format_stat_value(latest_game.get("pts", 0)), "Latest game"),
-            ("REB", _format_stat_value(latest_game.get("reb", 0)), "Latest game"),
-            ("AST", _format_stat_value(latest_game.get("ast", 0)), "Latest game"),
-            ("MIN", _format_stat_value(latest_game.get("minutes", 0)), "Latest game"),
-            ("eFG%", _format_stat_value(efg_val, "%", decimals=1), "Latest game"),
-        ]
-        if pd.notna(latest_game.get('date')):
-            game_date_detail = pd.to_datetime(latest_game["date"]).strftime("%b %d, %Y")
-            game_cards[-1] = ("eFG%", _format_stat_value(efg_val, "%", decimals=1), game_date_detail)
-    else:
-        game_cards = [
-            ("PTS", "-", "Latest game"),
-            ("REB", "-", "Latest game"),
-            ("AST", "-", "Latest game"),
-            ("MIN", "-", "Latest game"),
-            ("eFG%", "-", "Latest game"),
-        ]
-    _render_stat_grid("Game Snapshot", game_cards, "#7c3aed")
-    if latest_game is None:
-        st.caption("Game stats will appear here when box-score data is available for your player.")
-    elif len(last_five_games):
-        _render_stat_grid(
-            "Last 5 Games",
-            [
-                ("PTS AVG", _format_stat_value(_rollup_stat(last_five_games["pts"]), decimals=1), "Rolling average"),
-                ("REB AVG", _format_stat_value(_rollup_stat(last_five_games["reb"]), decimals=1), "Rolling average"),
-                ("AST AVG", _format_stat_value(_rollup_stat(last_five_games["ast"]), decimals=1), "Rolling average"),
-                ("MIN AVG", _format_stat_value(_rollup_stat(last_five_games["minutes"]), decimals=1), "Rolling average"),
-            ],
-            "#2563eb",
-        )
-
-    availability_label = "Full" if readiness >= 80 else ("Modified" if readiness >= 60 else "Recovery")
-    _render_info_panel(
-        "Availability",
-        f"Status for today: <b>{availability_label}</b>. {guidance}",
-        status_color,
-    )
+    avg_sleep = float(recent["sleep_hours"].mean()) if len(recent) else float(athlete.get("sleep_hours", 0.0))
+    avg_sore = float(recent["soreness"].mean()) if len(recent) else float(athlete.get("soreness", 0.0))
 
     if next_game is not None:
-        game_date = pd.to_datetime(next_game["date"]).strftime("%b %d")
-        b2b_note = " This is a back-to-back." if int(next_game.get("is_back_to_back", 0) or 0) == 1 else ""
-        travel_note = " Travel is part of this next trip." if int(next_game.get("travel_flag", 0) or 0) == 1 else ""
-        _render_info_panel(
-            "Upcoming Game",
-            f"Next game: <b>{game_date} vs {next_game.get('opponent', 'TBD')}</b> ({next_game.get('location', 'TBD')}). "
-            f"Days rest: {int(next_game.get('days_rest', 0) or 0)}.{b2b_note}{travel_note}",
-            "#2563eb",
+        next_game_line_one = f"{pd.to_datetime(next_game['date']).strftime('%b %d')} vs {next_game.get('opponent', 'TBD')}"
+        trip_note = "Travel" if int(next_game.get("travel_flag", 0) or 0) == 1 else "No travel"
+        if str(next_game.get("location", "")).strip():
+            trip_note = "Travel" if int(next_game.get("travel_flag", 0) or 0) == 1 else str(next_game.get("location", "")).strip()
+        next_game_line_two = f"{int(next_game.get('days_rest', 0) or 0)} days rest · {trip_note}"
+    else:
+        next_game_line_one = "No game scheduled"
+        next_game_line_two = "Schedule not available"
+
+    context_cols = st.columns(3)
+    with context_cols[0]:
+        _render_compact_context_card(
+            "This Week",
+            f"Avg sleep {avg_sleep:.1f} hrs",
+            f"Soreness {avg_sore:.1f}/10",
+        )
+    with context_cols[1]:
+        _render_compact_context_card(
+            "Load",
+            f"7-day: {load7:.0f} AU",
+            f"Today's load: {today_load:.0f} AU",
+        )
+    with context_cols[2]:
+        _render_compact_context_card(
+            "Next Game",
+            next_game_line_one,
+            next_game_line_two,
         )
 
     plan_text = (
@@ -551,21 +510,160 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
     checklist_html = "".join(f"<div>- {item}</div>" for item in checklist_items)
     _render_info_panel("Recovery Checklist", checklist_html, "#0f766e")
 
-    summary_cols = st.columns(3)
-    avg_sleep = float(recent["sleep_hours"].mean()) if len(recent) else float(athlete.get("sleep_hours", 0.0))
-    avg_sore = float(recent["soreness"].mean()) if len(recent) else float(athlete.get("soreness", 0.0))
-    with summary_cols[0]:
-        st.markdown("### This Week")
-        st.caption(f"Average sleep: {avg_sleep:.1f} hrs")
-        st.caption(f"Average soreness: {avg_sore:.1f}/10")
-    with summary_cols[1]:
-        st.markdown("### Load View")
-        st.caption(f"7-day load: {load7:.0f} AU")
-        st.caption(f"Today's load: {today_load:.0f} AU")
-    with summary_cols[2]:
-        st.markdown("### If You Didn't Play")
-        st.caption("Did not play today")
-        st.caption("Keep some structured work in your week so return-to-play minutes do not become a sudden spike.")
+    _render_wearable_recovery_panel()
+
+    st.markdown('<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#94a3b8;margin:18px 0 8px;">Ask a Question</div>', unsafe_allow_html=True)
+    components.html(
+        """
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <button id="athMicBtn" onclick="toggleAthleteVoice()" style="background:#0f766e;color:white;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;">Ask</button>
+          <span id="athMicStatus" style="font-size:11px;color:#64748b;"></span>
+          <span style="font-size:11px;color:#94a3b8;font-style:italic;">Voice Preview - Chrome only - Tap Ask, speak, then tap again to stop</span>
+        </div>
+        <script>
+        let recognizing = false;
+        let recognition;
+        function runAthleteQuickAction(text) {
+          const clean = (text || '').trim();
+          if (!clean) { return; }
+          document.getElementById('athMicStatus').textContent = 'Running your question now...';
+          document.getElementById('athMicStatus').style.color = '#0f766e';
+          const normalized = clean.toLowerCase();
+          let buttonLabel = 'How Am I Doing?';
+          if (normalized.includes('sleep')) {
+            buttonLabel = 'Sleep';
+          } else if (normalized.includes('sore') || normalized.includes('soreness') || normalized.includes('stress')) {
+            buttonLabel = 'Soreness & Stress';
+          } else if (normalized.includes("didn't play") || normalized.includes('didnt play') || normalized.includes('did not play')) {
+            buttonLabel = "Didn't Play";
+          } else if (normalized.includes('points') || normalized.includes('assists') || normalized.includes('rebounds') || normalized.includes('stats') || normalized.includes('game')) {
+            buttonLabel = 'Game Stats';
+          }
+          try {
+            const parentDoc = window.parent.document;
+            const buttons = Array.from(parentDoc.querySelectorAll('button'));
+            const quickButton = buttons.find((btn) => (btn.textContent || '').trim() === buttonLabel);
+            if (quickButton) {
+              setTimeout(() => quickButton.click(), 150);
+            } else {
+              document.getElementById('athMicStatus').textContent = 'Voice heard you, but the athlete action button was not found.';
+              document.getElementById('athMicStatus').style.color = '#d97706';
+            }
+          } catch (err) {
+            document.getElementById('athMicStatus').textContent = 'Voice heard you, but the page could not run the athlete action.';
+            document.getElementById('athMicStatus').style.color = '#d97706';
+          }
+        }
+        function toggleAthleteVoice() {
+          if (!(("webkitSpeechRecognition" in window) || ("SpeechRecognition" in window))) {
+            document.getElementById('athMicStatus').textContent = 'Voice questions work in Chrome or Edge.';
+            document.getElementById('athMicStatus').style.color = '#d97706';
+            return;
+          }
+          if (recognizing) { recognition.stop(); return; }
+          const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+          recognition = new SR();
+          recognition.lang = 'en-US';
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+          recognition.onstart = function() {
+            recognizing = true;
+            document.getElementById('athMicBtn').style.background = '#dc2626';
+            document.getElementById('athMicBtn').innerHTML = 'Tap To Stop';
+            document.getElementById('athMicStatus').textContent = 'Listening now - say your question, then tap again to stop.';
+          };
+          recognition.onresult = function(event) { runAthleteQuickAction(event.results[0][0].transcript); };
+          recognition.onerror = function() {
+            document.getElementById('athMicStatus').textContent = 'Mic blocked in Chrome - allow microphone access, or use one of the quick options below.';
+            document.getElementById('athMicStatus').style.color = '#d97706';
+          };
+          recognition.onend = function() {
+            recognizing = false;
+            document.getElementById('athMicBtn').style.background = '#0f766e';
+            document.getElementById('athMicBtn').innerHTML = 'Ask';
+          };
+          recognition.start();
+        }
+        </script>
+        """,
+        height=56,
+    )
+
+    q1, q2, q3, q4, q5 = st.columns(5)
+    with q1:
+        if st.button("How Am I Doing?", width='stretch', key="ath_q_today"):
+            st.session_state["athlete_query_to_run"] = "how am i doing today"
+            st.rerun()
+    with q2:
+        if st.button("Sleep", width='stretch', key="ath_q_sleep"):
+            st.session_state["athlete_query_to_run"] = "sleep"
+            st.rerun()
+    with q3:
+        if st.button("Soreness & Stress", width='stretch', key="ath_q_sore"):
+            st.session_state["athlete_query_to_run"] = "soreness and stress"
+            st.rerun()
+    with q4:
+        if st.button("Didn't Play", width='stretch', key="ath_q_dnp"):
+            st.session_state["athlete_query_to_run"] = "did not play"
+            st.rerun()
+    with q5:
+        if st.button("Game Stats", width='stretch', key="ath_q_game"):
+            st.session_state["athlete_query_to_run"] = "game stats"
+            st.rerun()
+
+    effective_query = (st.session_state.pop("athlete_query_to_run", "") or st.session_state.get("_athlete_active_query", "")).strip()
+    if effective_query:
+        st.session_state["_athlete_active_query"] = effective_query
+    athlete_answer = _athlete_answer(effective_query, athlete, recent, load7, today_load)
+    if athlete_answer:
+        border_color, answer_html = athlete_answer
+        st.markdown(f'<div style="background:#f8fafc;border-left:4px solid {border_color};border-radius:0 8px 8px 0;padding:12px 16px;font-size:13px;color:#0f172a;margin-top:8px;margin-bottom:16px;line-height:1.6;">{answer_html}</div>', unsafe_allow_html=True)
+
+    if latest_game is not None:
+        efg_val = latest_game.get('efg_pct')
+        game_cards = [
+            ("PTS", _format_stat_value(latest_game.get("pts", 0)), "Latest game"),
+            ("REB", _format_stat_value(latest_game.get("reb", 0)), "Latest game"),
+            ("AST", _format_stat_value(latest_game.get("ast", 0)), "Latest game"),
+            ("MIN", _format_stat_value(latest_game.get("minutes", 0)), "Latest game"),
+            ("eFG%", _format_stat_value(efg_val, "%", decimals=1), "Latest game"),
+        ]
+        if pd.notna(latest_game.get('date')):
+            game_date_detail = pd.to_datetime(latest_game["date"]).strftime("%b %d, %Y")
+            game_cards[-1] = ("eFG%", _format_stat_value(efg_val, "%", decimals=1), game_date_detail)
+    else:
+        game_cards = [
+            ("PTS", "-", "Latest game"),
+            ("REB", "-", "Latest game"),
+            ("AST", "-", "Latest game"),
+            ("MIN", "-", "Latest game"),
+            ("eFG%", "-", "Latest game"),
+        ]
+    _render_stat_grid("Game Snapshot", game_cards, "#7c3aed")
+    if latest_game is None:
+        st.caption("Game stats will appear here when box-score data is available for your player.")
+    elif len(last_five_games):
+        _render_stat_grid(
+            "Last 5 Games",
+            [
+                ("PTS AVG", _format_stat_value(_rollup_stat(last_five_games["pts"]), decimals=1), "Rolling average"),
+                ("REB AVG", _format_stat_value(_rollup_stat(last_five_games["reb"]), decimals=1), "Rolling average"),
+                ("AST AVG", _format_stat_value(_rollup_stat(last_five_games["ast"]), decimals=1), "Rolling average"),
+                ("MIN AVG", _format_stat_value(_rollup_stat(last_five_games["minutes"]), decimals=1), "Rolling average"),
+            ],
+            "#2563eb",
+        )
+
+    _render_stat_grid(
+        "Load Snapshot",
+        [
+            ("7-Day Load", _format_stat_value(load7, " AU"), "Last 7 days"),
+            ("Today's Load", _format_stat_value(today_load, " AU"), "Today"),
+            ("Practice Min", _format_stat_value(practice_minutes), "Last 7 days"),
+            ("Game Min", _format_stat_value(game_minutes), "Last 7 days"),
+        ],
+        "#0f766e",
+    )
 
     if len(recent):
         trend_cols = st.columns(2)

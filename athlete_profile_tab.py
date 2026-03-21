@@ -6,6 +6,7 @@ Includes GPS / Kinexon section (player load, accel count, decel count)
 import os
 import pickle
 from datetime import datetime, timedelta
+from html import escape
 from pathlib import Path
 
 import streamlit as st
@@ -424,6 +425,281 @@ def create_radar_chart(athlete_data, athlete_name, position='F'):
 # ==============================================================================
 # MAIN TAB
 # ==============================================================================
+
+def _truthy_flag(value):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _get_runtime_setting(*keys):
+    for key in keys:
+        env_value = os.getenv(key)
+        if env_value not in (None, ""):
+            return env_value
+
+        try:
+            if key in st.secrets:
+                secret_value = st.secrets[key]
+                if secret_value not in (None, ""):
+                    return str(secret_value)
+        except Exception:
+            pass
+
+    return ""
+
+
+def _format_sync_label(sync_value, latest_date=None):
+    if sync_value is None or (isinstance(sync_value, float) and pd.isna(sync_value)):
+        return "—"
+
+    sync_ts = pd.to_datetime(sync_value, errors="coerce")
+    if pd.isna(sync_ts):
+        return "—"
+
+    if latest_date is not None:
+        ref_ts = pd.to_datetime(latest_date, errors="coerce")
+        if not pd.isna(ref_ts) and sync_ts.normalize() == ref_ts.normalize():
+            return "Today"
+
+    today_ts = pd.Timestamp.today().normalize()
+    if sync_ts.normalize() == today_ts:
+        return "Today"
+
+    return sync_ts.strftime("%Y-%m-%d")
+
+
+def _normalize_source_status(status_text, status_kind=None, last_sync="—"):
+    text = str(status_text or "Not connected").strip()
+    kind = (status_kind or "").strip().lower()
+
+    if kind not in {"active", "demo", "not_connected", "error"}:
+        lowered = text.lower()
+        if "demo" in lowered:
+            kind = "demo"
+        elif "error" in lowered:
+            kind = "error"
+        elif "no sync" in lowered:
+            kind = "not_connected"
+        elif lowered in {"active", "connected"}:
+            kind = "active"
+            text = "Active" if lowered == "active" else "Connected"
+        else:
+            kind = "not_connected"
+
+    if kind == "active" and text.lower() == "connected":
+        text = "Connected"
+    if kind == "not_connected" and text.lower() == "not connected":
+        text = "Not connected"
+
+    color_map = {
+        "active": "#16a34a",
+        "demo": "#2563eb",
+        "not_connected": "#64748b",
+        "error": "#d97706",
+    }
+
+    return {
+        "text": text,
+        "kind": kind,
+        "color": color_map.get(kind, "#64748b"),
+        "last_sync": last_sync or "—",
+    }
+
+
+def _resolve_oura_source_status(latest_date):
+    demo_flag = _truthy_flag(_get_runtime_setting("OURA_DEMO_MODE", "WAIMS_OURA_DEMO_MODE", "WAIMS_DEMO_MODE"))
+
+    try:
+        import oura_connector  # type: ignore
+    except ImportError:
+        if demo_flag:
+            return _normalize_source_status("Demo mode", "demo", "—")
+        return _normalize_source_status("Not connected", "not_connected", "—")
+
+    get_status = getattr(oura_connector, "get_oura_status", None)
+    if callable(get_status):
+        try:
+            raw_status = get_status()
+            if isinstance(raw_status, dict):
+                status_text = raw_status.get("status") or raw_status.get("label") or "Connected"
+                if raw_status.get("error"):
+                    status_kind = "error"
+                elif raw_status.get("demo_mode") is True:
+                    status_kind = "demo"
+                elif raw_status.get("connected") is True:
+                    status_kind = "active"
+                else:
+                    status_kind = raw_status.get("kind")
+
+                sync_value = (
+                    raw_status.get("last_sync")
+                    or raw_status.get("last_sync_at")
+                    or raw_status.get("synced_at")
+                    or raw_status.get("updated_at")
+                    or raw_status.get("date")
+                )
+                return _normalize_source_status(
+                    status_text,
+                    status_kind,
+                    _format_sync_label(sync_value, latest_date),
+                )
+
+            if isinstance(raw_status, str):
+                return _normalize_source_status(raw_status, None, "—")
+        except Exception:
+            return _normalize_source_status("Error", "error", "—")
+
+    if demo_flag:
+        return _normalize_source_status("Demo mode", "demo", "—")
+
+    return _normalize_source_status("Not connected", "not_connected", "—")
+
+
+def _render_data_source_card(source):
+    st.markdown(
+        f'<div style="border:1px solid #e2e8f0;border-left:4px solid {source["status_color"]};'
+        f'border-radius:0 10px 10px 0;padding:12px 14px;margin-bottom:8px;background:#ffffff;">'
+        f'<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">'
+        f'<div style="min-width:0;">'
+        f'<div style="font-size:14px;font-weight:700;color:#111827;">{escape(source["name"])}</div>'
+        f'<div style="font-size:12px;color:#6b7280;margin-top:2px;">{escape(source["source_type"])}</div>'
+        f'<div style="font-size:12px;color:#6b7280;margin-top:2px;">{escape(source["metrics"])}</div>'
+        f'</div>'
+        f'<div style="text-align:right;white-space:nowrap;">'
+        f'<div style="font-size:12px;font-weight:700;color:{source["status_color"]};">{escape(source["status_text"])}</div>'
+        f'<div style="font-size:11px;color:#94a3b8;margin-top:4px;">{escape(source["last_sync"])}</div>'
+        f'</div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_wearable_recovery_card(latest_date):
+    """Small athlete-facing wearable recovery card. Honest about connection state."""
+    oura_status = _resolve_oura_source_status(latest_date)
+
+    if oura_status["kind"] == "active":
+        border = "#16a34a"
+        title = "Wearable Recovery"
+        body = "Oura data connected. Sleep/recovery inputs can be layered into the athlete view when synced."
+    elif oura_status["kind"] == "demo":
+        border = "#2563eb"
+        title = "Wearable Recovery"
+        body = "Oura is shown in demo mode. This section is reserved for sleep, HRV, resting HR, and readiness when wearable sync is active."
+    elif oura_status["kind"] == "error":
+        border = "#d97706"
+        title = "Wearable Recovery"
+        body = "Wearable connector needs attention. Recovery metrics are not currently syncing into this profile."
+    else:
+        border = "#94a3b8"
+        title = "Wearable Recovery"
+        body = "No wearable connected. Connect Oura or WHOOP later to bring sleep and recovery signals into this athlete view."
+
+    sync_text = oura_status.get("last_sync", "?")
+    status_text = oura_status.get("text", "Not connected")
+
+    st.markdown(
+        f'<div style="background:#ffffff;border:1px solid #e2e8f0;border-left:4px solid {border};'
+        f'border-radius:0 10px 10px 0;padding:12px 14px;margin:10px 0 6px 0;">'
+        f'<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">'
+        f'<div style="min-width:0;">'
+        f'<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#64748b;">{title}</div>'
+        f'<div style="font-size:13px;color:#0f172a;line-height:1.55;margin-top:6px;">{body}</div>'
+        f'</div>'
+        f'<div style="text-align:right;white-space:nowrap;">'
+        f'<div style="font-size:12px;font-weight:700;color:{oura_status["color"]};">{status_text}</div>'
+        f'<div style="font-size:11px;color:#94a3b8;margin-top:4px;">{sync_text}</div>'
+        f'</div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_data_sources_panel(latest_wellness, latest_force, gps_row, latest_date):
+    force_connected = len(latest_force) > 0
+    gps_connected = gps_row is not None
+    oura_status = _resolve_oura_source_status(latest_date)
+
+    sources = [
+        {
+            "name": "Daily Wellness Survey",
+            "source_type": "Manual entry",
+            "metrics": "Sleep, Fatigue, Stress, Soreness, Mood",
+            "status_text": "Active",
+            "status_kind": "active",
+            "last_sync": _format_sync_label(latest_wellness.get("date"), latest_date),
+        },
+        {
+            "name": "Force Plate",
+            "source_type": "Hardware",
+            "metrics": "CMJ, RSI, Jump Height",
+            "status_text": "Active" if force_connected else "No sync today",
+            "status_kind": "active" if force_connected else "not_connected",
+            "last_sync": "Today" if force_connected else "—",
+        },
+        {
+            "name": "GPS / Kinexon",
+            "source_type": "Hardware",
+            "metrics": "Load, Distance, Intensity, Accel/Decel",
+            "status_text": "Active" if gps_connected else "No sync today",
+            "status_kind": "active" if gps_connected else "not_connected",
+            "last_sync": "Today" if gps_connected else "—",
+        },
+        {
+            "name": "Oura Ring",
+            "source_type": "Wearable API",
+            "metrics": "Sleep Score, HRV, Resting HR, Readiness",
+            "status_text": oura_status["text"],
+            "status_kind": oura_status["kind"],
+            "last_sync": oura_status["last_sync"],
+        },
+        {
+            "name": "Whoop",
+            "source_type": "Wearable API",
+            "metrics": "Sleep, HRV, Recovery Score, Strain",
+            "status_text": "Not connected",
+            "status_kind": "not_connected",
+            "last_sync": "—",
+        },
+        {
+            "name": "Catapult",
+            "source_type": "Hardware API",
+            "metrics": "Load, PlayerLoad, Distance",
+            "status_text": "Not connected",
+            "status_kind": "not_connected",
+            "last_sync": "—",
+        },
+    ]
+
+    for source in sources:
+        normalized = _normalize_source_status(
+            source["status_text"],
+            source["status_kind"],
+            source["last_sync"],
+        )
+        source["status_text"] = normalized["text"]
+        source["status_kind"] = normalized["kind"]
+        source["status_color"] = normalized["color"]
+        source["last_sync"] = normalized["last_sync"]
+
+    total_sources = len(sources)
+    active_sources = sum(source["status_kind"] == "active" for source in sources)
+    not_connected_sources = sum(source["status_kind"] == "not_connected" for source in sources)
+
+    label = (
+        f"Data Sources   {total_sources} sources configured "
+        f"· {active_sources} active · {not_connected_sources} not connected"
+    )
+
+    with st.expander(label, expanded=False):
+        for source in sources:
+            _render_data_source_card(source)
+
 
 def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None):
     st.header("Athlete Profiles")
@@ -1292,3 +1568,5 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
                 "No research_log.json found. Run the evidence monitor to generate it: "
                 "`python research_monitor.py --days 30 --save`"
             )
+
+    render_data_sources_panel(latest_wellness, latest_force, gps_row, latest_date)
