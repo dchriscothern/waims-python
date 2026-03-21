@@ -57,6 +57,37 @@ Does not make clinical decisions — translates data into plain English for coac
 | Forecast | GM / Coach | 7-day injury risk watchlist + load projection (what happens to readiness after tonight's game) |
 | Insights | Sport Scientist | Natural-language queries + model validation philosophy + evidence review inbox + correlation heatmap |
 
+### Athlete-Facing Brief
+
+The athlete-facing view is intentionally simpler than the staff dashboard. It is built as a daily personal brief rather than a monitoring console:
+
+- **Top:** one dominant readiness/status answer for the day
+- **Next:** sleep, soreness, and stress on a single scan line
+- **Then:** compact context for this week, current load, and next-game/travel context
+- **Then:** today plan, recent game context, and recovery checklist
+- **Then:** wearable recovery context and ask-a-question workflow
+
+The goal is to answer three athlete questions quickly:
+- How am I today?
+- What matters for me today?
+- What should I do next?
+
+### Data Sources & Wearables
+
+WAIMS is designed to be ingestion-ready, even when a team starts with simple workflows.
+
+Current demo/source categories include:
+- **Daily wellness survey** - sleep, soreness, stress, mood
+- **Force plate** - CMJ, RSI, jump height
+- **Practice load tracking** - Kinexon as the preferred current provider, with Catapult as an alternate provider path
+- **Wearables (POC)** - Oura demo-mode connector and mapping layer
+- **Game data** - ESPN box scores today, with optical tracking/game-load integration positioned as a later roadmap step
+
+This is deliberate product design:
+- smaller staffs can start with survey + force plate + load data
+- teams with wearables can plug in Oura/WHOOP-style recovery streams later
+- athlete and staff views now surface data-source transparency so the workflow feels realistic without overpromising live integrations
+
 ### Coach Command Center Features
 
 | Feature | What it does |
