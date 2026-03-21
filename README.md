@@ -50,6 +50,7 @@ Does not make clinical decisions — translates data into plain English for coac
 | Command Center | Coach | Morning brief — status badges, unit readiness strip (G/F/C), roster cards with minutes cap + hidden fatigue flag, overnight delta |
 | Today's Readiness | Analyst | Z-score flags, wellness + force plate + GPS per player |
 | Athlete Profiles | Analyst | Per-player deep-dive, radar chart, GPS trends, 7-day risk score, load projection, basketball-specific risk context |
+| Athlete View | Athlete | Simplified personal readiness brief — today status, sleep / soreness / stress, compact context, plan, recovery checklist, wearable recovery, ask-a-question |
 | Trends & Load | Analyst | 7-day rolling averages — sleep, soreness, mood, stress + GPS/Kinexon load merged into single tab |
 | Jump Testing | Analyst | CMJ & RSI vs personal baseline, 7-day team trend |
 | Availability & Injuries | GM / Medical | Daily availability board, season %, injury log |
@@ -70,6 +71,7 @@ Does not make clinical decisions — translates data into plain English for coac
 - **Wellness** — Sleep (hrs + quality), soreness, stress, mood, HRV
 - **Force Plate** — CMJ height, RSI-Modified, asymmetry %
 - **GPS / Kinexon** — Player load AU, accel/decel count, distance, HSR, sprint
+- **Wearables (POC)** — Oura Ring connector with demo mode, mapped to readiness / sleep hours / HRV / resting HR
 - **Schedule** — Back-to-back, days rest, travel, timezone, Unrivaled transition flag
 - **Game Data** — ESPN box scores 2019–2025 (pts, min, +/-, W/L, margin)
 
@@ -126,6 +128,7 @@ WAIMS V1 does not operate as a validated injury classifier — the Forecast tab 
 | ESPN WNBA (free) | `espn_data.py` | game_results, game_box_scores |
 | WNBA benchmarks | `wnba_api.py` (static 2025) | wnba_benchmarks |
 | Model outputs | `train_models.py` | ml_predictions, back_to_back_analysis, pre_injury_patterns, readiness_validation |
+| Oura Ring POC | `oura_connector.py` + `oura_mapper.py` | No DB table yet — demo/API mapping layer only |
 
 ---
 
@@ -223,7 +226,7 @@ Before real athlete data enters WAIMS:
 - [ ] Athlete consent protocol — written, specific to each data type collected
 - [ ] Business Associate Agreement (BAA) with any cloud hosting vendor (HIPAA)
 - [ ] Legal review of WNBA CBA biometric provisions before deployment
-- [ ] Athlete-facing view — simplified readiness trend, no injury risk score shown to athletes
+- [x] Athlete-facing view — simplified readiness brief, no injury risk score shown to athletes
 
 *In V1 demo: all data is synthetic and anonymized. No real athlete data. No governance requirements apply.*
 
@@ -236,11 +239,15 @@ Before real athlete data enters WAIMS:
 | File | Purpose |
 |---|---|
 | `auth.py` | Role-based login — 5 roles (Head Coach, Asst. Coach, Sport Scientist, Medical/AT, GM) |
+| `athlete_view.py` | Athlete-facing personal briefing page with readiness, plan, recovery checklist, and wearable context |
 | `data_quality.py` | Tiered imputation with full audit log — no silent fills |
 | `model_validation.py` | Walk-forward validation, Precision@K, lead-time analysis, baselines |
+| `oura_connector.py` | Oura v2 POC connector using personal access token auth with demo fallback |
+| `oura_mapper.py` | Maps Oura sleep / readiness / HRV / resting HR fields into WAIMS wellness schema |
 | `sport_config.py` | Multi-team config — WNBA basketball thresholds, position groups, compliance |
 | `healthcheck.py` | Pre-demo startup diagnostic — 10 checks, terminal + Streamlit mode |
 | `test_waims.py` | Unit tests (34 passing) — readiness formula, queries, z-scores, auth, data quality |
+| `test_oura_integration.py` | Oura demo-mode smoke tests and WAIMS schema mapping checks |
 | `pytest.ini` | Pytest configuration — registers db mark for database tests |
 | `.github/workflows/ci.yml` | GitHub Actions CI — runs unit tests on every push automatically |
 

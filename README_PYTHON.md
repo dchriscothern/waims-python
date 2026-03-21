@@ -13,10 +13,15 @@ generate_database.py  ──►  waims_demo.db  ──►  train_models.py  ─�
                                 │
                          wnba_api.py
                                 │
-                         dashboard.py
+                         oura_connector.py
+                                │
+                          oura_mapper.py
+                                │
+                          dashboard.py
                     ┌───────────┴────────────────────┐
                     │  coach_command_center.py (Tab 1) │
                     │  athlete_profile_tab.py  (Tab 3) │
+                    │  athlete_view.py         (Athlete) │
                     │  correlation_explorer.py (Tab 10)│
                     │  smart_query.py          (Tab 9) │
                     └──────────────────────────────────┘
@@ -141,6 +146,53 @@ CMJ benchmark: position-matched G=38cm, F=34cm, C=30cm — consistent across all
 
 ACWR treatment: displayed as "ACWR ⚠" — contextual flag only, not weighted.
 Reason: Impellizzeri 2020 statistical coupling critique, 2025 meta-analysis.
+
+---
+
+### `athlete_view.py`
+**Audience:** Athlete  
+**Goal:** Clean, top-to-bottom personal briefing without exposing team or injury-risk data
+
+Current top layout:
+- readiness/status card + today's sleep / soreness / stress on one line
+- compact context row: This Week, Load, Next Game
+- Today Plan
+- Last Game vs Season Average
+- Recovery Checklist
+- Wearable Recovery
+- Ask a Question
+
+Design intent:
+- lower cognitive load than staff tabs
+- compact, scannable, athlete-facing language
+- wearable section stays supplementary rather than primary guidance
+
+---
+
+### `oura_connector.py`
+**Audience:** Developer / demo reviewer  
+**Goal:** Proof-of-concept wearable ingestion path for WAIMS
+
+Behavior:
+- uses Oura v2 REST API with personal access token auth
+- supports `daily_sleep` and `daily_readiness` collection
+- defaults to demo mode when no token is configured
+- exposes `get_oura_status()` for UI-safe connection state
+- intentionally not production OAuth
+
+---
+
+### `oura_mapper.py`
+**Audience:** Developer / demo reviewer  
+**Goal:** Translate Oura payloads into WAIMS wellness schema fields
+
+Core mappings:
+- `readiness_score` -> `readiness`
+- `total_sleep_duration` -> `sleep_hours`
+- `average_hrv` -> `hrv`
+- `resting_heart_rate` -> `rhr`
+
+This keeps the wearable POC additive and compatible with the existing readiness vocabulary.
 
 ---
 
