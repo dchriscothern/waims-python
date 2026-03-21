@@ -133,6 +133,7 @@ Components:
 - Readiness gauge (Plotly speedometer) — uses same pkl scorer as Command Center
 - Radar chart — Sleep, Physical, Mental, Load, Neuro, GPS (position-matched CMJ benchmark)
 - 8 metric cards — sleep, soreness, mood, ACWR⚠, CMJ, RSI, Load, Accels
+- Wearable Recovery preview card — Oura status plus latest readiness / sleep / HRV / RHR when available or in demo mode
 - GPS / Kinexon section — 14-day trend chart, z-score flags
 - Personal baseline z-score comparison (30-day rolling)
 - 7-day wellness + force plate overlay trend chart
