@@ -21,6 +21,18 @@ Dashboard opens at `http://localhost:8501`
 
 ---
 
+## Tests
+
+```bash
+pytest test_waims.py -v -k "not db"
+pytest test_waims.py::TestDatabaseIntegrity -v
+pytest test_oura_integration.py -v
+```
+
+`pytest.ini` registers the `db` marker used by the database integration tests.
+
+---
+
 ## What Type of AI/ML Does WAIMS Use?
 
 WAIMS combines three distinct layers:
