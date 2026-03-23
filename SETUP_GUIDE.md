@@ -85,7 +85,7 @@ For Streamlit Cloud deployment: Settings → Secrets → add same key/value pair
 
 ```
 waims-python/
-├── dashboard.py                 # Main app — 10 tabs
+├── dashboard.py                 # Main app — 8 staff tabs + athlete view
 ├── coach_command_center.py      # Tab 1: Coach morning brief
 ├── athlete_profile_tab.py       # Tab 3: Per-athlete deep-dive
 ├── correlation_explorer.py      # Tab 10: Signal discovery + ESPN correlations
@@ -97,7 +97,7 @@ waims-python/
 ├── improved_gauges.py           # Gauge/pill chart components (optional)
 ├── z_score_module.py            # Shared z-score helpers (optional)
 ├── research_citations.py        # Research modal (optional)
-├── research_context.py          # Risk context box (optional)
+├── research_context.py          # Planned richer risk-context module (not present in current V1 repo)
 ├── .env                         # API keys — never commit (in .gitignore)
 ├── .env.example                 # Template — safe to commit
 ├── requirements.txt
