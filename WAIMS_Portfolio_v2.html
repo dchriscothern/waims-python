@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAIMS — Sports Performance Technology</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0f2240;
+    --navy-mid: #1b3a5c;
+    --blue: #2563a8;
+    --blue-light: #3b82d4;
+    --green: #1a6b3c;
+    --cream: #f7f4ef;
+    --white: #ffffff;
+    --gray: #64748b;
+    --gray-light: #f1f5f9;
+    --border: #e2e8f0;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--navy); line-height:1.6; }
+
+  /* NAV */
+  nav {
+    position:fixed; top:0; left:0; right:0;
+    background:rgba(15,34,64,0.97);
+    backdrop-filter:blur(12px);
+    z-index:100; padding:0 48px;
+    display:flex; align-items:center; justify-content:space-between;
+    height:64px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .nav-logo { font-family:'DM Serif Display',serif; font-size:22px; color:var(--white); }
+  .nav-logo span { color:#7aaad0; }
+  .nav-links { display:flex; gap:32px; }
+  .nav-links a { color:rgba(255,255,255,0.6); text-decoration:none; font-size:13px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase; transition:color 0.2s; }
+  .nav-links a:hover { color:var(--white); }
+
+  /* HERO */
+  .hero {
+    min-height:100vh; background:var(--navy);
+    display:flex; align-items:center;
+    padding:120px 80px 80px; position:relative; overflow:hidden;
+  }
+  .hero::before {
+    content:''; position:absolute; top:-200px; right:-100px;
+    width:600px; height:600px;
+    background:radial-gradient(circle, rgba(37,99,168,0.18) 0%, transparent 70%);
+    border-radius:50%;
+  }
+  .hero::after {
+    content:''; position:absolute; bottom:-100px; left:5%;
+    width:400px; height:400px;
+    background:radial-gradient(circle, rgba(26,107,60,0.1) 0%, transparent 70%);
+    border-radius:50%;
+  }
+  .hero-inner { max-width:1100px; margin:0 auto; width:100%; position:relative; z-index:1; }
+  .eyebrow {
+    font-size:11px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase;
+    color:#7aaad0; margin-bottom:24px; display:flex; align-items:center; gap:12px;
+  }
+  .eyebrow::before { content:''; display:block; width:32px; height:1px; background:#7aaad0; }
+  .hero h1 {
+    font-family:'DM Serif Display',serif;
+    font-size:clamp(44px,6.5vw,82px);
+    color:var(--white); line-height:1.06;
+    letter-spacing:-0.02em; margin-bottom:28px;
+  }
+  .hero h1 em { font-style:italic; color:#7aaad0; }
+  .hero-sub {
+    font-size:19px; color:rgba(255,255,255,0.55);
+    max-width:580px; margin-bottom:44px;
+    font-weight:300; line-height:1.75;
+  }
+  .tech-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:52px; }
+  .tech-pill {
+    padding:5px 14px; border:1px solid rgba(255,255,255,0.14);
+    font-size:11px; font-weight:500; letter-spacing:0.06em;
+    text-transform:uppercase; color:rgba(255,255,255,0.45);
+  }
+  .cta {
+    display:inline-flex; align-items:center; gap:10px;
+    background:var(--blue); color:var(--white);
+    padding:14px 28px; text-decoration:none;
+    font-size:13px; font-weight:600; letter-spacing:0.07em; text-transform:uppercase;
+    transition:background 0.2s, transform 0.2s;
+  }
+  .cta:hover { background:var(--blue-light); transform:translateY(-1px); }
+  .cta-arrow { font-size:17px; transition:transform 0.2s; }
+  .cta:hover .cta-arrow { transform:translateX(4px); }
+
+  /* SECTIONS */
+  section { padding:96px 80px; }
+  .inner { max-width:1100px; margin:0 auto; }
+  .sec-label { font-size:11px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:var(--blue); margin-bottom:14px; }
+  .sec-title { font-family:'DM Serif Display',serif; font-size:clamp(30px,4vw,46px); color:var(--navy); margin-bottom:14px; letter-spacing:-0.01em; }
+  .sec-intro { font-size:17px; color:var(--gray); max-width:600px; margin-bottom:56px; font-weight:300; line-height:1.8; }
+
+  /* STACK */
+  .stack-section { background:var(--white); }
+  .stack { display:flex; flex-direction:column; gap:3px; border:1px solid var(--border); }
+  .stack-row {
+    display:flex; align-items:stretch; min-height:88px;
+    opacity:0; transform:translateY(16px);
+    animation:up 0.5s forwards;
+  }
+  .stack-row:nth-child(1){animation-delay:0.1s;}
+  .stack-row:nth-child(2){animation-delay:0.28s;}
+  .stack-row:nth-child(3){animation-delay:0.46s;}
+  @keyframes up { to{opacity:1;transform:translateY(0);} }
+  .stack-bar { width:6px; flex-shrink:0; }
+  .stack-content {
+    flex:1; padding:22px 28px;
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+    background:var(--white);
+  }
+  .stack-lbl { font-size:10px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:5px; }
+  .stack-name { font-family:'DM Serif Display',serif; font-size:21px; margin-bottom:3px; }
+  .stack-desc { font-size:13px; color:var(--gray); font-weight:300; }
+  .stack-badge {
+    padding:5px 13px; font-size:11px; font-weight:700;
+    letter-spacing:0.07em; text-transform:uppercase;
+    flex-shrink:0; white-space:nowrap;
+  }
+  .stack-row.coming-soon { opacity:0.5; }
+  .stack-row.coming-soon .stack-content { background: repeating-linear-gradient(
+    45deg, #fafafa, #fafafa 4px, #f3f3f3 4px, #f3f3f3 8px); }
+
+  /* PROJECTS */
+  .projects-section { background:var(--cream); }
+  .projects { display:flex; flex-direction:column; gap:3px; }
+  .proj-card {
+    background:var(--white); display:grid; grid-template-columns:6px 1fr;
+    opacity:0; transform:translateX(-14px); animation:right 0.5s forwards;
+  }
+  .proj-card:nth-child(1){animation-delay:0.1s;}
+  .proj-card:nth-child(2){animation-delay:0.28s;}
+  @keyframes right { to{opacity:1;transform:translateX(0);} }
+  .proj-body { padding:48px 52px; display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start; }
+  .proj-role { font-size:10px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; margin-bottom:10px; }
+  .proj-name { font-family:'DM Serif Display',serif; font-size:30px; margin-bottom:6px; letter-spacing:-0.01em; }
+  .proj-tagline { font-size:14px; color:var(--gray); font-style:italic; margin-bottom:20px; font-weight:300; line-height:1.65; }
+  .proj-problem { font-size:14px; color:#374151; line-height:1.8; margin-bottom:20px; }
+  .proj-tech { display:flex; gap:8px; flex-wrap:wrap; }
+  .t-tag { padding:4px 10px; font-size:11px; font-weight:600; letter-spacing:0.04em;
+    border-radius:2px; border:1px solid var(--border); color:var(--gray); background:var(--gray-light); }
+  .diffs { margin-bottom:28px; }
+  .diff-ttl { font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--gray); margin-bottom:14px; }
+  .diff { display:flex; gap:12px; margin-bottom:12px; align-items:flex-start; }
+  .diff-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-top:7px; }
+  .diff-txt { font-size:13px; color:#374151; line-height:1.65; }
+  .proj-quote { padding:18px 18px 18px 22px; border-left:3px solid; font-size:13px; font-style:italic; color:#374151; line-height:1.75; background:var(--gray-light); }
+  .proj-quote-lbl { font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:7px; font-style:normal; }
+
+  /* RELATIONSHIP */
+  .rel-section { background:var(--navy); }
+  .rel-section .sec-label { color:#7aaad0; }
+  .rel-section .sec-title { color:var(--white); }
+  .rel-section .sec-intro { color:rgba(255,255,255,0.5); }
+  .rel-grid { display:grid; grid-template-columns:1fr 1fr; gap:3px; }
+  .rel-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); padding:36px 32px; }
+  .rel-num { font-family:'DM Serif Display',serif; font-size:44px; color:rgba(255,255,255,0.06); line-height:1; margin-bottom:14px; }
+  .rel-title { font-family:'DM Serif Display',serif; font-size:20px; color:var(--white); margin-bottom:10px; }
+  .rel-body { font-size:13px; color:rgba(255,255,255,0.48); line-height:1.8; font-weight:300; }
+  .rel-note {
+    margin-top:3px;
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(255,255,255,0.07);
+    border-left:3px solid rgba(255,255,255,0.2);
+    padding:20px 24px;
+    font-size:13px; color:rgba(255,255,255,0.35); font-style:italic; line-height:1.7;
+  }
+
+  /* CONTEXT TABLE */
+  .ctx-section { background:var(--white); }
+  .ctx-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .ctx-table th { text-align:left; padding:13px 18px; background:var(--navy);
+    color:rgba(255,255,255,0.7); font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
+  .ctx-table td { padding:15px 18px; border-bottom:1px solid var(--border); color:#374151; line-height:1.65; vertical-align:top; }
+  .ctx-table tr:nth-child(even) td { background:var(--gray-light); }
+  .ctx-table td:first-child { font-weight:600; color:var(--navy); white-space:nowrap; }
+
+  /* FOOTER */
+  footer { background:var(--navy); padding:44px 80px; border-top:1px solid rgba(255,255,255,0.06); }
+  .footer-inner { max-width:1100px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; }
+  .footer-logo { font-family:'DM Serif Display',serif; font-size:20px; color:var(--white); }
+  .footer-logo span { color:#7aaad0; }
+  .footer-line { font-size:13px; color:rgba(255,255,255,0.28); font-style:italic; }
+
+  @media(max-width:900px){
+    nav{padding:0 20px;} .nav-links{display:none;}
+    .hero{padding:100px 24px 60px;}
+    section{padding:60px 24px;}
+    footer{padding:36px 24px;}
+    .proj-body{grid-template-columns:1fr;gap:28px;padding:28px 24px;}
+    .rel-grid{grid-template-columns:1fr;}
+    .footer-inner{flex-direction:column;gap:12px;text-align:center;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">WAIMS<span>.</span></div>
+  <div class="nav-links">
+    <a href="#projects">Projects</a>
+    <a href="#ecosystem">Ecosystem</a>
+    <a href="#context">Use It</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Sports Performance Technology</div>
+    <h1>Built for basketball.<br><em>Designed to expand.</em></h1>
+    <p class="hero-sub">Two interconnected projects spanning athlete monitoring and front-office decision support — built for programs that can't afford enterprise tools.</p>
+    <div class="tech-row">
+      <span class="tech-pill">Python</span>
+      <span class="tech-pill">Streamlit</span>
+      <span class="tech-pill">FastAPI</span>
+      <span class="tech-pill">Supabase</span>
+      <span class="tech-pill">SQLite</span>
+      <span class="tech-pill">Random Forest</span>
+      <span class="tech-pill">Oura API</span>
+      <span class="tech-pill">Kinexon · Catapult</span>
+    </div>
+    <a href="#projects" class="cta">View Projects <span class="cta-arrow">→</span></a>
+  </div>
+</div>
+
+<!-- STACK -->
+<section class="stack-section" id="ecosystem">
+  <div class="inner">
+    <div class="sec-label">The Ecosystem</div>
+    <h2 class="sec-title">Two finished layers. One more coming.</h2>
+    <p class="sec-intro">Each project occupies a distinct layer — from daily monitoring infrastructure to front-office decisions. A third layer, video intelligence, is in active R&D.</p>
+
+    <div class="stack">
+      <div class="stack-row coming-soon">
+        <div class="stack-bar" style="background:#1a6b3c;"></div>
+        <div class="stack-content">
+          <div>
+            <div class="stack-lbl" style="color:#1a6b3c;">Intelligence Layer · In Development</div>
+            <div class="stack-name" style="color:#1a6b3c;">Basketball Match Analyzer</div>
+            <div class="stack-desc">Computer vision and video analytics — longitudinal biomechanical signals from footage</div>
+          </div>
+          <div class="stack-badge" style="background:#f0faf4;color:#1a6b3c;border:1px solid #a7d4b8;">In Progress</div>
+        </div>
+      </div>
+
+      <div class="stack-row">
+        <div class="stack-bar" style="background:#2563a8;"></div>
+        <div class="stack-content">
+          <div>
+            <div class="stack-lbl" style="color:#2563a8;">Decision Layer · Demo Ready</div>
+            <div class="stack-name" style="color:#2563a8;">WAIMS-GM</div>
+            <div class="stack-desc">Front-office decision support — roster evaluation, player comparison, dossier export</div>
+          </div>
+          <div class="stack-badge" style="background:#eff6ff;color:#2563a8;border:1px solid #93c5fd;">Commercial Wedge</div>
+        </div>
+      </div>
+
+      <div class="stack-row">
+        <div class="stack-bar" style="background:#0f2240;"></div>
+        <div class="stack-content">
+          <div>
+            <div class="stack-lbl" style="color:#0f2240;">Platform Layer · Live</div>
+            <div class="stack-name" style="color:#0f2240;">WAIMS Python</div>
+            <div class="stack-desc">Athlete monitoring and readiness — role-based, research-grounded, wearable-ready</div>
+          </div>
+          <div class="stack-badge" style="background:#f0f4ff;color:#0f2240;border:1px solid #c7d2fe;">The Platform</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECTS -->
+<section class="projects-section" id="projects">
+  <div class="inner">
+    <div class="sec-label">The Projects</div>
+    <h2 class="sec-title">Two layers. Both demo-ready.</h2>
+    <p class="sec-intro">Each project has a distinct user, a distinct problem, and a distinct workflow — but they share a data model and design philosophy.</p>
+
+    <div class="projects">
+
+      <!-- WAIMS PYTHON -->
+      <div class="proj-card">
+        <div style="background:#0f2240;"></div>
+        <div class="proj-body">
+          <div>
+            <div class="proj-role" style="color:#0f2240;">The Platform · Live on Streamlit Cloud</div>
+            <div class="proj-name" style="color:#0f2240;">WAIMS Python</div>
+            <div class="proj-tagline">Athlete monitoring and readiness — from daily signal to staff decision.</div>
+            <p class="proj-problem">Performance staff at lower-resource programs spend their mornings aggregating wellness surveys, force plate exports, and GPS data into spreadsheets before they can make a single decision. WAIMS compresses that into a five-minute morning brief with clear flags, role-appropriate views, and a forward-looking forecast layer.</p>
+            <div class="proj-tech">
+              <span class="t-tag">Python</span><span class="t-tag">Streamlit</span>
+              <span class="t-tag">SQLite</span><span class="t-tag">Plotly</span>
+              <span class="t-tag">Random Forest</span><span class="t-tag">Oura API</span>
+            </div>
+          </div>
+          <div>
+            <div class="diffs">
+              <div class="diff-ttl">What makes it different</div>
+              <div class="diff"><div class="diff-dot" style="background:#0f2240;"></div><div class="diff-txt">Personal z-score baselines alongside absolute thresholds — not either/or</div></div>
+              <div class="diff"><div class="diff-dot" style="background:#0f2240;"></div><div class="diff-txt">CMJ/RSI as primary fatigue signal, grounded in basketball-specific research</div></div>
+              <div class="diff"><div class="diff-dot" style="background:#0f2240;"></div><div class="diff-txt">Role-based views: coach, sport scientist, GM, athlete</div></div>
+              <div class="diff"><div class="diff-dot" style="background:#0f2240;"></div><div class="diff-txt">Oura API connector built as POC — wearable-ready architecture</div></div>
+              <div class="diff"><div class="diff-dot" style="background:#0f2240;"></div><div class="diff-txt">Female athlete and basketball-specific research citations throughout</div></div>
+            </div>
+            <div class="proj-quote" style="border-color:#0f2240;">
+              <div class="proj-quote-lbl" style="color:#0f2240;">Say in an interview</div>
+              "A readiness monitoring platform built for programs that can't afford Catapult. Morning data to staff decision in under five minutes."
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WAIMS-GM -->
+      <div class="proj-card">
+        <div style="background:#2563a8;"></div>
+        <div class="proj-body">
+          <div>
+            <div class="proj-role" style="color:#2563a8;">The Commercial Wedge · Sandbox Demo Ready</div>
+            <div class="proj-name" style="color:#2563a8;">WAIMS-GM</div>
+            <div class="proj-tagline">Front-office decision support — from roster question to structured recommendation.</div>
+            <p class="proj-problem">GMs and coaches at lower-resource programs make roster, recruiting, and acquisition decisions by combining notes, film, and gut feel with no repeatable framework. WAIMS-GM gives that workflow structure — a dossier-based process that produces a documented, exportable recommendation every time.</p>
+            <div class="proj-tech">
+              <span class="t-tag">FastAPI</span><span class="t-tag">Streamlit</span>
+              <span class="t-tag">Supabase</span><span class="t-tag">Python</span>
+            </div>
+          </div>
+          <div>
+            <div class="diffs">
+              <div class="diff-ttl">What makes it different</div>
+              <div class="diff"><div class="diff-dot" style="background:#2563a8;"></div><div class="diff-txt">Structured workflow: briefing → profile → recommendation → compare → export</div></div>
+              <div class="diff"><div class="diff-dot" style="background:#2563a8;"></div><div class="diff-txt">Sandbox / live environment separation with Supabase auth</div></div>
+              <div class="diff"><div class="diff-dot" style="background:#2563a8;"></div><div class="diff-txt">Built for D2 and lower-resource pro staff — not enterprise</div></div>
+              <div class="diff"><div class="diff-dot" style="background:#2563a8;"></div><div class="diff-txt">Standalone product or future WAIMS premium module</div></div>
+              <div class="diff"><div class="diff-dot" style="background:#2563a8;"></div><div class="diff-txt">Markdown dossier export — share-ready in any workflow</div></div>
+            </div>
+            <div class="proj-quote" style="border-color:#2563a8;">
+              <div class="proj-quote-lbl" style="color:#2563a8;">Say in an interview</div>
+              "A front-office tool that gives roster decisions a repeatable, documented process — instead of living in someone's head."
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- RELATIONSHIP -->
+<section class="rel-section">
+  <div class="inner">
+    <div class="sec-label">How They Relate</div>
+    <h2 class="sec-title">Platform. Wedge. Extension coming.</h2>
+    <p class="sec-intro">Two distinct roles in one coherent system — with a third layer in development.</p>
+
+    <div class="rel-grid">
+      <div class="rel-card">
+        <div class="rel-num">01</div>
+        <div class="rel-title">WAIMS Python is the foundation</div>
+        <div class="rel-body">The platform layer. Daily monitoring, readiness signals, role-based views, wearable ingestion architecture. Everything else builds on top of this data model and staff workflow.</div>
+      </div>
+      <div class="rel-card">
+        <div class="rel-num">02</div>
+        <div class="rel-title">WAIMS-GM is the commercial story</div>
+        <div class="rel-body">Takes the platform's player data and extends it into front-office decisions. Different buyer, different workflow — the clearest path to a real product conversation with a program.</div>
+      </div>
+    </div>
+
+    <div class="rel-note">
+      A third layer — Basketball Match Analyzer — is in active development. It will add video intelligence and longitudinal biomechanical signals to the platform. It will be added to this portfolio when it reaches demo-ready state.
+    </div>
+  </div>
+</section>
+
+<!-- CONTEXT -->
+<section class="ctx-section" id="context">
+  <div class="inner">
+    <div class="sec-label">How To Use It</div>
+    <h2 class="sec-title">Lead with the right project for the room.</h2>
+    <p class="sec-intro">Same ecosystem, different entry point depending on who you're talking to.</p>
+
+    <table class="ctx-table">
+      <thead>
+        <tr><th>Conversation</th><th>Lead With</th><th>Supporting Context</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Performance staff interview</td><td>WAIMS Python — monitoring platform and research grounding</td><td>WAIMS-GM shows product and systems thinking</td></tr>
+        <tr><td>Front office / analytics interview</td><td>WAIMS-GM — decision-support workflow and product story</td><td>WAIMS Python shows platform depth and full-stack range</td></tr>
+        <tr><td>D2 athletic director / program pitch</td><td>WAIMS Python — cost story and practical daily value</td><td>WAIMS-GM as a future module for front office staff</td></tr>
+        <tr><td>Technical / engineering interview</td><td>WAIMS Python architecture + Oura API connector</td><td>WAIMS-GM shows product thinking and auth architecture</td></tr>
+        <tr><td>Portfolio / LinkedIn</td><td>Both projects — platform + wedge framing</td><td>Stack diagram, GitHub links, live Streamlit demo</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">WAIMS<span>.</span></div>
+    <div class="footer-line">Built for basketball. Designed to expand.</div>
+  </div>
+</footer>
+
+</body>
+</html>
