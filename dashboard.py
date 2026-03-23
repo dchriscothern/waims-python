@@ -590,7 +590,7 @@ def availability_injuries_tab(availability_df, injuries_df, players_df, end_date
         else:
             st.info("No availability data for selected date.")
     else:
-        st.info("No availability table found. Run generate_demo_data.py to populate.")
+        st.info("No availability table found. Run generate_database.py to populate.")
 
     st.markdown("---")
     st.subheader("Season Availability %")
@@ -679,7 +679,7 @@ def gps_load_tab(training_load_df, players_df, end_date):
     st.caption("Kinexon tracking -- distance, high-speed running, sprint, accel/decel, player load.")
 
     if "total_distance_km" not in training_load_df.columns:
-        st.warning("GPS fields not found. Run generate_demo_data.py to populate them.")
+        st.warning("GPS fields not found. Run generate_database.py to populate them.")
         return
 
     latest_date = training_load_df["date"].max()
@@ -1567,7 +1567,7 @@ def availability_injuries_tab(availability_df, injuries_df, players_df, end_date
         else:
             st.info("No availability data for selected date.")
     else:
-        st.info("No availability table found. Run generate_demo_data.py to populate.")
+        st.info("No availability table found. Run generate_database.py to populate.")
 
     st.markdown("---")
     st.subheader("Season Availability %")
@@ -1656,7 +1656,7 @@ def gps_load_tab(training_load_df, players_df, end_date):
     st.caption("Kinexon tracking -- distance, high-speed running, sprint, accel/decel, player load.")
 
     if "total_distance_km" not in training_load_df.columns:
-        st.warning("GPS fields not found. Run generate_demo_data.py to populate them.")
+        st.warning("GPS fields not found. Run generate_database.py to populate them.")
         return
 
     latest_date = training_load_df["date"].max()
