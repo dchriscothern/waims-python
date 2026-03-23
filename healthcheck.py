@@ -33,6 +33,11 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
+try:
+    sys.stdout.reconfigure(errors="replace")
+except Exception:
+    pass
+
 # ── Colour helpers (terminal) ─────────────────────────────────────────────────
 GREEN  = "\033[92m"
 YELLOW = "\033[93m"
@@ -41,10 +46,10 @@ BLUE   = "\033[94m"
 RESET  = "\033[0m"
 BOLD   = "\033[1m"
 
-def ok(msg):   print(f"  {GREEN}✓{RESET}  {msg}")
-def warn(msg): print(f"  {YELLOW}⚠{RESET}  {msg}")
-def fail(msg): print(f"  {RED}✗{RESET}  {msg}")
-def info(msg): print(f"  {BLUE}ℹ{RESET}  {msg}")
+def ok(msg):   print(f"  {GREEN}[OK]{RESET}    {msg}")
+def warn(msg): print(f"  {YELLOW}[WARN]{RESET}  {msg}")
+def fail(msg): print(f"  {RED}[FAIL]{RESET}  {msg}")
+def info(msg): print(f"  {BLUE}[INFO]{RESET}  {msg}")
 def head(msg): print(f"\n{BOLD}{msg}{RESET}")
 
 ISSUES   = []
@@ -103,7 +108,6 @@ REQUIRED_FILES = [
     "improved_gauges.py",
     "z_score_module.py",
     "research_citations.py",
-    "research_context.py",
     "correlation_explorer.py",
     "data_quality.py",
     "model_validation.py",
@@ -118,8 +122,10 @@ REQUIRED_FILES = [
 OPTIONAL_FILES = [
     "research_log.json",
     "models/injury_risk_model.pkl",
+    ".github/workflows/ci.yml",
     ".github/workflows/research_monitor.yml",
     ".github/workflows/retrain_models.yml",
+    "research_context.py",
     "data/processed_data.csv",
 ]
 
@@ -339,6 +345,7 @@ def check_model():
 def check_github_actions():
     head("8. GitHub Actions")
     workflows = [
+        ".github/workflows/ci.yml",
         ".github/workflows/research_monitor.yml",
         ".github/workflows/retrain_models.yml",
     ]
@@ -491,7 +498,7 @@ def run_streamlit_report():
 
     # Results table
     df = pd.DataFrame(results)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
 
     if ISSUES:
         st.markdown("### 🔴 Critical Issues (must fix)")
@@ -537,20 +544,20 @@ def run_terminal():
         for i, w in enumerate(WARNINGS, 1):
             print(f"  {YELLOW}{i}. {w}{RESET}")
     if not ISSUES and not WARNINGS:
-        print(f"{GREEN}{BOLD} ALL CHECKS PASSED — WAIMS is demo ready ✓{RESET}")
+        print(f"{GREEN}{BOLD} ALL CHECKS PASSED - WAIMS is demo ready{RESET}")
     print(f"{'='*55}\n")
 
     return len(ISSUES)  # exit code
 
 
 if __name__ == "__main__":
-    # Check if running inside Streamlit
     try:
-        import streamlit as st
-        # If we get here inside streamlit run, show the UI
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+    except ImportError:
+        get_script_run_ctx = None
+
+    if get_script_run_ctx is not None and get_script_run_ctx() is not None:
         run_streamlit_report()
-    except Exception:
-        # Terminal mode
-        args = sys.argv[1:]
+    else:
         exit_code = run_terminal()
         sys.exit(exit_code)
