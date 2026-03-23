@@ -24,7 +24,7 @@ Two audiences: **coaches** (traffic lights, plain English) and **sport scientist
 | `improved_gauges.py` | Player card HTML components |
 | `z_score_module.py` | Personal baseline z-score calculations |
 | `research_citations.py` | Research Foundation display |
-| `research_context.py` | Basketball-specific risk context |
+| `research_context.py` | Planned richer basketball risk-context module (not present in current V1 repo) |
 | `research_monitor.py` | Automated PubMed + RSS search |
 | `research_merge.py` | Safe merge for extended lookback |
 | `research_topics_config.py` | PubMed query reference config |
@@ -132,7 +132,7 @@ Two audiences: **coaches** (traffic lights, plain English) and **sport scientist
 | Workflow | Schedule | Purpose |
 |---|---|---|
 | `research_monitor.yml` | Monday 8am UTC | PubMed + RSS search, commits to research_log.json |
-| `retrain_models.yml` | Sunday 6am UTC | Retrains RF model, commits .pkl files |
+| `.github/workflows/retrain_models.yml` | Sunday 6am UTC | Retrains RF model, commits .pkl files |
 
 Setup: push `.github/workflows/` files to repo. `GITHUB_TOKEN` automatic — no config needed.
 
@@ -289,4 +289,3 @@ Tiered strategy — every decision explicit and logged:
 - Stock ticker / live score display concept
 - Athlete-facing gamification / biz plan → new separate repo
 - Athlete personal recommendations module → V3, new module when research is ready
-

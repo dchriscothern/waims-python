@@ -22,7 +22,7 @@ Stack: Python, Streamlit, pandas, SQLite (demo), Random Forest (scikit-learn), G
 | `improved_gauges.py` | Player card HTML components |
 | `z_score_module.py` | Personal baseline z-score calculations |
 | `research_citations.py` | Research Foundation Streamlit display |
-| `research_context.py` | Basketball-specific risk context |
+| `research_context.py` | Planned richer basketball risk-context module (not present in current V1 repo) |
 | `correlation_explorer.py` | Signal correlations tab |
 
 ### Data & ML
@@ -48,7 +48,7 @@ Stack: Python, Streamlit, pandas, SQLite (demo), Random Forest (scikit-learn), G
 | File | Purpose |
 |---|---|
 | `healthcheck.py` | Pre-demo diagnostic — 10 checks, terminal + Streamlit mode |
-| `test_waims.py` | Unit tests — 34 passing (readiness, queries, z-score, auth, data quality) |
+| `test_waims.py` | Pytest suite for readiness, queries, z-score, auth, data quality, and DB integrity |
 | `pytest.ini` | Pytest config — registers db mark |
 | `requirements.txt` | Python dependencies |
 
@@ -115,7 +115,7 @@ HRV excluded V1 — non-significant in Janetzki 2023 meta.
 - **Data governance**: Role-based login built. V2: SSO (Okta/Azure AD), encryption, audit logs, WNBA CBA review.
 - **Data quality**: Tiered imputation — missing wellness flagged NOT imputed. Full audit log.
 - **Model validation**: Walk-forward + player holdout. PR-AUC headline. Precision@K top 3/day. Lead-time target 3-7 days.
-- **Testing**: 34 unit tests passing. CI runs on every push. Run healthcheck.py before demos.
+- **Testing**: pytest suite is passing locally. CI runs on every push. Run healthcheck.py before demos.
 - **Springbok Analytics**: Second Spectrum MRI platform (data source V2/V3) — NOT a sport config.
 - **No rugby config**: sport_config.py is WNBA basketball + Dallas Wings only.
 - **Sports Science AI** (sportscienceai.com): Recommended for V2 real-team research monitoring.
@@ -124,9 +124,9 @@ HRV excluded V1 — non-significant in Janetzki 2023 meta.
 ## Automation
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| ci.yml | Push to main | pytest test_waims.py -k "not db" |
-| research_monitor.yml | Monday 8am UTC | PubMed + RSS, commits research_log.json |
-| retrain_models.yml | Sunday 6am UTC | RF retrain, commits .pkl |
+| `.github/workflows/ci.yml` | Push to main | pytest test_waims.py -k "not db" |
+| `.github/workflows/research_monitor.yml` | Monday 8am UTC | PubMed + RSS, commits research_log.json |
+| `.github/workflows/retrain_models.yml` | Sunday 6am UTC | RF retrain, commits .pkl |
 
 ## V2 / V3 Roadmap
 **V2:** Live APIs (Kinexon, ForceDecks), Second Spectrum / Springbok Analytics, eastward travel penalty,

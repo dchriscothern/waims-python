@@ -1,99 +1,50 @@
 """
 WAIMS Python - Complete Setup Script
-Runs all steps to get the system fully operational with ML and real data
+
+Bootstraps the current demo environment:
+1. install Python dependencies from requirements.txt
+2. generate the demo database if needed
+3. train the demo models
+4. print next-step commands
 
 Usage:
     python complete_setup.py
 """
 
+import os
 import subprocess
 import sys
-import os
+
+
+def run_step(label, command):
+    print(f"\n{label}")
+    print(f"  $ {' '.join(command)}")
+    subprocess.check_call(command)
+
 
 print("=" * 70)
 print("WAIMS PYTHON - COMPLETE SETUP")
 print("=" * 70)
 
-# ==============================================================================
-# Step 1: Install Required Packages
-# ==============================================================================
+run_step("Step 1/3: Installing requirements", [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
 
-print("\n📦 Step 1/4: Installing required packages...")
-
-packages = [
-    "pandas",
-    "numpy",
-    "scikit-learn",
-    "streamlit",
-    "plotly",
-    "wehoop"
-]
-
-for package in packages:
-    print(f"  Installing {package}...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package, "-q"])
-
-print("  ✓ All packages installed")
-
-# ==============================================================================
-# Step 2: Generate Database
-# ==============================================================================
-
-print("\n🗄️  Step 2/4: Generating database...")
-
-if os.path.exists('waims_demo.db'):
-    print("  Database already exists, skipping generation")
+if os.path.exists("waims_demo.db"):
+    print("\nStep 2/3: Demo database already exists - skipping generate_database.py")
 else:
-    subprocess.call([sys.executable, "generate_database.py"])
-    print("  ✓ Database created")
+    run_step("Step 2/3: Generating demo database", [sys.executable, "generate_database.py"])
 
-# ==============================================================================
-# Step 3: Fetch Real WNBA Data (Optional)
-# ==============================================================================
-
-print("\n🏀 Step 3/4: Fetching real WNBA data (optional)...")
-
-try:
-    subprocess.call([sys.executable, "fetch_wehoop_data.py"])
-    print("  ✓ Real game data added")
-except Exception as e:
-    print(f"  ⚠️  Could not fetch wehoop data: {e}")
-    print("  Continuing with simulated data only...")
-
-# ==============================================================================
-# Step 4: Train ML Models
-# ==============================================================================
-
-print("\n🤖 Step 4/4: Training ML models...")
-
-try:
-    subprocess.call([sys.executable, "train_models.py"])
-    print("  ✓ ML models trained")
-except Exception as e:
-    print(f"  ⚠️  Could not train models: {e}")
-    print("  You can train manually with: python train_models.py")
-
-# ==============================================================================
-# Complete!
-# ==============================================================================
+run_step("Step 3/3: Training demo models", [sys.executable, "train_models.py"])
 
 print("\n" + "=" * 70)
-print("✅ SETUP COMPLETE!")
+print("SETUP COMPLETE")
 print("=" * 70)
-
-print("\n🚀 Next Steps:")
-print("\n  1. Run the dashboard:")
-print("     streamlit run dashboard.py")
-print("\n  2. Open browser to: http://localhost:8501")
-print("\n  3. Explore all 5 tabs:")
-print("     - Today's Readiness")
-print("     - Trends")
-print("     - Force Plate")
-print("     - Injuries")
-print("     - ML Predictions ✨ NEW!")
-
-print("\n📚 To learn what you built:")
-print("     Open: LEARNING_GUIDE.md")
-
+print("\nNext steps:")
+print("  1. streamlit run dashboard.py")
+print("  2. python healthcheck.py --quick")
+print("  3. Open http://localhost:8501")
+print("  4. Spot-check Athlete View and Athlete Profiles")
+print("\nDocs:")
+print("  - README.md")
+print("  - README_PYTHON.md")
+print("  - LEARNING_GUIDE.md")
 print("\n" + "=" * 70)
-

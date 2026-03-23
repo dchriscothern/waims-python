@@ -246,7 +246,7 @@ Before real athlete data enters WAIMS:
 | `oura_mapper.py` | Maps Oura sleep / readiness / HRV / resting HR fields into WAIMS wellness schema |
 | `sport_config.py` | Multi-team config — WNBA basketball thresholds, position groups, compliance |
 | `healthcheck.py` | Pre-demo startup diagnostic — 10 checks, terminal + Streamlit mode |
-| `test_waims.py` | Unit tests (34 passing) — readiness formula, queries, z-scores, auth, data quality |
+| `test_waims.py` | Pytest suite for readiness formula, queries, z-scores, auth, data quality, and DB integrity |
 | `test_oura_integration.py` | Oura demo-mode smoke tests and WAIMS schema mapping checks |
 | `pytest.ini` | Pytest configuration — registers db mark for database tests |
 | `.github/workflows/ci.yml` | GitHub Actions CI — runs unit tests on every push automatically |
@@ -256,9 +256,9 @@ Before real athlete data enters WAIMS:
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| `ci.yml` | Every push to main/develop | Runs unit tests — green checkmark on GitHub repo |
-| `research_monitor.yml` | Monday 8am UTC | PubMed + RSS search, commits to research_log.json |
-| `retrain_models.yml` | Sunday 6am UTC | Retrains RF model, commits .pkl files |
+| `.github/workflows/ci.yml` | Every push to main/develop | Runs unit tests — green checkmark on GitHub repo |
+| `.github/workflows/research_monitor.yml` | Monday 8am UTC | PubMed + RSS search, commits to research_log.json |
+| `.github/workflows/retrain_models.yml` | Sunday 6am UTC | Retrains RF model, commits .pkl files |
 
 **Setup:** Push `.github/workflows/` files to repo. `GITHUB_TOKEN` is automatic — no config needed.
 
@@ -346,20 +346,17 @@ Safe for GitHub, portfolio, and professional presentations.
 Once workflow files are pushed to your repo, GitHub runs them automatically — no further action needed.
 
 ### How to activate:
-1. Push `.github/workflows/retrain_models.yml` and `.github/workflows/research_monitor.yml` to your repo
+1. Push the workflow files in `.github/workflows/` to your repo
 2. Go to your repo → **Actions** tab → confirm workflows are listed
 3. They run on schedule automatically. To trigger manually: Actions → select workflow → **Run workflow**
 
-### Weekly Model Retrain (`retrain_models.yml`)
+### Weekly Model Retrain (`.github/workflows/retrain_models.yml`)
 Runs every **Sunday 6am UTC** — models are ready before Monday morning brief.
 Also triggers automatically when `train_models.py` or `generate_database.py` changes.
 
 ```bash
-# Generate the workflow file
+# Generate or refresh the research monitor workflow
 python research_monitor.py --github-action > .github/workflows/research_monitor.yml
-
-# Retrain workflow — copy from repo root
-cp retrain_models.yml .github/workflows/retrain_models.yml
 ```
 
 What it does:
@@ -369,7 +366,7 @@ What it does:
 
 **When to retrain:** Weekly is right for a demo. In production with real daily data, retrain after every 7+ new player-days of data. More data = better predictions.
 
-### Weekly Evidence Review (`research_monitor.yml`)
+### Weekly Evidence Review (`.github/workflows/research_monitor.yml`)
 Runs every **Monday 8am UTC** — new papers ready for triage when staff arrive.
 
 ```bash
