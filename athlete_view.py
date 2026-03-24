@@ -639,43 +639,62 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
             ("MIN", "-", "Latest game"),
             ("eFG%", "-", "Latest game"),
         ]
-    _render_stat_grid("Game Snapshot", game_cards, "#7c3aed")
-    if latest_game is None:
-        st.caption("Game stats will appear here when box-score data is available for your player.")
-    elif len(last_five_games):
-        _render_stat_grid(
-            "Last 5 Games",
-            [
-                ("PTS AVG", _format_stat_value(_rollup_stat(last_five_games["pts"]), decimals=1), "Rolling average"),
-                ("REB AVG", _format_stat_value(_rollup_stat(last_five_games["reb"]), decimals=1), "Rolling average"),
-                ("AST AVG", _format_stat_value(_rollup_stat(last_five_games["ast"]), decimals=1), "Rolling average"),
-                ("MIN AVG", _format_stat_value(_rollup_stat(last_five_games["minutes"]), decimals=1), "Rolling average"),
-            ],
-            "#2563eb",
-        )
 
-    _render_stat_grid(
-        "Load Snapshot",
-        [
-            ("7-Day Load", _format_stat_value(load7, " AU"), "Last 7 days"),
-            ("Today's Load", _format_stat_value(today_load, " AU"), "Today"),
-            ("Practice Min", _format_stat_value(practice_minutes), "Last 7 days"),
-            ("Game Min", _format_stat_value(game_minutes), "Last 7 days"),
-        ],
-        "#0f766e",
+    st.markdown(
+        '<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#94a3b8;margin:18px 0 8px;">More Detail</div>',
+        unsafe_allow_html=True,
+    )
+    detail_view = st.selectbox(
+        "Detail view",
+        ["Recovery Trends", "Game Snapshot", "Last 5 Games", "Load Snapshot"],
+        index=0,
+        key="athlete_detail_view",
+        label_visibility="collapsed",
     )
 
-    if len(recent):
-        trend_cols = st.columns(2)
-        trend_frame = recent.copy()
-        trend_frame["date"] = pd.to_datetime(trend_frame["date"])
-        with trend_cols[0]:
-            st.markdown("### Sleep Trend")
-            sleep_fig = px.line(trend_frame, x="date", y="sleep_hours", markers=True)
-            sleep_fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="", yaxis_title="Hours")
-            st.plotly_chart(sleep_fig, width='stretch')
-        with trend_cols[1]:
-            st.markdown("### Soreness & Stress")
-            stress_fig = px.line(trend_frame, x="date", y=["soreness", "stress"], markers=True)
-            stress_fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="", yaxis_title="Score")
-            st.plotly_chart(stress_fig, width='stretch')
+    if detail_view == "Game Snapshot":
+        _render_stat_grid("Game Snapshot", game_cards, "#7c3aed")
+        if latest_game is None:
+            st.caption("Game stats will appear here when box-score data is available for your player.")
+    elif detail_view == "Last 5 Games":
+        if latest_game is None or not len(last_five_games):
+            st.caption("Recent game averages will appear here once box-score data is available.")
+        else:
+            _render_stat_grid(
+                "Last 5 Games",
+                [
+                    ("PTS AVG", _format_stat_value(_rollup_stat(last_five_games["pts"]), decimals=1), "Rolling average"),
+                    ("REB AVG", _format_stat_value(_rollup_stat(last_five_games["reb"]), decimals=1), "Rolling average"),
+                    ("AST AVG", _format_stat_value(_rollup_stat(last_five_games["ast"]), decimals=1), "Rolling average"),
+                    ("MIN AVG", _format_stat_value(_rollup_stat(last_five_games["minutes"]), decimals=1), "Rolling average"),
+                ],
+                "#2563eb",
+            )
+    elif detail_view == "Load Snapshot":
+        _render_stat_grid(
+            "Load Snapshot",
+            [
+                ("7-Day Load", _format_stat_value(load7, " AU"), "Last 7 days"),
+                ("Today's Load", _format_stat_value(today_load, " AU"), "Today"),
+                ("Practice Min", _format_stat_value(practice_minutes), "Last 7 days"),
+                ("Game Min", _format_stat_value(game_minutes), "Last 7 days"),
+            ],
+            "#0f766e",
+        )
+    else:
+        if len(recent):
+            trend_cols = st.columns(2)
+            trend_frame = recent.copy()
+            trend_frame["date"] = pd.to_datetime(trend_frame["date"])
+            with trend_cols[0]:
+                st.markdown("### Sleep Trend")
+                sleep_fig = px.line(trend_frame, x="date", y="sleep_hours", markers=True)
+                sleep_fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="", yaxis_title="Hours")
+                st.plotly_chart(sleep_fig, width='stretch')
+            with trend_cols[1]:
+                st.markdown("### Soreness & Stress")
+                stress_fig = px.line(trend_frame, x="date", y=["soreness", "stress"], markers=True)
+                stress_fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="", yaxis_title="Score")
+                st.plotly_chart(stress_fig, width='stretch')
+        else:
+            st.caption("Recovery trends will appear here when the last 7 days of athlete data are available.")
