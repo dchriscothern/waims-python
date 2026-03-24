@@ -29,12 +29,12 @@
       "FEMALE",
       "REVIEW"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "CANDIDATE",
     "gate_note": "ELIGIBLE FOR THRESHOLD REVIEW. Check: same population? Same sport/sex? Meaningful effect size? If yes -- schedule formal review with performance staff.",
     "date_found": "2026-03-16",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-24",
     "decision_notes": ""
   },
   {
@@ -64,12 +64,12 @@
       "SYSTEMATIC REVIEW",
       "REVIEW"
     ],
-    "decision": "PENDING",
+    "decision": "WATCHLIST",
     "gate_status": "CANDIDATE",
     "gate_note": "ELIGIBLE FOR THRESHOLD REVIEW. Check: same population? Same sport/sex? Meaningful effect size? If yes -- schedule formal review with performance staff.",
     "date_found": "2026-03-16",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-24",
     "decision_notes": ""
   },
   {
@@ -1390,12 +1390,12 @@
       "FEMALE",
       "REVIEW"
     ],
-    "decision": "PENDING",
+    "decision": "REJECTED",
     "gate_status": "CANDIDATE",
     "gate_note": "ELIGIBLE FOR THRESHOLD REVIEW. Check: same population? Same sport/sex? Meaningful effect size? If yes -- schedule formal review with performance staff.",
     "date_found": "2026-03-16",
     "decision_by": "",
-    "decision_date": "",
+    "decision_date": "2026-03-24",
     "decision_notes": ""
   },
   {

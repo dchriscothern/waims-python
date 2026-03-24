@@ -119,6 +119,65 @@ except Exception as e:
 # HELPERS
 # ==============================================================================
 
+
+def _evidence_identity(paper: dict) -> str:
+    pmid = str(paper.get("pmid", "")).strip()
+    if pmid:
+        return f"pmid:{pmid}"
+    url = str(paper.get("url", "")).strip().lower()
+    if url:
+        return f"url:{url}"
+    title = " ".join(str(paper.get("title", "")).lower().split())
+    return f"title:{title}"
+
+
+def _evidence_decision_rank(decision: str) -> int:
+    order = {
+        "INTEGRATED": 4,
+        "WATCHLIST": 3,
+        "REJECTED": 2,
+        "PENDING": 1,
+    }
+    return order.get(str(decision or "PENDING").upper(), 0)
+
+
+def _dedupe_evidence_papers(papers: list[dict]) -> list[dict]:
+    best_by_id: dict[str, dict] = {}
+    for paper in papers:
+        key = _evidence_identity(paper)
+        current = best_by_id.get(key)
+        if current is None:
+            best_by_id[key] = dict(paper)
+            continue
+
+        candidate = dict(paper)
+        current_score = (
+            _evidence_decision_rank(current.get("decision", "PENDING")),
+            float(current.get("quality_score", 0) or 0),
+            str(current.get("decision_date", current.get("date_found", "")) or ""),
+        )
+        candidate_score = (
+            _evidence_decision_rank(candidate.get("decision", "PENDING")),
+            float(candidate.get("quality_score", 0) or 0),
+            str(candidate.get("decision_date", candidate.get("date_found", "")) or ""),
+        )
+        winner = candidate if candidate_score > current_score else current
+        loser = current if winner is candidate else candidate
+
+        for field in ("topics", "tags", "quality_labels"):
+            merged = []
+            for item in winner.get(field, []) or []:
+                if item not in merged:
+                    merged.append(item)
+            for item in loser.get(field, []) or []:
+                if item not in merged:
+                    merged.append(item)
+            if merged:
+                winner[field] = merged
+        best_by_id[key] = winner
+
+    return list(best_by_id.values())
+
 def _html_oneliner(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
@@ -2680,7 +2739,7 @@ if "ins" in tab_map:
 
         if _log_path.exists():
             try:
-                _all_papers = _ej.loads(_log_path.read_text(encoding="utf-8"))
+                _all_papers = _dedupe_evidence_papers(_ej.loads(_log_path.read_text(encoding="utf-8")))
             except Exception as _e:
                 st.error(f"Could not read research_log.json: {_e}")
                 _all_papers = []

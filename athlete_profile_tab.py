@@ -1521,10 +1521,58 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         # REJECTED -> hidden
         import json as _json
         from pathlib import Path as _Path
+        def _paper_identity(paper: dict) -> str:
+            pmid = str(paper.get("pmid", "")).strip()
+            if pmid:
+                return f"pmid:{pmid}"
+            url = str(paper.get("url", "")).strip().lower()
+            if url:
+                return f"url:{url}"
+            title = " ".join(str(paper.get("title", "")).lower().split())
+            return f"title:{title}"
+
+        def _decision_rank(decision: str) -> int:
+            order = {"INTEGRATED": 4, "WATCHLIST": 3, "REJECTED": 2, "PENDING": 1}
+            return order.get(str(decision or "PENDING").upper(), 0)
+
+        def _dedupe_papers(papers: list[dict]) -> list[dict]:
+            best_by_id = {}
+            for paper in papers:
+                key = _paper_identity(paper)
+                current = best_by_id.get(key)
+                if current is None:
+                    best_by_id[key] = dict(paper)
+                    continue
+                candidate = dict(paper)
+                current_score = (
+                    _decision_rank(current.get("decision", "PENDING")),
+                    float(current.get("quality_score", 0) or 0),
+                    str(current.get("decision_date", current.get("date_found", "")) or ""),
+                )
+                candidate_score = (
+                    _decision_rank(candidate.get("decision", "PENDING")),
+                    float(candidate.get("quality_score", 0) or 0),
+                    str(candidate.get("decision_date", candidate.get("date_found", "")) or ""),
+                )
+                winner = candidate if candidate_score > current_score else current
+                loser = current if winner is candidate else candidate
+                for field in ("topics", "tags", "quality_labels"):
+                    merged = []
+                    for item in winner.get(field, []) or []:
+                        if item not in merged:
+                            merged.append(item)
+                    for item in loser.get(field, []) or []:
+                        if item not in merged:
+                            merged.append(item)
+                    if merged:
+                        winner[field] = merged
+                best_by_id[key] = winner
+            return list(best_by_id.values())
+
         _log_path = _Path(__file__).parent / "research_log.json"
         if _log_path.exists():
             try:
-                _papers = _json.loads(_log_path.read_text(encoding="utf-8"))
+                _papers = _dedupe_papers(_json.loads(_log_path.read_text(encoding="utf-8")))
                 _pending   = [p for p in _papers if p.get("decision","PENDING") == "PENDING"]
                 _watchlist = [p for p in _papers if p.get("decision","") == "WATCHLIST"]
                 _integrated = [p for p in _papers if p.get("decision","") == "INTEGRATED"]
