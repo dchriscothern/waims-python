@@ -280,21 +280,16 @@ def _resolve_oura_status_label() -> tuple[str, str, str]:
 
 def _render_wearable_recovery_panel() -> None:
     status_text, sync_text, accent = _resolve_oura_status_label()
-    if status_text == "Active":
-        body = "Oura recovery data is connected. Sleep and recovery signals can support your daily readiness view."
-    elif status_text == "Demo mode":
-        body = "Wearable recovery is shown in demo mode. This space is reserved for sleep, HRV, resting HR, and readiness when a device is connected."
-    elif status_text == "Error":
-        body = "Wearable recovery data is currently unavailable because the connector needs attention."
-    else:
-        body = "No wearable connected yet. Oura or WHOOP can be added later to bring sleep and recovery signals into this view."
+    if status_text != "Active":
+        return
 
+    body = "Oura recovery data is connected. Sleep and recovery signals can support your daily readiness view."
     st.markdown(
-        f'<div style="background:#f8fafc;border-left:4px solid {accent};border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0 14px 0;">'
+        f'<div style="background:#f8fafc;border-left:4px solid {accent};border-radius:0 8px 8px 0;padding:10px 14px;margin:10px 0 12px 0;">'
         f'<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">'
         f'<div>'
-        f'<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px;">Wearable Recovery</div>'
-        f'<div style="font-size:13px;color:#334155;line-height:1.6;">{body}</div>'
+        f'<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:4px;">Wearable Recovery</div>'
+        f'<div style="font-size:13px;color:#334155;line-height:1.5;">{body}</div>'
         f'</div>'
         f'<div style="text-align:right;white-space:nowrap;">'
         f'<div style="font-size:12px;font-weight:700;color:{accent};">{status_text}</div>'
@@ -308,9 +303,9 @@ def _render_wearable_recovery_panel() -> None:
 
 def _render_info_panel(title: str, body: str, accent: str) -> None:
     st.markdown(
-        f'<div style="background:#f8fafc;border-left:4px solid {accent};border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:14px;">'
-        f'<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px;">{title}</div>'
-        f'<div style="font-size:13px;color:#334155;line-height:1.6;">{body}</div>'
+        f'<div style="background:#f8fafc;border-left:4px solid {accent};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:12px;">'
+        f'<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:5px;">{title}</div>'
+        f'<div style="font-size:13px;color:#334155;line-height:1.5;">{body}</div>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -319,7 +314,7 @@ def _render_info_panel(title: str, body: str, accent: str) -> None:
 def _render_compact_context_card(title: str, line_one: str, line_two: str) -> None:
     st.markdown(
         '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;'
-        'padding:12px 14px;min-height:92px;">'
+        'padding:10px 12px;min-height:82px;">'
         f'<div style="font-size:11px;font-weight:700;letter-spacing:0.14em;'
         f'text-transform:uppercase;color:#94a3b8;margin-bottom:8px;">{title}</div>'
         f'<div style="font-size:13px;color:#0f172a;line-height:1.45;">{line_one}</div>'
@@ -379,10 +374,10 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
     st.markdown("## My Readiness")
     st.caption("Your athlete view shows only your own data. No teammate information appears here.")
 
-    top_left, top_right = st.columns([1.05, 1.35], gap="large")
+    top_left, top_right = st.columns([0.95, 1.05], gap="medium")
     with top_left:
         st.markdown(
-            f'<div style="background:{status_bg};border-left:4px solid {status_color};border-radius:0 10px 10px 0;padding:14px 16px;">'
+            f'<div style="background:{status_bg};border-left:4px solid {status_color};border-radius:0 10px 10px 0;padding:12px 14px;">'
             f'<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;color:{status_color};text-transform:uppercase;margin-bottom:8px;">Today</div>'
             f'<div style="font-size:22px;font-weight:800;color:#0f172a;margin-bottom:8px;">{status} - {readiness:.0f}/100</div>'
             f'<div style="font-size:13px;color:#334155;line-height:1.5;">{guidance}</div>'
@@ -435,30 +430,30 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
         )
 
     plan_text = (
-        "Full practice and normal court work are appropriate today."
+        "Full practice is appropriate today."
         if readiness >= 80
-        else "Normal practice is possible, but pay attention to leg feel and ask for a lighter modification if needed."
+        else "Normal practice is okay, but adjust volume if your legs feel heavy."
         if readiness >= 60
-        else "Use a modified day and check in with staff before full-speed work."
+        else "Use a modified day and check in before full-speed work."
     )
     if sleep_last < 7:
-        plan_text = "Keep practice focused and efficient today. Short sleep means the goal is quality work, not extra volume."
+        plan_text = "Keep practice efficient today. Short sleep means quality work, not extra volume."
     elif soreness_today >= 7 or stress_today >= 7:
-        plan_text = "Use a lighter day or modified volume today. Check in early if your legs or energy do not feel right."
+        plan_text = "Use a lighter day today. Check in early if your legs or energy feel off."
     elif did_not_play_recently:
-        plan_text = "If you did not get game minutes recently, keep some structured work in the plan so your load base stays ready."
+        plan_text = "If you did not get recent game minutes, keep a short work block in the plan."
 
     recovery_text = (
-        "Priority today: sleep, hydration, and normal recovery routine."
+        "Priority: sleep, hydration, and your normal recovery routine."
         if readiness >= 80
-        else "Priority today: hydration, recovery lift or regen, and soreness check-in."
+        else "Priority: hydrate, recover, and check in on soreness."
         if readiness >= 60
-        else "Priority today: treatment, recovery work, and a lower-load option."
+        else "Priority: treatment, recovery work, and a lower-load option."
     )
     if next_game is not None and int(next_game.get("is_back_to_back", 0) or 0) == 1:
-        recovery_text = "Priority today: hydration, sleep, and recovery work because the next game is part of a back-to-back."
+        recovery_text = "Priority: hydrate, sleep well, and recover because the next game is part of a back-to-back."
     elif int(next_game.get("travel_flag", 0) or 0) == 1 if next_game is not None else False:
-        recovery_text = "Priority today: hydration, sleep timing, and recovery because travel is part of the next game block."
+        recovery_text = "Priority: hydration, sleep timing, and recovery because travel is part of the next game block."
     _render_info_panel("Today Plan", f"{plan_text}<br>{recovery_text}", status_color)
 
     if latest_game is not None and len(athlete_games):
@@ -477,15 +472,15 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
 
     checklist_items = []
     if sleep_last < 7:
-        checklist_items.append("Protect your sleep tonight and keep caffeine later in the day under control")
+        checklist_items.append("Protect sleep tonight and keep late caffeine low")
     if soreness_today >= 7:
         checklist_items.append("Tell staff early if leg soreness stays high in warmup")
     if stress_today >= 7:
-        checklist_items.append("Keep recovery simple today: breathe, hydrate, and use the lower-noise option after practice")
+        checklist_items.append("Keep recovery simple today: breathe, hydrate, and choose the low-noise option after practice")
     if did_not_play_recently:
-        checklist_items.append("Add a short conditioning or sprint block so your load does not drop too low")
+        checklist_items.append("Add a short conditioning or sprint block so your load does not dip too low")
     if next_game is not None and int(next_game.get("is_back_to_back", 0) or 0) == 1:
-        checklist_items.append("Prioritize hydration and recovery tonight because the next game is a back-to-back")
+        checklist_items.append("Hydrate and recover tonight because the next game is a back-to-back")
     if next_game is not None and int(next_game.get("travel_flag", 0) or 0) == 1:
         checklist_items.append("Travel is coming up, so hydration and sleep timing matter more than usual")
     if not checklist_items:
@@ -507,6 +502,7 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
                 "Prioritize treatment and recovery",
                 "Use the lower-load option today",
             ]
+    checklist_items = checklist_items[:2]
     checklist_html = "".join(f"<div>- {item}</div>" for item in checklist_items)
     _render_info_panel("Recovery Checklist", checklist_html, "#0f766e")
 
@@ -646,7 +642,7 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
     )
     detail_view = st.selectbox(
         "Detail view",
-        ["Recovery Trends", "Game Snapshot", "Last 5 Games", "Load Snapshot"],
+        ["Select detail", "Recovery Trends", "Game Snapshot", "Last 5 Games", "Load Snapshot"],
         index=0,
         key="athlete_detail_view",
         label_visibility="collapsed",
@@ -681,7 +677,7 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
             ],
             "#0f766e",
         )
-    else:
+    elif detail_view == "Recovery Trends":
         if len(recent):
             trend_cols = st.columns(2)
             trend_frame = recent.copy()
@@ -698,3 +694,5 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
                 st.plotly_chart(stress_fig, width='stretch')
         else:
             st.caption("Recovery trends will appear here when the last 7 days of athlete data are available.")
+    else:
+        st.caption("Choose a detail view when you want more game, load, or trend context.")

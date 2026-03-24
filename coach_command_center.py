@@ -469,7 +469,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     date_str   = end_date.strftime("%A, %B %d")
     header_html = (
         '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f3460 100%);'
-        'border-radius:14px;padding:22px 28px 18px;margin-bottom:18px;'
+        'border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;'
         'border:1px solid rgba(255,255,255,0.07);">'
         '<div style="display:flex;align-items:center;justify-content:space-between;'
         'flex-wrap:wrap;gap:12px;">'
@@ -649,7 +649,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     brief_html = (
         '<div style="background:#f8fafc;border:1px solid #e2e8f0;'
         'border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;'
-        'padding:14px 18px;margin-bottom:16px;">'
+        'padding:12px 14px;margin-bottom:14px;">'
         '<div style="font-size:10px;font-weight:700;letter-spacing:0.15em;'
         'color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">'
         'Morning Brief</div>'
@@ -1125,45 +1125,64 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         else:           color, status, bg = "#dc2626", "PROTECT", "#fee2e2"
         return (
             f'<div style="background:{bg};border:1px solid {color}44;'
-            f'border-radius:8px;padding:10px 14px;text-align:center;flex:1;">'
+            f'border-radius:8px;padding:8px 12px;text-align:center;flex:1;">'
             f'<div style="font-size:10px;font-weight:700;letter-spacing:0.1em;'
             f'text-transform:uppercase;color:{color};margin-bottom:4px;">{label}</div>'
-            f'<div style="font-size:22px;font-weight:800;color:{color};line-height:1;">'
+            f'<div style="font-size:20px;font-weight:800;color:{color};line-height:1;">'
             f'{avg:.0f}%</div>'
             f'<div style="font-size:10px;color:{color};font-weight:600;margin-top:2px;">'
             f'{status} &nbsp;-&nbsp; {len(scores)} players</div>'
             f'</div>'
         )
 
+    def _pos_summary(label, scores):
+        if not scores:
+            return None
+        avg = sum(scores) / len(scores)
+        status = "ready" if avg >= 80 else ("monitor" if avg >= 60 else "protect")
+        return f"{label} {status}"
+
     _g_badge = _pos_badge("Guards", _pos_groups["G"])
     _f_badge = _pos_badge("Wings / Forwards", _pos_groups["F"])
     _c_badge = _pos_badge("Centers / Bigs", _pos_groups["C"])
 
-    # Only show if we have real positional data
     if any([_pos_groups["G"], _pos_groups["F"], _pos_groups["C"]]):
         st.markdown(
             '<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;'
             'text-transform:uppercase;color:#94a3b8;margin-bottom:8px;">Unit Readiness</div>',
             unsafe_allow_html=True,
         )
+        unit_parts = [part for part in [
+            _pos_summary("Guards", _pos_groups["G"]),
+            _pos_summary("Wings", _pos_groups["F"]),
+            _pos_summary("Bigs", _pos_groups["C"]),
+        ] if part]
+        unit_summary_text = " &middot; ".join(unit_parts)
         st.markdown(
-            f'<div style="display:flex;gap:10px;margin-bottom:16px;">'
-            f'{_g_badge}{_f_badge}{_c_badge}'
-            f'</div>',
+            '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;'
+            'padding:10px 14px;margin-bottom:10px;font-size:13px;color:#334155;line-height:1.5;">'
+            f'<b>Units:</b> {unit_summary_text}'
+            '</div>',
             unsafe_allow_html=True,
         )
-
-    st.markdown(
-        '<div style="font-size:11px; font-weight:700; letter-spacing:0.18em; '
-        'text-transform:uppercase; color:#94a3b8; margin-bottom:10px;">Roster Status</div>',
-        unsafe_allow_html=True,
-    )
+        with st.expander("Unit readiness detail", expanded=False):
+            st.markdown(
+                f'<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;">'
+                f'{_g_badge}{_f_badge}{_c_badge}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
     grid_rows = (
         [r for r in summary if r["score"] < 60] +
         [r for r in summary if 60 <= r["score"] < 80] +
         [r for r in summary if r["score"] >= 80]
     )
+
+    for _r in grid_rows:
+        _pos = str(_r.get("pos", "")).upper()
+        _r["group_label"] = "Guards" if _pos.startswith("G") else ("Centers / Bigs" if _pos.startswith("C") else "Wings / Forwards")
+        _r["status_label"] = "Protect" if _r["score"] < 60 else ("Monitor" if _r["score"] < 80 else "Ready")
 
     CARD = {
         "red":    {"bg": "#fde8e8", "border": "#ef4444", "score": "#dc2626",
@@ -1182,9 +1201,6 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         c = CARD[k]
 
         inj_risk = r.get("inj_risk")
-        # Risk indicator - only show when elevated (>=30%). 
-        # "Low risk" adds noise without adding decision value for a coach.
-        # Coaches act on alerts, not confirmations. (Kitman Labs design principle 2024)
         if inj_risk is not None and inj_risk >= 60:
             risk_txt, risk_color, risk_bg = "Injury watch this week", "#dc2626", "#fee2e2"
             risk_badge = (
@@ -1202,18 +1218,16 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             )
             risk_tooltip = "7-day injury risk 30-60% - monitor closely this week"
         else:
-            # No badge when low risk - absence of alert IS the signal
-            risk_badge   = ""
+            risk_badge = ""
             risk_tooltip = ""
 
-        # overnight change - compare yesterday's score if available
         overnight = r.get("overnight_delta")
         if overnight is not None and abs(overnight) >= 2:
-            arrow     = "+" if overnight > 0 else "-"
-            ov_color  = "#16a34a" if overnight > 0 else "#dc2626"
-            ov_html   = (f'<span style="font-size:11px;color:{ov_color};'
-                         f'margin-left:6px;font-weight:600;">'
-                         f'{arrow}{abs(overnight):.0f}% overnight</span>')
+            arrow = "+" if overnight > 0 else "-"
+            ov_color = "#16a34a" if overnight > 0 else "#dc2626"
+            ov_html = (f'<span style="font-size:11px;color:{ov_color};'
+                       f'margin-left:6px;font-weight:600;">'
+                       f'{arrow}{abs(overnight):.0f}% overnight</span>')
         else:
             ov_html = ""
 
@@ -1221,8 +1235,6 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             f'<div style="background:{c["bg"]};border:2px solid {c["border"]};'
             f'border-radius:10px;padding:14px 16px;min-height:140px;'
             f'display:flex;flex-direction:column;gap:6px;">'
-
-            # Row 1: name + status badge
             f'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
             f'  <div>'
             f'    <div style="font-weight:800;font-size:14px;color:#0f172a;">{r["name"]}</div>'
@@ -1232,8 +1244,6 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             f'  font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:0.06em;'
             f'  white-space:nowrap;">{c["label"]}</span>'
             f'</div>'
-
-            # Row 2: big readiness % + overnight delta + risk badge
             f'<div style="display:flex;justify-content:space-between;align-items:center;'
             f'margin-top:4px;">'
             f'  <div style="display:flex;align-items:baseline;gap:4px;">'
@@ -1243,12 +1253,9 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             f'  </div>'
             f'  <div title="{risk_tooltip}">{risk_badge}</div>'
             f'</div>'
-
-            # Row 3: cumulative minutes + minutes cap + hidden fatigue flag
             + (
                 f'<div style="font-size:11px;color:#64748b;margin-top:3px;">'
                 + (
-                    # Hidden fatigue flag - trending down under high load
                     f'<span style="background:#fef3c7;color:#d97706;font-size:10px;'
                     f'font-weight:700;padding:1px 6px;border-radius:3px;margin-right:6px;'
                     f'border:1px solid #d9770644;">HIDDEN FATIGUE</span>'
@@ -1256,7 +1263,6 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                 )
                 + f'<b style="color:#334155;">{r["mins_4d"]:.0f} min</b> last 4 days'
                 + (
-                    # Load warning label - context flag, not a hard cap
                     f' &nbsp;-&nbsp; <span style="background:#e0f2fe;color:#0369a1;'
                     f'font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;'
                     f'border:1px solid #0369a122;">{r["load_warning"]}</span>'
@@ -1265,17 +1271,11 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                 + '</div>'
                 if r.get("mins_4d") is not None else ""
             )
-
-            # Divider
             + f'<div style="border-top:1px solid {c["border"]}55;margin:4px 0;"></div>'
-
-            # Row 4: reason - plain English, coach-decision language only (no raw numbers)
             + f'<div style="font-size:11px;color:#475569;line-height:1.4;">{r["reason"]}</div>'
-
             + f'</div>'
         )
 
-    # Build overnight deltas for all players
     yesterday_scores = {}
     w_yest_all = wellness[pd.to_datetime(wellness["date"]) == pd.Timestamp(ref - pd.Timedelta(days=1))]
     for _, py in players.iterrows():
@@ -1293,12 +1293,30 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         yest = yesterday_scores.get(r["pid"])
         r["overnight_delta"] = round(r["score"] - yest, 1) if yest is not None else None
 
-    cols = st.columns(4)
-    for i, r in enumerate(grid_rows):
-        with cols[i % 4]:
-            st.markdown(_card_html(r), unsafe_allow_html=True)
+    with st.expander("Roster Status", expanded=False):
+        roster_filter = st.selectbox(
+            "Roster filter",
+            ["Priority Only", "All", "Protect", "Monitor", "Ready", "Guards", "Wings / Forwards", "Centers / Bigs"],
+            index=0,
+            key="coach_roster_filter",
+        )
 
-    # ── LEGEND - scrollable reference at bottom of roster ────────────────────
+        if roster_filter == "Priority Only":
+            display_rows = [r for r in grid_rows if r["score"] < 80]
+        elif roster_filter in {"Protect", "Monitor", "Ready"}:
+            display_rows = [r for r in grid_rows if r["status_label"] == roster_filter]
+        elif roster_filter in {"Guards", "Wings / Forwards", "Centers / Bigs"}:
+            display_rows = [r for r in grid_rows if r["group_label"] == roster_filter]
+        else:
+            display_rows = grid_rows
+
+        if not display_rows:
+            st.caption("No players match the current roster filter.")
+        else:
+            cols = st.columns(4)
+            for i, row in enumerate(display_rows):
+                with cols[i % 4]:
+                    st.markdown(_card_html(row), unsafe_allow_html=True)
     st.markdown("<div style='margin-top:18px;'></div>", unsafe_allow_html=True)
     st.markdown(
         '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;'
