@@ -4,15 +4,19 @@ Includes GPS / Kinexon section (player load, accel count, decel count)
 """
 
 import os
-import pickle
 from datetime import datetime, timedelta
 from html import escape
-from pathlib import Path
 
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
+from readiness_logic import (
+    build_load_projection_recommendation,
+    calculate_readiness_score as shared_calculate_readiness_score,
+    project_load_scenario,
+    sum_recent_total_minutes,
+)
 
 try:
     from improved_gauges import create_clean_speedometer, create_recommendation_box
@@ -30,60 +34,14 @@ except ImportError:
 # ── Load shared readiness scorer pkl ─────────────────────────────────────────
 # Same pkl as coach_command_center — single source of truth.
 # Falls back to formula if pkl not yet trained (first run before train_models.py).
-_READINESS_FN = None
-try:
-    _scorer_path = Path("models/readiness_scorer.pkl")
-    if _scorer_path.exists():
-        with open(_scorer_path, "rb") as _f:
-            _scorer_data = pickle.load(_f)
-            _READINESS_FN = _scorer_data.get("function")
-except Exception:
-    _READINESS_FN = None
-
-
 # ==============================================================================
 # SHARED READINESS CALCULATOR — single source of truth
 # Mirrors train_models.py calculate_readiness_score exactly.
-# Used by both athlete_profile_tab and coach_command_center via pkl scorer.
+# Used by both athlete_profile_tab and dashboard via readiness_logic.
 # ==============================================================================
 
 def _calculate_readiness(row_dict):
-    """
-    Single readiness calculation — loads pkl scorer when available,
-    falls back to identical formula. CMJ/RSI/Schedule all included.
-    Rescaled ×100/70 so output spans 0–100 correctly.
-    """
-    if _READINESS_FN is not None:
-        try:
-            return _READINESS_FN(row_dict)
-        except Exception:
-            pass
-
-    # Fallback — mirrors train_models.py calculate_readiness_score
-    sleep_hrs = row_dict.get("sleep_hours", 7.5)
-    sleep_q   = row_dict.get("sleep_quality", 7)
-    sleep_s   = min(15, (sleep_hrs / 8.0) * 10 + (sleep_q / 10) * 5)
-    sore_s    = ((10 - row_dict.get("soreness", 4)) / 10) * 10
-    mood_s    = (row_dict.get("mood", 7) / 10) * 5
-    stress_s  = ((10 - row_dict.get("stress", 4)) / 10) * 5
-
-    cmj   = row_dict.get("cmj_height_cm")
-    pos   = str(row_dict.get("position", row_dict.get("pos", "F")))
-    bench = 38 if "G" in pos else (30 if "C" in pos else 34)
-    cmj_s = min(15, (cmj / bench) * 15) if cmj and cmj > 0 else 11
-    rsi   = row_dict.get("rsi_modified")
-    rsi_s = min(10, (rsi / 0.45) * 10) if rsi and rsi > 0 else 8
-
-    sched_s = 10
-    if row_dict.get("is_back_to_back", 0): sched_s -= 4
-    if row_dict.get("days_rest", 3) <= 1:  sched_s -= 2
-    if row_dict.get("travel_flag", 0):
-        sched_s -= min(3, abs(row_dict.get("time_zone_diff", 0)) * 1.5)
-    if row_dict.get("unrivaled_flag", 0):  sched_s -= 2
-    sched_s = max(0, sched_s)
-
-    raw = sleep_s + sore_s + mood_s + stress_s + cmj_s + rsi_s + sched_s
-    return round(min(100, raw * (100 / 70)), 1)
+    return shared_calculate_readiness_score(row_dict)
 
 
 # ==============================================================================
@@ -1072,85 +1030,50 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             horizontal=False, key=f"load_scenario_{athlete_id}",
         )
     with load_col2:
-
-        # Evidence-based adjustments — female basketball specific
-        # Pernigoni 2024 (44-study basketball SR); Goulart 2022 (female meta);
-        # Charest 2021 JCSM (B2B); Walsh 2021 BJSM (sleep)
-        load_fx = {
-            "Rest / Practice only":        {"sleep_adj": +0.1, "sore_adj": -0.3, "stress_adj": -0.5, "b2b": 0},
-            "Typical game load (~28 min)": {"sleep_adj": -0.2, "sore_adj": +0.8, "stress_adj": +0.3, "b2b": 0},
-            "Heavy game load (~36 min)":   {"sleep_adj": -0.4, "sore_adj": +1.5, "stress_adj": +0.5, "b2b": 0},
-            "Back-to-back game":           {"sleep_adj": -0.7, "sore_adj": +2.5, "stress_adj": +1.5, "b2b": 1},
-        }
-        cmj_fx = {
-            "Rest / Practice only": 0, "Typical game load (~28 min)": -0.5,
-            "Heavy game load (~36 min)": -1.5, "Back-to-back game": -2.5,
-        }
-        fx = load_fx[load_scenario_ap]
-
-        proj_sleep   = max(4.5, min(9.5, sleep_v + fx["sleep_adj"]))
-        proj_soreness = max(0,  min(10,  sore_v  + fx["sore_adj"]))
-        proj_stress  = max(1,  min(10,  stress_v + fx["stress_adj"]))
-        proj_mood    = max(1,  min(10,  float(latest_wellness.get("mood", 7)) - fx["stress_adj"] * 0.3))
-        proj_cmj     = max(18, latest_cmj + cmj_fx[load_scenario_ap]) if latest_cmj else None
-        proj_rsi     = latest_rsi  # RSI held flat (female players: minimal 24h CMJ/RSI drop)
-
-        ap_player_pos = players[players["player_id"] == athlete_id]["position"].values
-        ap_player_pos = ap_player_pos[0] if len(ap_player_pos) > 0 else "F"
-
-        proj_row = {
-            "sleep_hours": proj_sleep, "sleep_quality": latest_wellness.get("sleep_quality", 7),
-            "soreness": proj_soreness, "stress": proj_stress, "mood": proj_mood,
-            "cmj_height_cm": proj_cmj, "rsi_modified": proj_rsi,
-            "position": ap_player_pos, "is_back_to_back": fx["b2b"], "days_rest": 0 if fx["b2b"] else 1,
-        }
-        today_score_ap = readiness
-        tomorrow_score = _calculate_readiness(proj_row)
-        delta_ap = tomorrow_score - today_score_ap
+        projection = project_load_scenario(
+            _readiness_row,
+            position=athlete_info.get("position", "F"),
+            latest_cmj=latest_cmj,
+            latest_rsi=latest_rsi,
+            scenario=load_scenario_ap,
+        )
+        today_score_ap = projection["today_score"]
+        tomorrow_score = projection["tomorrow_score"]
+        delta_ap = projection["delta"]
         delta_str_ap = f"+{delta_ap:.0f}" if delta_ap > 0 else f"{delta_ap:.0f}"
-        tmr_status = "READY" if tomorrow_score >= 80 else ("MONITOR" if tomorrow_score >= 60 else "PROTECT")
-        tmr_color  = "#16a34a" if tomorrow_score >= 80 else ("#d97706" if tomorrow_score >= 60 else "#dc2626")
+        tmr_status = projection["status"]
+
+        mins_4d_proj = sum_recent_total_minutes(
+            training_load,
+            athlete_id,
+            pd.Timestamp(latest_date),
+            days=4,
+        )
+        recommendation = build_load_projection_recommendation(
+            ath_key,
+            tmr_status,
+            tomorrow_score,
+            mins_4d_proj,
+        )
 
         _mc1, _mc2, _mc3 = st.columns(3)
         _mc1.metric("Today", f"{today_score_ap:.0f}%")
         _mc2.metric("Tomorrow (projected)", f"{tomorrow_score:.0f}%", delta=delta_str_ap)
         _mc3.metric("Status", tmr_status)
 
-        # Prescriptive recommendation — specific and actionable
-        if tmr_status == "PROTECT":
-            ap_rec_color, ap_rec_bg   = "#dc2626", "#fef2f2"
-            ap_rec_head = "Restrict Tonight"
-            ap_rec_body = (
-                f"Cap at 20–26 minutes tonight depending on game situation. "
-                f"Remove from high-intensity interval work in practice. "
-                f"Check in before session — ask about sleep quality and leg fatigue specifically. "
-                f"Projected readiness tomorrow: {tomorrow_score:.0f}% (PROTECT)."
-            )
-        elif tmr_status == "MONITOR":
-            ap_rec_color, ap_rec_bg   = "#d97706", "#fffbeb"
-            ap_rec_head = "Monitor Closely"
-            ap_rec_body = (
-                f"Standard minutes available but watch warmup movement quality. "
-                f"If soreness ≥7/10 or movement looks laboured, reduce early. "
-                f"Prioritise skill work over high-intensity conditioning reps. "
-                f"Projected readiness tomorrow: {tomorrow_score:.0f}% (MONITOR)."
-            )
-        else:
-            ap_rec_color, ap_rec_bg   = "#16a34a", "#f0fdf4"
-            ap_rec_head = "Clear for Full Load"
-            ap_rec_body = (
-                f"No restrictions needed. Full minutes and full training available. "
-                f"Projected readiness tomorrow: {tomorrow_score:.0f}% ({tmr_status})."
-            )
-
         st.markdown(
-            f'<div style="background:{ap_rec_bg};border-left:4px solid {ap_rec_color};'
+            f'<div style="background:{recommendation["bg"]};border-left:4px solid {recommendation["color"]};'
             f'border-radius:0 8px 8px 0;padding:12px 16px;margin-top:6px;">'
             f'<div style="font-size:11px;font-weight:700;letter-spacing:0.1em;'
-            f'text-transform:uppercase;color:{ap_rec_color};margin-bottom:4px;">Staff Recommendation</div>'
-            f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">{ap_rec_head}</div>'
-            f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{ap_rec_body}</div>'
-            f'</div>',
+            f'text-transform:uppercase;color:{recommendation["color"]};margin-bottom:4px;">{recommendation["label"]}</div>'
+            f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">{recommendation["head"]}</div>'
+            f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{recommendation["body"]}</div>'
+            + (
+                f'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">'
+                f'Load context: {mins_4d_proj:.0f} min in last 4 days</div>'
+                if mins_4d_proj is not None else ""
+            )
+            + '</div>',
             unsafe_allow_html=True
         )
         st.caption("Projections: Pernigoni 2024 (44-study basketball SR, female-specific CMJ recovery); "

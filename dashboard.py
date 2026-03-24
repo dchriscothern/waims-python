@@ -23,7 +23,12 @@ from correlation_explorer import correlation_explorer_tab
 from athlete_view import athlete_home_view
 from auth import (render_login_page, render_user_badge, is_authenticated,
                   current_role, can_see, data_access, get_visible_tabs)
-from readiness_logic import calculate_readiness_score as shared_calculate_readiness_score
+from readiness_logic import (
+    build_load_projection_recommendation,
+    calculate_readiness_score as shared_calculate_readiness_score,
+    project_load_scenario,
+    sum_recent_total_minutes,
+)
 
 try:
     from data_quality import DataQualityProcessor, show_data_quality_report
@@ -1981,96 +1986,47 @@ def generate_smart_response(query_type):
         if len(w_proj) > 0:
             wp = w_proj.iloc[0]
 
-            load_effects = {
-                "Rest / Practice only":        {"sleep_adj": +0.1, "sore_adj": -0.3, "stress_adj": -0.5, "b2b": 0},
-                "Typical game load (~28 min)": {"sleep_adj": -0.2, "sore_adj": +0.8, "stress_adj": +0.3, "b2b": 0},
-                "Heavy game load (~36 min)":   {"sleep_adj": -0.4, "sore_adj": +1.5, "stress_adj": +0.5, "b2b": 0},
-                "Back-to-back game":           {"sleep_adj": -0.7, "sore_adj": +2.5, "stress_adj": +1.5, "b2b": 1},
-            }
-            fx = load_effects[load_scenario]
-
-            proj_sleep    = max(4.5, min(9.5, float(wp["sleep_hours"]) + fx["sleep_adj"]))
-            proj_soreness = max(0,   min(10,  float(wp["soreness"])    + fx["sore_adj"]))
-            proj_stress   = max(1,   min(10,  float(wp["stress"])      + fx["stress_adj"]))
-            proj_mood     = max(1,   min(10,  float(wp["mood"])        - fx["stress_adj"] * 0.3))
-
             fp_proj  = force_plate[(force_plate["player_id"] == proj_pid)].sort_values("date").tail(1)
-            cmj_proj = float(fp_proj.iloc[0]["cmj_height_cm"]) if len(fp_proj) > 0 else None
-            rsi_proj = float(fp_proj.iloc[0]["rsi_modified"])  if len(fp_proj) > 0 else None
+            latest_cmj = float(fp_proj.iloc[0]["cmj_height_cm"]) if len(fp_proj) > 0 else None
+            latest_rsi = float(fp_proj.iloc[0]["rsi_modified"])  if len(fp_proj) > 0 else None
+            projection = project_load_scenario(
+                dict(wp),
+                position=proj_pos,
+                latest_cmj=latest_cmj,
+                latest_rsi=latest_rsi,
+                scenario=load_scenario,
+            )
 
-            cmj_degradation = {"Rest / Practice only": 0, "Typical game load (~28 min)": -0.5,
-                               "Heavy game load (~36 min)": -1.5, "Back-to-back game": -2.5}
-            if cmj_proj:
-                cmj_proj = max(18, cmj_proj + cmj_degradation[load_scenario])
-
-            proj_row = {
-                "sleep_hours": proj_sleep, "sleep_quality": wp.get("sleep_quality", 7),
-                "soreness": proj_soreness, "stress": proj_stress, "mood": proj_mood,
-                "cmj_height_cm": cmj_proj, "rsi_modified": rsi_proj,
-                "position": proj_pos,
-                "is_back_to_back": fx["b2b"], "days_rest": 0 if fx["b2b"] else 1,
-            }
-            tomorrow_score = calculate_readiness_score(proj_row)
-            today_score    = calculate_readiness_score(dict(wp) | {"position": proj_pos,
-                                                                     "cmj_height_cm": cmj_proj,
-                                                                     "rsi_modified": rsi_proj})
-
-            delta     = tomorrow_score - today_score
+            today_score = projection["today_score"]
+            tomorrow_score = projection["tomorrow_score"]
+            delta = projection["delta"]
             delta_str = f"+{delta:.0f}" if delta > 0 else f"{delta:.0f}"
-            tmr_status = "READY" if tomorrow_score >= 80 else ("MONITOR" if tomorrow_score >= 60 else "PROTECT")
-            tmr_color  = "#16a34a" if tomorrow_score >= 80 else ("#d97706" if tomorrow_score >= 60 else "#dc2626")
+            tmr_status = projection["status"]
 
             p1, p2, p3 = st.columns(3)
             p1.metric("Today's Readiness",  f"{today_score:.0f}%")
             p2.metric("Projected Tomorrow", f"{tomorrow_score:.0f}%", delta=delta_str)
             p3.metric("Tomorrow Status",    tmr_status)
 
-            mins_4d_proj = None
-            if "practice_minutes" in training_load.columns:
-                tl_4d = training_load[
-                    (training_load["player_id"] == proj_pid) &
-                    (pd.to_datetime(training_load["date"]) > pd.Timestamp(end_date) - pd.Timedelta(days=4))
-                ]
-                if len(tl_4d) > 0:
-                    mins_4d_proj = round(
-                        tl_4d.get("game_minutes", pd.Series([0]*len(tl_4d))).fillna(0).sum() +
-                        tl_4d.get("practice_minutes", pd.Series([0]*len(tl_4d))).fillna(0).sum(), 0
-                    )
-
-            if tmr_status == "PROTECT":
-                if mins_4d_proj and mins_4d_proj > 90:
-                    min_cap = "20-24 minutes maximum"
-                    drill_note = "Remove from full-court sprints and late-game crunch situations"
-                else:
-                    min_cap = "22-26 minutes"
-                    drill_note = "Limit explosive acceleration drills in warmup"
-                rec_color = "#dc2626"; rec_bg = "#fef2f2"; rec_icon = "Protect"; rec_head = "Restrict Tonight"
-                rec_body  = (f"Cap {proj_player} at {min_cap} tonight. {drill_note}. "
-                            f"Check in individually before practice - ask about sleep and leg fatigue. "
-                            f"Projected readiness tomorrow: {tomorrow_score:.0f}% (PROTECT).")
-            elif tmr_status == "MONITOR":
-                if mins_4d_proj and mins_4d_proj > 100:
-                    min_cap = "26-30 minutes"
-                    drill_note = "Reduce high-intensity interval reps in practice; prioritise skill work"
-                else:
-                    min_cap = "standard minutes with close monitoring"
-                    drill_note = "Watch warmup quality - if movement looks laboured, reduce early"
-                rec_color = "#d97706"; rec_bg = "#fffbeb"; rec_icon = "Monitor"; rec_head = "Monitor Closely"
-                rec_body  = (f"{proj_player}: {drill_note}. Target {min_cap} tonight. "
-                            f"Re-check soreness in warmup - if it reaches 7/10 or higher, pull back further. "
-                            f"Projected readiness tomorrow: {tomorrow_score:.0f}% (MONITOR).")
-            else:
-                rec_color = "#16a34a"; rec_bg = "#f0fdf4"; rec_icon = "Clear"; rec_head = "Clear for Full Load"
-                rec_body  = (f"{proj_player} is projected to recover well. "
-                            f"No restrictions needed tonight - full minutes available. "
-                            f"Projected readiness tomorrow: {tomorrow_score:.0f}% ({tmr_status}).")
+            mins_4d_proj = sum_recent_total_minutes(
+                training_load,
+                proj_pid,
+                pd.Timestamp(end_date),
+                days=4,
+            )
+            recommendation = build_load_projection_recommendation(
+                proj_player,
+                tmr_status,
+                tomorrow_score,
+                mins_4d_proj,
+            )
 
             st.markdown(
-                f'<div style="background:{rec_bg};border-left:4px solid {rec_color};'
+                f'<div style="background:{recommendation["bg"]};border-left:4px solid {recommendation["color"]};'
                 f'border-radius:0 8px 8px 0;padding:14px 18px;margin-top:8px;">'
-                f'<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{rec_color};margin-bottom:6px;">{rec_icon} Staff Recommendation</div>'
-                f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">{rec_head}</div>'
-                f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{rec_body}</div>'
+                f'<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{recommendation["color"]};margin-bottom:6px;">{recommendation["label"]}</div>'
+                f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">{recommendation["head"]}</div>'
+                f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{recommendation["body"]}</div>'
                 + (f'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">Load context: {mins_4d_proj:.0f} min in last 4 days</div>' if mins_4d_proj is not None else "")
                 + '</div>',
                 unsafe_allow_html=True
@@ -2373,81 +2329,46 @@ if "fc" in tab_map:
             cmj_proj = float(fp_proj.iloc[0]["cmj_height_cm"]) if len(fp_proj) > 0 else None
             rsi_proj = float(fp_proj.iloc[0]["rsi_modified"]) if len(fp_proj) > 0 else None
 
-            load_effects = {
-                "Rest / Practice only": {"sleep_adj": +0.1, "sore_adj": -0.3, "stress_adj": -0.5, "b2b": 0, "cmj_adj": 0.0},
-                "Typical game load (~28 min)": {"sleep_adj": -0.2, "sore_adj": +0.8, "stress_adj": +0.3, "b2b": 0, "cmj_adj": -0.5},
-                "Heavy game load (~36 min)": {"sleep_adj": -0.4, "sore_adj": +1.5, "stress_adj": +0.5, "b2b": 0, "cmj_adj": -1.5},
-                "Back-to-back game": {"sleep_adj": -0.7, "sore_adj": +2.5, "stress_adj": +1.5, "b2b": 1, "cmj_adj": -2.5},
-            }
-            fx = load_effects[load_scenario]
+            projection = project_load_scenario(
+                dict(wp),
+                position=proj_pos,
+                latest_cmj=cmj_proj,
+                latest_rsi=rsi_proj,
+                scenario=load_scenario,
+            )
 
-            proj_sleep = max(4.5, min(9.5, float(wp["sleep_hours"]) + fx["sleep_adj"]))
-            proj_soreness = max(0, min(10, float(wp["soreness"]) + fx["sore_adj"]))
-            proj_stress = max(1, min(10, float(wp["stress"]) + fx["stress_adj"]))
-            proj_mood = max(1, min(10, float(wp["mood"]) - fx["stress_adj"] * 0.3))
-            if cmj_proj is not None:
-                cmj_proj = max(18, cmj_proj + fx["cmj_adj"])
-
-            forecast_input = {
-                "sleep_hours": proj_sleep,
-                "sleep_quality": wp.get("sleep_quality", 7),
-                "soreness": proj_soreness,
-                "stress": proj_stress,
-                "mood": proj_mood,
-                "cmj_height_cm": cmj_proj,
-                "rsi_modified": rsi_proj,
-                "position": proj_pos,
-                "is_back_to_back": fx["b2b"],
-                "days_rest": 0 if fx["b2b"] else 1,
-            }
-            today_input = dict(wp)
-            today_input.update({
-                "position": proj_pos,
-                "cmj_height_cm": float(fp_proj.iloc[0]["cmj_height_cm"]) if len(fp_proj) > 0 else None,
-                "rsi_modified": float(fp_proj.iloc[0]["rsi_modified"]) if len(fp_proj) > 0 else None,
-                "is_back_to_back": 0,
-                "days_rest": 1,
-            })
-
-            today_score = calculate_readiness_score(today_input)
-            tomorrow_score = calculate_readiness_score(forecast_input)
-            delta = tomorrow_score - today_score
+            today_score = projection["today_score"]
+            tomorrow_score = projection["tomorrow_score"]
+            delta = projection["delta"]
             delta_str = f"+{delta:.0f}" if delta > 0 else f"{delta:.0f}"
-            tmr_status = "READY" if tomorrow_score >= 80 else ("MONITOR" if tomorrow_score >= 60 else "PROTECT")
-            rec_color = "#16a34a" if tmr_status == "READY" else ("#d97706" if tmr_status == "MONITOR" else "#dc2626")
-            rec_bg = "#f0fdf4" if tmr_status == "READY" else ("#fffbeb" if tmr_status == "MONITOR" else "#fef2f2")
+            tmr_status = projection["status"]
+
+            mins_4d_proj = sum_recent_total_minutes(
+                training_load,
+                proj_pid,
+                pd.Timestamp(end_date),
+                days=4,
+            )
+            recommendation = build_load_projection_recommendation(
+                proj_player,
+                tmr_status,
+                tomorrow_score,
+                mins_4d_proj,
+            )
 
             p1, p2, p3 = st.columns(3)
             p1.metric("Today's Readiness", f"{today_score:.0f}%")
             p2.metric("Projected Tomorrow", f"{tomorrow_score:.0f}%", delta=delta_str)
             p3.metric("Tomorrow Status", tmr_status)
 
-            if tmr_status == "PROTECT":
-                rec_head = "Restrict Tonight"
-                rec_body = (
-                    f"Cap {proj_player}'s load tonight and reduce explosive work. "
-                    f"Projected tomorrow status is PROTECT ({tomorrow_score:.0f}%)."
-                )
-            elif tmr_status == "MONITOR":
-                rec_head = "Monitor Closely"
-                rec_body = (
-                    f"{proj_player} can participate, but warmup quality and soreness should be re-checked before full volume. "
-                    f"Projected tomorrow status is MONITOR ({tomorrow_score:.0f}%)."
-                )
-            else:
-                rec_head = "Clear for Full Load"
-                rec_body = (
-                    f"{proj_player} is projected to recover well. Full training/game load is reasonable. "
-                    f"Projected tomorrow status is READY ({tomorrow_score:.0f}%)."
-                )
-
             st.markdown(
-                f'<div style="background:{rec_bg};border-left:4px solid {rec_color};border-radius:0 8px 8px 0;'
+                f'<div style="background:{recommendation["bg"]};border-left:4px solid {recommendation["color"]};border-radius:0 8px 8px 0;'
                 f'padding:14px 18px;margin-top:10px;margin-bottom:12px;">'
-                f'<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{rec_color};margin-bottom:6px;">Recommendation</div>'
-                f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">{rec_head}</div>'
-                f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{rec_body}</div>'
-                '</div>',
+                f'<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{recommendation["color"]};margin-bottom:6px;">{recommendation["label"]}</div>'
+                f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">{recommendation["head"]}</div>'
+                f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{recommendation["body"]}</div>'
+                + (f'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">Load context: {mins_4d_proj:.0f} min in last 4 days</div>' if mins_4d_proj is not None else "")
+                + '</div>',
                 unsafe_allow_html=True,
             )
         else:
