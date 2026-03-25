@@ -23,11 +23,13 @@ Dashboard opens at `http://localhost:8501`
 
 ## What Type of AI/ML Does WAIMS Use?
 
+WAIMS combines three distinct layers inside the broader WAIMS suite. WAIMS Python is the internal performance and athlete-monitoring module; WAIMS-GM is the separate front-office roster workflow.
+
 WAIMS combines three distinct layers:
 
 **1. Random Forest Classifier** (`train_models.py`)  
 Supervised ML model trained on monitoring data to predict injury risk within 7 days.  
-Features: sleep z-score, CMJ deviation, ACWR, player load, schedule context (back-to-back, travel, rest).  
+Features: sleep z-score, CMJ deviation, player load, schedule context (back-to-back, travel, rest), with ACWR treated as a contextual flag rather than a primary model driver.  
 Output: `injury_risk_score` (0–1 probability) per player per day.
 
 **2. Evidence-Based Readiness Scorer** (`train_models.py → calculate_readiness_score`)  
@@ -54,7 +56,8 @@ Does not make clinical decisions — translates data into plain English for coac
 | Trends & Load | Analyst | 7-day rolling averages — sleep, soreness, mood, stress + GPS/Kinexon load merged into single tab |
 | Jump Testing | Analyst | CMJ & RSI vs personal baseline, 7-day team trend |
 | Availability & Injuries | GM / Medical | Daily availability board, season %, injury log |
-| Forecast | GM / Coach | 7-day injury risk watchlist + load projection (what happens to readiness after tonight's game) |
+| Forecast | Coach / Staff | 7-day injury risk watchlist + load projection (what happens to readiness after tonight's game) |
+| Data Intake | Sport Scientist / Medical | Intake gate for drop-zone files, validation status, connector status, and ingest audit history |
 | Insights | Sport Scientist | Natural-language queries + model validation philosophy + evidence review inbox + correlation heatmap |
 
 ### Coach Command Center Features
@@ -162,6 +165,10 @@ WAIMS V1 does not operate as a validated injury classifier — the Forecast tab 
 Full citations in `RESEARCH_FOUNDATION.md`.
 
 ---
+
+## Product Boundary
+
+WAIMS Python is the internal athlete-monitoring and performance-operations workspace in the WAIMS suite. Front-office evaluation, external prospect dossiers, and recruiting decisions live in WAIMS-GM.
 
 ## Data Governance (Real-Team Deployment)
 

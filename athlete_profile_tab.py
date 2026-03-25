@@ -744,8 +744,10 @@ def render_data_sources_panel(latest_wellness, latest_force, gps_row, latest_dat
             _render_data_source_card(source)
 
 
+
 def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None):
     st.header("Athlete Profiles")
+
 
     athlete_names    = sorted(players["name"].tolist())
     selected_athlete = st.selectbox("Select Athlete", athlete_names)
@@ -911,6 +913,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         }
         fig = create_radar_chart(radar_data, selected_athlete, position=athlete_info.get('position','F'))
         st.plotly_chart(fig, width='stretch', key=f"radar_{athlete_id}")
+
 
     # ==========================================================================
     # KEY METRIC CARDS  (8 across: wellness + force plate + GPS)

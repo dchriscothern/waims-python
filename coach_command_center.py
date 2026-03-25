@@ -537,13 +537,11 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         b1_color = "#dc2626"
     elif protect_list:
         names = ', '.join(protect_list[:3])
-        b1 = (f"<b>{len(protect_list)} player{'s' if len(protect_list)>1 else ''} on protect "
-              f"today:</b> {names} - modified session, flag for medical if pain >7/10.")
+        b1 = (f"<b>{len(protect_list)} player{'s' if len(protect_list)>1 else ''} on protect today:</b> {names} - modified session.")
         b1_color = "#dc2626"
     elif watch_list:
         names = ', '.join(watch_list[:3])
-        b1 = (f"<b>Injury watch this week:</b> {names} - clear for today but limit "
-              f"max-effort reps and monitor warmup quality closely.")
+        b1 = (f"<b>Injury watch:</b> {names} - clear for today, but limit max-effort reps.")
         b1_color = "#d97706"
     else:
         ready_count = len([r for r in summary if r["score"] >= 80])
@@ -597,13 +595,13 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
         if biggest_drop and biggest_drop > 5:
             b2 = (f"<b>Biggest overnight drop:</b> {biggest_drop_name} "
-                  f"({biggest_drop:.0f}% readiness decline) - {biggest_drop_reason}. "
-                  f"Check in individually before session starts.")
+                  f"({biggest_drop:.0f}% down) - {biggest_drop_reason}. "
+                  f"Check in before practice.")
             b2_color = "#d97706"
 
         # If no significant drops, show biggest improver as positive signal
         if b2 is None:
-            b2 = "<b>Stable overnight.</b> No significant readiness drops across the squad - wellness consistent with yesterday."
+            b2 = "<b>Stable overnight.</b> No meaningful readiness drops across the squad."
             b2_color = "#16a34a"
     else:
         b2 = "<b>No yesterday data</b> - first session of tracking period."
@@ -621,16 +619,15 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
     if high_load_players:
         names_load = ", ".join(f"{n} ({m} min)" for n,m in high_load_players[:2])
         b3 = (f"<b>Heavy legs this week:</b> {names_load} in the last 4 days - "
-              f"consider a shorter practice or lighter intensity today regardless of readiness score.")
+              f"consider shorter practice or lighter intensity today.")
         b3_color = "#d97706"
     elif monitor_count >= 4:
-        b3 = (f"<b>{monitor_count} players on MONITOR today</b> - consider reducing "
-              f"total session volume by 10-15%. Focus on skill quality over conditioning load.")
+        b3 = (f"<b>{monitor_count} players on MONITOR today.</b> Consider reducing volume 10-15%. "
+              f"Prioritize skill quality over conditioning load.")
         b3_color = "#d97706"
     else:
         ready_pct = round(len([r for r in summary if r["score"]>=80]) / max(len(summary),1) * 100)
-        b3 = (f"<b>Load looks manageable.</b> {ready_pct}% of squad fully ready - "
-              f"normal training volume appropriate today.")
+        b3 = (f"<b>Load looks manageable.</b> {ready_pct}% of squad is fully ready - normal volume is appropriate today.")
         b3_color = "#16a34a"
 
     # ── Render all 3 bullets ─────────────────────────────────────────────────
@@ -1029,7 +1026,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                 lbl_color = "#dc2626" if is_red else "#d97706"
                 html = (
                     f'<div style="background:{bg};border-left:4px solid {border};'
-                    f'border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:8px;">'
+                    f'border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:8px;">'
                     # Name + label on one line
                     f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
                     f'<span style="font-weight:800;font-size:14px;color:#0f172a;">{a["name"]}</span>'
@@ -1060,7 +1057,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
             lo_names = gps["low_acc_names"]   or "-"
             gps_html = (
                 '<div style="background:linear-gradient(135deg,#0ea5e9,#0284c7);'
-                'border-radius:12px;padding:16px 20px;color:#fff;">'
+                'border-radius:12px;padding:12px 14px;color:#fff;">'
                 # Two stat cells
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
                 '<div>'
@@ -1233,7 +1230,7 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
 
         return (
             f'<div style="background:{c["bg"]};border:2px solid {c["border"]};'
-            f'border-radius:10px;padding:14px 16px;min-height:140px;'
+            f'border-radius:10px;padding:12px 14px;min-height:128px;'
             f'display:flex;flex-direction:column;gap:6px;">'
             f'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
             f'  <div>'
@@ -1318,23 +1315,24 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
                 with cols[i % 4]:
                     st.markdown(_card_html(row), unsafe_allow_html=True)
     st.markdown("<div style='margin-top:18px;'></div>", unsafe_allow_html=True)
-    st.markdown(
-        '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;'
-        'padding:12px 18px;font-size:11px;color:#64748b;">'
-        '<span style="font-weight:700;color:#334155;margin-right:12px;">KEY</span>'
-        '<span style="margin-right:16px;">'
-        '<b style="color:#16a34a;">READY</b> >=80% - full training, no restrictions</span>'
-        '<span style="margin-right:16px;">'
-        '<b style="color:#d97706;">MONITOR</b> 60-79% - modified load, watch closely</span>'
-        '<span style="margin-right:16px;">'
-        '<b style="color:#dc2626;">PROTECT</b> &lt;60% - restricted session, flag for medical</span>'
-        '<span style="display:block;margin-top:6px;">'
-        '<b>Injury watch</b> = 7-day risk >=60% &nbsp;-&nbsp; '
-        '<b>Watch closely</b> = 30-60% &nbsp;-&nbsp; '
-        'No badge = low risk (&lt;30%) &nbsp;-&nbsp; '
-        '<b>up/down overnight</b> = readiness change vs yesterday &nbsp;-&nbsp; '
-        '<b>min last 4/8 days</b> = practice + game minutes combined</span>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    with st.expander("Roster key", expanded=False):
+        st.markdown(
+            '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;'
+            'padding:12px 18px;font-size:11px;color:#64748b;">'
+            '<span style="font-weight:700;color:#334155;margin-right:12px;">KEY</span>'
+            '<span style="margin-right:16px;">'
+            '<b style="color:#16a34a;">READY</b> >=80% - full training, no restrictions</span>'
+            '<span style="margin-right:16px;">'
+            '<b style="color:#d97706;">MONITOR</b> 60-79% - modified load, watch closely</span>'
+            '<span style="margin-right:16px;">'
+            '<b style="color:#dc2626;">PROTECT</b> &lt;60% - restricted session, flag for medical</span>'
+            '<span style="display:block;margin-top:6px;">'
+            '<b>Injury watch</b> = 7-day risk >=60% &nbsp;-&nbsp; '
+            '<b>Watch closely</b> = 30-60% &nbsp;-&nbsp; '
+            'No badge = low risk (&lt;30%) &nbsp;-&nbsp; '
+            '<b>up/down overnight</b> = readiness change vs yesterday &nbsp;-&nbsp; '
+            '<b>min last 4/8 days</b> = practice + game minutes combined</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 

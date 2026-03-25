@@ -40,13 +40,13 @@ DEMO_USERS = {
 # True = show tab, False = hidden entirely
 # ---------------------------------------------------------------------------
 TAB_ACCESS = {
-    #                            CC     Readiness  Profiles  Trends  Jumps  Injuries  Forecast  Insights
-    "head_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False),
-    "asst_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False),
-    "sport_scientist": dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True),
-    "medical":         dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True),
-    "gm":              dict(cc=True,  rd=False,  ap=False, tr=False,jt=False, inj=True,  fc=False, ins=False),
-    "athlete":         dict(cc=False, rd=True,   ap=False, tr=False,jt=False, inj=False, fc=False, ins=False),
+    #                            CC     Readiness  Profiles  Trends  Jumps  Injuries  Forecast  Insights  Intake
+    "head_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False, di=False),
+    "asst_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False, di=False),
+    "sport_scientist": dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True,  di=True),
+    "medical":         dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True,  di=False),
+    "gm":              dict(cc=True,  rd=False,  ap=False, tr=False,jt=False, inj=False, fc=False, ins=False, di=False),
+    "athlete":         dict(cc=False, rd=True,   ap=False, tr=False,jt=False, inj=False, fc=False, ins=False, di=False),
 }
 
 # Tab labels (must match order used in dashboard.py)
@@ -59,6 +59,7 @@ TAB_LABELS = {
     "inj": "Availability & Injuries",
     "fc":  "Forecast",
     "ins": "Insights",
+    "di":  "Data Intake",
 }
 
 # Data field visibility per role (used to mask columns in dataframes)
@@ -142,7 +143,7 @@ def render_login_page():
             with st.form("login_form"):
                 username  = st.text_input("Username", placeholder="e.g. coach")
                 password  = st.text_input("Password", type="password", placeholder="Password")
-                submitted = st.form_submit_button("Sign In", use_container_width=True)
+                submitted = st.form_submit_button("Sign In", width="stretch")
 
             if submitted:
                 user = DEMO_USERS.get(username.strip().lower())
@@ -209,7 +210,7 @@ def render_user_badge():
 
     if st.sidebar.button(
         "Sign Out",
-        use_container_width=True,
+        width="stretch",
         key="sidebar_sign_out",
     ):
         for key in [

@@ -4,10 +4,13 @@ Streamlit web application for athlete monitoring data visualization
 """
 
 import os
+import io
 import pickle
 import sqlite3
 import re
 import textwrap
+import json
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -54,6 +57,9 @@ except ImportError:
 # ==============================================================================
 
 HERE      = Path(__file__).resolve().parent
+DB_PATH   = HERE / "waims_demo.db"
+DATA_DROP_ROOT = HERE / "data_drop"
+INGEST_AUDIT_PATH = HERE / "logs" / "ingest_audit.jsonl"
 LOGO_PATH = HERE / "assets" / "branding" / "waims_run_man_logo.png"
 if not LOGO_PATH.exists():
     LOGO_PATH = HERE.parent / "assets" / "branding" / "waims_run_man_logo.png"
@@ -80,39 +86,115 @@ st.markdown(
 # LOAD DATA
 # ==============================================================================
 
+TABLE_VALIDATION_SPEC = {
+    "players": {"required": {"player_id", "name"}, "dates": [], "numeric": []},
+    "wellness": {"required": {"player_id", "date", "sleep_hours", "soreness", "stress", "mood"}, "dates": ["date"], "numeric": ["sleep_hours", "soreness", "stress", "mood"]},
+    "training_load": {"required": {"player_id", "date"}, "dates": ["date"], "numeric": ["player_load", "accel_count", "decel_count", "practice_minutes", "total_distance_km"]},
+    "force_plate": {"required": {"player_id", "date"}, "dates": ["date"], "numeric": ["cmj_height_cm", "rsi_modified"]},
+    "injuries": {"required": {"player_id", "injury_date"}, "dates": ["injury_date", "return_date"], "numeric": ["days_missed"]},
+    "acwr": {"required": {"player_id", "date", "acwr"}, "dates": ["date"], "numeric": ["acwr"]},
+    "availability": {"required": {"player_id", "date", "status"}, "dates": ["date"], "numeric": []},
+}
+
+
+def _validate_loaded_frame(
+    name,
+    df,
+    required_columns=None,
+    date_columns=None,
+    numeric_columns=None,
+    required=None,
+    dates=None,
+    numeric=None,
+):
+    required_columns = required_columns if required_columns is not None else required or []
+    date_columns = date_columns if date_columns is not None else dates or []
+    numeric_columns = numeric_columns if numeric_columns is not None else numeric or []
+    frame = df.copy()
+    missing = sorted(set(required_columns) - set(frame.columns))
+    if missing:
+        raise ValueError(f"{name} is missing required columns: {', '.join(missing)}")
+
+    for col in date_columns:
+        if col in frame.columns:
+            frame[col] = pd.to_datetime(frame[col], errors="coerce")
+            if len(frame) > 0 and frame[col].isna().all():
+                raise ValueError(f"{name}.{col} could not be parsed as dates")
+
+    for col in numeric_columns:
+        if col in frame.columns:
+            frame[col] = pd.to_numeric(frame[col], errors="coerce")
+
+    return frame
+
+
+@st.cache_data
+def startup_health_report() -> dict:
+    report = {"errors": [], "warnings": []}
+    if not DB_PATH.exists():
+        report["errors"].append(f"Database file not found: {DB_PATH}")
+        return report
+
+    required_tables = {"players", "wellness", "training_load", "force_plate", "injuries", "acwr"}
+    optional_tables = {"availability"}
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        missing_required = sorted(required_tables - tables)
+        missing_optional = sorted(optional_tables - tables)
+        if missing_required:
+            report["errors"].append("Missing required tables: " + ", ".join(missing_required))
+        if missing_optional:
+            report["warnings"].append("Optional tables unavailable: " + ", ".join(missing_optional))
+
+        for table_name, spec in TABLE_VALIDATION_SPEC.items():
+            if table_name not in tables:
+                continue
+            columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
+            missing_columns = sorted(set(spec["required"]) - columns)
+            if missing_columns:
+                target = report["errors"] if table_name in required_tables else report["warnings"]
+                target.append(f"{table_name} is missing required columns: {', '.join(missing_columns)}")
+        conn.close()
+    except Exception as exc:
+        report["errors"].append(f"Database health check failed: {exc}")
+    return report
+
+
 @st.cache_data
 def load_data():
-    conn          = sqlite3.connect("waims_demo.db")
-    players       = pd.read_sql_query("SELECT * FROM players",        conn)
-    wellness      = pd.read_sql_query("SELECT * FROM wellness",       conn)
-    training_load = pd.read_sql_query("SELECT * FROM training_load",  conn)
-    force_plate   = pd.read_sql_query("SELECT * FROM force_plate",    conn)
-    injuries      = pd.read_sql_query("SELECT * FROM injuries",       conn)
-    acwr          = pd.read_sql_query("SELECT * FROM acwr",           conn)
+    conn = sqlite3.connect(str(DB_PATH))
+    players = _validate_loaded_frame("players", pd.read_sql_query("SELECT * FROM players", conn), **TABLE_VALIDATION_SPEC["players"])
+    wellness = _validate_loaded_frame("wellness", pd.read_sql_query("SELECT * FROM wellness", conn), **TABLE_VALIDATION_SPEC["wellness"])
+    training_load = _validate_loaded_frame("training_load", pd.read_sql_query("SELECT * FROM training_load", conn), **TABLE_VALIDATION_SPEC["training_load"])
+    force_plate = _validate_loaded_frame("force_plate", pd.read_sql_query("SELECT * FROM force_plate", conn), **TABLE_VALIDATION_SPEC["force_plate"])
+    injuries = _validate_loaded_frame("injuries", pd.read_sql_query("SELECT * FROM injuries", conn), **TABLE_VALIDATION_SPEC["injuries"])
+    acwr = _validate_loaded_frame("acwr", pd.read_sql_query("SELECT * FROM acwr", conn), **TABLE_VALIDATION_SPEC["acwr"])
     try:
-        availability = pd.read_sql_query("SELECT * FROM availability", conn)
-        availability["date"] = pd.to_datetime(availability["date"])
+        availability = _validate_loaded_frame("availability", pd.read_sql_query("SELECT * FROM availability", conn), **TABLE_VALIDATION_SPEC["availability"])
     except Exception:
         availability = pd.DataFrame()
-
-    wellness["date"]       = pd.to_datetime(wellness["date"])
-    training_load["date"]  = pd.to_datetime(training_load["date"])
-    force_plate["date"]    = pd.to_datetime(force_plate["date"])
-    acwr["date"]           = pd.to_datetime(acwr["date"])
-    if len(injuries) > 0:
-        injuries["injury_date"] = pd.to_datetime(injuries["injury_date"])
-        if "return_date" in injuries.columns:
-            injuries["return_date"] = pd.to_datetime(injuries["return_date"])
 
     conn.close()
     return players, wellness, training_load, force_plate, injuries, acwr, availability
 
 
+health_report = startup_health_report()
+if health_report["errors"]:
+    st.error("WAIMS could not start because the local demo database is not healthy.")
+    for msg in health_report["errors"]:
+        st.write(f"- {msg}")
+    st.stop()
+elif health_report["warnings"]:
+    with st.expander("Startup health", expanded=False):
+        for msg in health_report["warnings"]:
+            st.caption(msg)
+
 try:
     players, wellness, training_load, force_plate, injuries, acwr, availability = load_data()
 except Exception as e:
     st.error(f"Error loading database: {e}")
-    st.info("Make sure waims_demo.db is in the current directory")
+    st.info(f"Make sure {DB_PATH.name} is present and readable.")
     st.stop()
 
 # ==============================================================================
@@ -139,6 +221,375 @@ def _evidence_decision_rank(decision: str) -> int:
         "PENDING": 1,
     }
     return order.get(str(decision or "PENDING").upper(), 0)
+
+
+def _render_section_error(section_name: str, exc: Exception) -> None:
+    st.error(f"{section_name} is temporarily unavailable.")
+    st.caption("The rest of the app is still running. Expand for technical detail.")
+    with st.expander(f"{section_name} error detail", expanded=False):
+        st.exception(exc)
+
+
+@contextmanager
+def _section_guard(section_name: str):
+    try:
+        yield
+    except Exception as exc:
+        _render_section_error(section_name, exc)
+
+
+def _system_status_inline_html() -> str:
+    if health_report["errors"]:
+        status_color = "#dc2626"
+        status_label = "Startup issue"
+        detail = health_report["errors"][0]
+    elif health_report["warnings"]:
+        status_color = "#d97706"
+        status_label = "Healthy with warnings"
+        detail = health_report["warnings"][0]
+    else:
+        status_color = "#16a34a"
+        status_label = "Healthy"
+        detail = f"Data source: {DB_PATH.name}"
+
+    return (
+        f'<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;'
+        f'border:1px solid #e2e8f0;border-radius:999px;background:#f8fafc;'
+        f'font-size:12px;font-weight:700;color:{status_color};">'
+        f'<span style="width:8px;height:8px;border-radius:999px;background:{status_color};display:inline-block;"></span>'
+        f'System status: {status_label}</span>'
+        f'<span style="font-size:12px;color:#94a3b8;">{detail}</span>'
+    )
+
+
+def _db_table_exists(table_name: str) -> bool:
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+            (table_name,),
+        ).fetchone() is not None
+        conn.close()
+        return exists
+    except Exception:
+        return False
+
+
+def _latest_date_label(frame: pd.DataFrame, date_col: str = "date") -> str:
+    if frame.empty or date_col not in frame.columns:
+        return "No data"
+    dates = pd.to_datetime(frame[date_col], errors="coerce").dropna()
+    if dates.empty:
+        return "No valid dates"
+    return dates.max().strftime("%Y-%m-%d")
+
+
+def _connector_status_card(title: str, status: str, note: str) -> dict:
+    return {"title": title, "winner": status, "note": note}
+
+
+def connector_status_snapshot(end_date: pd.Timestamp) -> list[dict]:
+    latest_day = pd.Timestamp(end_date).strftime("%Y-%m-%d")
+    snapshots = [
+        _connector_status_card(
+            "Wellness feed",
+            "Healthy" if not wellness.empty else "Missing",
+            f"Latest row: {_latest_date_label(wellness)}",
+        ),
+        _connector_status_card(
+            "Training load feed",
+            "Healthy" if not training_load.empty else "Missing",
+            f"Latest row: {_latest_date_label(training_load)}",
+        ),
+        _connector_status_card(
+            "Force plate feed",
+            "Healthy" if not force_plate.empty else "Missing",
+            f"Latest row: {_latest_date_label(force_plate)}",
+        ),
+        _connector_status_card(
+            "Processed model output",
+            processed_data_validation["status"],
+            processed_data_validation["detail"],
+        ),
+    ]
+
+    try:
+        import oura_connector  # type: ignore
+        get_status = getattr(oura_connector, "get_oura_status", None)
+        if callable(get_status):
+            raw = get_status()
+            if isinstance(raw, dict):
+                if raw.get("error"):
+                    oura_status = "Attention"
+                elif raw.get("connected") or raw.get("demo_mode"):
+                    oura_status = "Active"
+                else:
+                    oura_status = "Not connected"
+                sync_note = str(raw.get("last_sync") or raw.get("last_sync_at") or raw.get("status") or "No sync detail")
+            else:
+                oura_status = "Configured"
+                sync_note = str(raw)
+        else:
+            oura_status = "Configured"
+            sync_note = "Connector module available"
+    except Exception as exc:
+        demo_flag = os.getenv("WAIMS_OURA_DEMO_MODE") or os.getenv("WAIMS_DEMO_MODE")
+        if str(demo_flag).strip().lower() in {"1", "true", "yes", "on"}:
+            oura_status = "Demo mode"
+            sync_note = "Wearable preview is running in demo mode."
+        else:
+            oura_status = "Not connected"
+            sync_note = f"Connector unavailable: {exc}"
+    snapshots.append(_connector_status_card("Oura connector", oura_status, sync_note))
+
+    espn_exists = _db_table_exists("game_results") or _db_table_exists("game_box_scores")
+    snapshots.append(
+        _connector_status_card(
+            "Game data feed",
+            "Loaded" if espn_exists else "Optional",
+            "ESPN-derived game tables available." if espn_exists else "No external game feed loaded into the demo DB.",
+        )
+    )
+    return snapshots
+
+
+INGEST_DROP_SPEC = {
+    "wellness": {"required": {"player_id", "date", "sleep_hours", "soreness", "stress", "mood"}, "dates": ["date"], "numeric": ["sleep_hours", "soreness", "stress", "mood"]},
+    "training_load": {"required": {"player_id", "date"}, "dates": ["date"], "numeric": ["player_load", "accel_count", "decel_count", "practice_minutes", "total_distance_km"]},
+    "force_plate": {"required": {"player_id", "date"}, "dates": ["date"], "numeric": ["cmj_height_cm", "rsi_modified"]},
+    "injuries": {"required": {"player_id", "injury_date"}, "dates": ["injury_date", "return_date"], "numeric": ["days_missed"]},
+    "schedule": {"required": {"date", "opponent"}, "dates": ["date"], "numeric": ["days_rest"]},
+    "_processed": {"required": {"player_id", "date", "readiness_score", "injury_risk_score"}, "dates": ["date"], "numeric": ["readiness_score", "injury_risk_score"]},
+}
+
+
+def _latest_drop_file(folder: Path) -> Path | None:
+    if not folder.exists():
+        return None
+    files = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in {".csv", ".xlsx", ".xls"}]
+    if not files:
+        return None
+    return max(files, key=lambda p: p.stat().st_mtime)
+
+
+def _read_drop_file(path: Path) -> pd.DataFrame:
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(path)
+    if suffix in {".xlsx", ".xls"}:
+        return pd.read_excel(path)
+    raise ValueError(f"Unsupported file type: {path.suffix}")
+
+
+def _validate_drop_zone(zone_name: str, path: Path | None) -> dict:
+    if path is None:
+        return {
+            "zone": zone_name,
+            "status": "Waiting for file",
+            "detail": "No file detected in drop folder.",
+            "file_name": "?",
+            "rows": 0,
+            "modified_at": "?",
+            "signature": "none",
+        }
+
+    try:
+        frame = _read_drop_file(path)
+        spec = INGEST_DROP_SPEC.get(zone_name)
+        if spec:
+            frame = _validate_loaded_frame(
+                f"data_drop/{zone_name}/{path.name}",
+                frame,
+                required_columns=spec["required"],
+                date_columns=spec["dates"],
+                numeric_columns=spec["numeric"],
+            )
+        detail = f"{len(frame):,} rows ready for ingest review."
+        status = "Validated"
+    except Exception as exc:
+        frame = None
+        detail = str(exc)
+        status = "Validation failed"
+
+    stat = path.stat()
+    return {
+        "zone": zone_name,
+        "status": status,
+        "detail": detail,
+        "file_name": path.name,
+        "rows": 0 if frame is None else int(len(frame)),
+        "modified_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+        "signature": f"{path.name}|{int(stat.st_mtime)}|{stat.st_size}|{status}",
+    }
+
+
+def _sanitize_drop_filename(name: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(str(name)).name).strip("._")
+    return cleaned or "upload.csv"
+
+
+def _read_uploaded_drop_file(uploaded_file) -> pd.DataFrame:
+    payload = uploaded_file.getvalue()
+    suffix = Path(str(uploaded_file.name)).suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(io.BytesIO(payload))
+    if suffix in {".xlsx", ".xls"}:
+        return pd.read_excel(io.BytesIO(payload))
+    raise ValueError(f"Unsupported file type: {suffix or 'unknown'}")
+
+
+def _build_drop_preview_warnings(zone_name: str, frame: pd.DataFrame) -> list[str]:
+    spec = INGEST_DROP_SPEC.get(zone_name) or {}
+    warnings = []
+
+    for col in sorted(spec.get("required", [])):
+        if col not in frame.columns:
+            continue
+        blank_count = int(frame[col].isna().sum())
+        if pd.api.types.is_string_dtype(frame[col]) or frame[col].dtype == object:
+            blank_count += int(frame[col].astype(str).str.strip().eq("").sum() - frame[col].isna().sum())
+        if blank_count > 0:
+            warnings.append(f"{blank_count} row(s) have blank required values in `{col}`.")
+
+    for col in spec.get("dates", []):
+        if col not in frame.columns:
+            continue
+        parsed = pd.to_datetime(frame[col], errors="coerce")
+        invalid_mask = parsed.isna() & frame[col].notna() & frame[col].astype(str).str.strip().ne("")
+        invalid_count = int(invalid_mask.sum())
+        if invalid_count > 0:
+            warnings.append(f"{invalid_count} row(s) in `{col}` could not be parsed as dates.")
+
+    for col in spec.get("numeric", []):
+        if col not in frame.columns:
+            continue
+        coerced = pd.to_numeric(frame[col], errors="coerce")
+        invalid_mask = coerced.isna() & frame[col].notna() & frame[col].astype(str).str.strip().ne("")
+        invalid_count = int(invalid_mask.sum())
+        if invalid_count > 0:
+            warnings.append(f"{invalid_count} row(s) in `{col}` could not be read as numbers.")
+
+    return warnings
+
+
+def _preview_uploaded_drop_file(zone_name: str, uploaded_file) -> dict:
+    try:
+        frame = _read_uploaded_drop_file(uploaded_file)
+    except Exception as exc:
+        return {
+            "zone": zone_name,
+            "status": "Validation failed",
+            "detail": str(exc),
+            "rows": 0,
+            "columns": [],
+            "preview": pd.DataFrame(),
+            "warnings": [],
+        }
+
+    raw_columns = list(frame.columns)
+    warning_lines = _build_drop_preview_warnings(zone_name, frame)
+    try:
+        spec = INGEST_DROP_SPEC.get(zone_name)
+        validated = _validate_loaded_frame(
+            f"upload preview/{zone_name}/{uploaded_file.name}",
+            frame,
+            required_columns=spec["required"] if spec else set(),
+            date_columns=spec["dates"] if spec else [],
+            numeric_columns=spec["numeric"] if spec else [],
+        )
+        return {
+            "zone": zone_name,
+            "status": "Validated",
+            "detail": f"{len(validated):,} rows passed preview validation and are ready to stage.",
+            "rows": int(len(validated)),
+            "columns": raw_columns,
+            "preview": validated.head(25),
+            "warnings": warning_lines,
+        }
+    except Exception as exc:
+        return {
+            "zone": zone_name,
+            "status": "Validation failed",
+            "detail": str(exc),
+            "rows": int(len(frame)),
+            "columns": raw_columns,
+            "preview": frame.head(25),
+            "warnings": warning_lines,
+        }
+
+
+def _stage_uploaded_drop_file(zone_name: str, uploaded_file, actor_role: str) -> Path:
+    folder = DATA_DROP_ROOT / zone_name
+    folder.mkdir(parents=True, exist_ok=True)
+    safe_name = _sanitize_drop_filename(uploaded_file.name)
+    stamped_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{safe_name}"
+    target = folder / stamped_name
+    target.write_bytes(uploaded_file.getvalue())
+    stat = target.stat()
+    _append_ingest_audit(
+        {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "zone": zone_name,
+            "file_name": target.name,
+            "status": "Staged",
+            "detail": "Validated in app preview and written to the data_drop lane.",
+            "rows": None,
+            "role": actor_role,
+            "signature": f"{target.name}|{int(stat.st_mtime)}|{stat.st_size}|staged",
+        }
+    )
+    return target
+
+
+def _load_recent_ingest_audit(limit: int = 12) -> list[dict]:
+    if not INGEST_AUDIT_PATH.exists():
+        return []
+    entries = []
+    for line in INGEST_AUDIT_PATH.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entries.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return entries[-limit:]
+
+
+def _append_ingest_audit(entry: dict) -> None:
+    INGEST_AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with INGEST_AUDIT_PATH.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry) + "\n")
+
+
+def inspect_ingest_dropzones() -> tuple[list[dict], list[dict]]:
+    snapshots = []
+    recent_entries = _load_recent_ingest_audit(limit=50)
+    last_signature_by_zone = {}
+    for entry in recent_entries:
+        zone = entry.get("zone")
+        signature = entry.get("signature")
+        if zone and signature:
+            last_signature_by_zone[zone] = signature
+
+    for zone_name in INGEST_DROP_SPEC:
+        folder = DATA_DROP_ROOT / zone_name
+        snapshot = _validate_drop_zone(zone_name, _latest_drop_file(folder))
+        snapshots.append(snapshot)
+        if last_signature_by_zone.get(zone_name) != snapshot["signature"]:
+            _append_ingest_audit(
+                {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "zone": zone_name,
+                    "file_name": snapshot["file_name"],
+                    "status": snapshot["status"],
+                    "detail": snapshot["detail"],
+                    "rows": snapshot["rows"],
+                    "signature": snapshot["signature"],
+                }
+            )
+
+    return snapshots, _load_recent_ingest_audit(limit=12)
 
 
 def _dedupe_evidence_papers(papers: list[dict]) -> list[dict]:
@@ -1025,12 +1476,26 @@ if len(wellness) > 0:
 else:
     end_date = pd.Timestamp(datetime.today())
 
+processed_data_validation = {"status": "Not loaded", "detail": "Processed model output has not been checked yet."}
 try:
     _pcsv = pd.read_csv("data/processed_data.csv")
-    _pcsv["date"] = pd.to_datetime(_pcsv["date"]).dt.date
+    _pcsv = _validate_loaded_frame(
+        "processed_data.csv",
+        _pcsv,
+        required_columns={"player_id", "date", "readiness_score", "injury_risk_score"},
+        date_columns=["date"],
+        numeric_columns=["readiness_score", "injury_risk_score"],
+    )
+    _pcsv["date"] = _pcsv["date"].dt.date
     ml_predictions = _pcsv[["player_id", "date", "readiness_score", "injury_risk_score"]].copy()
-except Exception:
+    processed_data_validation = {"status": "Validated", "detail": "processed_data.csv passed schema, date, and numeric checks."}
+except FileNotFoundError:
     ml_predictions = pd.DataFrame(columns=["player_id", "date", "readiness_score", "injury_risk_score"])
+    processed_data_validation = {"status": "Optional file missing", "detail": "processed_data.csv not found; forecast outputs will stay empty until generated."}
+except Exception as exc:
+    st.warning(f"Processed model output could not be validated: {exc}")
+    ml_predictions = pd.DataFrame(columns=["player_id", "date", "readiness_score", "injury_risk_score"])
+    processed_data_validation = {"status": "Validation failed", "detail": str(exc)}
 
 start_date = end_date
 
@@ -1064,24 +1529,73 @@ role_label = {
 }.get(role, role)
 
 st.markdown(
-    f'<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">'
+    f'<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px;">'
     f'<span style="font-size:24px;font-weight:800;color:#1e3a5f;">WAIMS</span>'
     f'<span style="background:{role_color};color:white;padding:3px 12px;border-radius:12px;'
     f'font-size:12px;font-weight:700;">{role_label}</span>'
     f'<span style="font-size:13px;color:#64748b;">{end_date.strftime("%B %d, %Y")}</span>'
+    f'{_system_status_inline_html()}'
     f'</div>',
     unsafe_allow_html=True
 )
 
+ingest_snapshots, ingest_audit_entries = inspect_ingest_dropzones()
+
+if role == "sport_scientist":
+    with st.expander("Validation status", expanded=False):
+        st.caption("These checks run before WAIMS uses local database tables or optional processed model outputs.")
+        core_status = "Healthy" if not health_report["errors"] else "Issue"
+        st.markdown(f"- **Core database:** {core_status}")
+        if health_report["warnings"]:
+            for msg in health_report["warnings"]:
+                st.markdown(f"  - {msg}")
+        else:
+            st.markdown(f"  - Data source: `{DB_PATH.name}`")
+        st.markdown(f"- **Processed model output:** {processed_data_validation['status']}")
+        st.markdown(f"  - {processed_data_validation['detail']}")
+        st.markdown("- **Ingest rule:** core tables are validated before load; optional processed files are validated before use and fall back safely if invalid.")
+
+    with st.expander("Data intake status", expanded=False):
+        st.caption("WAIMS monitors the local data-drop folders before anything is trusted for ingest. Valid files are intake-ready; invalid files stay visible with the exact reason they were rejected. Staff can also preview and confirm files in the Data Intake tab before anything is written to a drop lane.")
+        intake_df = pd.DataFrame(
+            [
+                {
+                    "drop_zone": row["zone"],
+                    "status": row["status"],
+                    "latest_file": row["file_name"],
+                    "rows": row["rows"],
+                    "modified": row["modified_at"],
+                    "detail": row["detail"],
+                }
+                for row in ingest_snapshots
+            ]
+        )
+        st.dataframe(intake_df, width='stretch', hide_index=True)
+        st.caption("This is the current intake gate: coaches or staff can drop files into `data_drop`, WAIMS validates them, and only validated data should move into the core database workflow.")
+
+    with st.expander("Ingest audit history", expanded=False):
+        if ingest_audit_entries:
+            audit_df = pd.DataFrame(ingest_audit_entries)
+            st.dataframe(audit_df[["timestamp", "zone", "file_name", "status", "rows", "detail"]], width='stretch', hide_index=True)
+        else:
+            st.caption("No intake events logged yet. When a file appears or changes in a drop folder, WAIMS logs the validation result here.")
+
+    with st.expander("Connector status", expanded=False):
+        st.caption("This panel shows which operational inputs are live, optional, missing, or running in fallback mode.")
+        connector_df = pd.DataFrame(connector_status_snapshot(end_date))
+        st.dataframe(connector_df, width='stretch', hide_index=True)
+
 # GMs get a focused banner instead of full tab nav
 if role == "gm":
-    st.info("**Executive View** - You can see roster availability and the Command Center summary. "
-            "Detailed wellness, force plate, and raw load data are restricted to performance staff.")
+    st.info("**Executive View** - You can see roster availability and the Command Center summary only. "
+            "Detailed wellness, injuries, force plate, and raw load data are restricted to performance staff.")
+    st.caption("Front-office evaluation workflow lives in WAIMS-GM. This view stays focused on executive availability and team status.")
 
 # Build visible tab list for this role
 tab_map = {}
 if role == "athlete":
-    athlete_home_view(wellness, players, training_load, end_date)
+    with _section_guard("Athlete View"):
+        athlete_home_view(wellness, players, training_load, end_date)
 else:
     visible = get_visible_tabs()   # list of (key, label)
     tab_keys   = [v[0] for v in visible]
@@ -1091,11 +1605,11 @@ else:
 
 # ── Command Center ────────────────────────────────────────────────────────────
 if "cc" in tab_map:
-    with tab_map["cc"]:
+    with tab_map["cc"], _section_guard("Command Center"):
         if role == "gm":
             # GM sees readiness summary only - no raw wellness, no minutes detail
             st.subheader("Roster Availability Summary")
-            st.caption("Executive view - traffic lights and availability only.")
+            st.caption("Executive view - traffic lights and roster availability only.")
             today = wellness[wellness["date"] == pd.to_datetime(end_date)].copy()
             today = today.merge(players[["player_id", "name", "position"]], on="player_id", how="left")
             today["readiness_score"] = (
@@ -1110,14 +1624,14 @@ if "cc" in tab_map:
                 today[["name", "position", "status"]].sort_values("name"),
                 hide_index=True, width='stretch'
             )
-            st.caption("Detailed wellness scores, load data, and force plate metrics are restricted to performance staff.")
+            st.caption("Detailed wellness scores, injury context, load data, and force plate metrics are restricted to performance staff.")
         else:
             coach_command_center(wellness, players, force_plate, training_load, acwr, end_date,
                                  ml_predictions=ml_predictions)
 
 # ── Today's Readiness ─────────────────────────────────────────────────────────
 if "rd" in tab_map:
-    with tab_map["rd"]:
+    with tab_map["rd"], _section_guard("Today's Readiness"):
         da = data_access()
         if not da["show_raw_wellness"]:
             st.warning("Raw wellness data (sleep, soreness, stress, mood) is restricted to Performance and Medical staff.")
@@ -1126,7 +1640,7 @@ if "rd" in tab_map:
 
 # ── Athlete Profiles ──────────────────────────────────────────────────────────
 if "ap" in tab_map:
-    with tab_map["ap"]:
+    with tab_map["ap"], _section_guard("Athlete Profiles"):
         athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries)
 
 # ==============================================================================
@@ -1134,7 +1648,7 @@ if "ap" in tab_map:
 # ==============================================================================
 
 if "tr" in tab_map:
-    with tab_map["tr"]:
+    with tab_map["tr"], _section_guard("Trends & Load"):
         st.header("Trends & Load")
         st.caption("Raw daily values (faint) with 7-day rolling average (bold). Subjective + objective signals side by side.")
 
@@ -1276,7 +1790,7 @@ if "tr" in tab_map:
 
 
 if "jt" in tab_map:
-    with tab_map["jt"]:
+    with tab_map["jt"], _section_guard("Jump Testing"):
         st.header("Jump Testing & Neuromuscular Readiness")
         st.caption("Force plate profiling with RSI, CMJ, trend analysis, and game-stat context.")
 
@@ -2321,15 +2835,99 @@ def generate_smart_response(query_type):
 # ==============================================================================
 
 if "inj" in tab_map:
-    with tab_map["inj"]:
+    with tab_map["inj"], _section_guard("Availability & Injuries"):
         availability_injuries_tab(availability, injuries, players, end_date)
 
 # ==============================================================================
 # TAB 6: FORECAST
 # ==============================================================================
 
+if "di" in tab_map:
+    with tab_map["di"], _section_guard("Data Intake"):
+        st.markdown("<div class='section-kicker'>Operational Intake</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'>Data Intake</div>", unsafe_allow_html=True)
+        st.caption("Use this tab to preview, validate, and confirm files before they are written into a `data_drop` lane. This is the operator-facing intake surface for WAIMS Python.")
+
+        connector_cards = connector_status_snapshot(end_date)
+        render_soft_card_grid(connector_cards, columns_per_row=3, top_margin="0")
+
+        st.markdown("**Upload, preview, and confirm**")
+        upload_zone = st.selectbox(
+            "Target drop zone",
+            options=list(INGEST_DROP_SPEC.keys()),
+            key="data_intake_upload_zone",
+            format_func=lambda key: key.replace("_", " ").title(),
+        )
+        st.caption("Nothing is written to the drop folder until you click confirm.")
+        uploaded_intake_file = st.file_uploader(
+            "Drag a CSV or Excel file here for preview",
+            type=["csv", "xlsx", "xls"],
+            key="data_intake_upload",
+        )
+
+        if uploaded_intake_file is not None:
+            preview = _preview_uploaded_drop_file(upload_zone, uploaded_intake_file)
+            required_cols = sorted(INGEST_DROP_SPEC[upload_zone]["required"])
+            warning_count = len(preview.get("warnings", []))
+            meta_cols = st.columns(4)
+            meta_cols[0].metric("Preview status", preview["status"])
+            meta_cols[1].metric("Rows detected", preview["rows"])
+            meta_cols[2].metric("Required fields", len(required_cols))
+            meta_cols[3].metric("Warning flags", warning_count)
+            if preview["status"] == "Validated":
+                st.success(preview["detail"])
+            else:
+                st.error(preview["detail"])
+            st.caption(f"Required columns for `{upload_zone}`: {', '.join(required_cols)}")
+            if preview["columns"]:
+                st.caption(f"Uploaded columns: {', '.join(preview['columns'])}")
+            if warning_count:
+                with st.expander("Preview warning counts", expanded=False):
+                    for warning in preview["warnings"]:
+                        st.markdown(f"- {warning}")
+            if not preview["preview"].empty:
+                st.dataframe(preview["preview"], width='stretch', hide_index=True)
+            if preview["status"] == "Validated":
+                if st.button(f"Confirm and stage file in {upload_zone}", key="confirm_data_intake_upload", width="stretch"):
+                    target = _stage_uploaded_drop_file(upload_zone, uploaded_intake_file, current_role())
+                    st.success(f"File staged successfully: `{target.name}`")
+                    st.rerun()
+            else:
+                st.info("Fix the issue above and upload again. WAIMS will not stage invalid files into the drop lane.")
+
+        intake_df = pd.DataFrame(
+            [
+                {
+                    "drop_zone": row["zone"],
+                    "status": row["status"],
+                    "latest_file": row["file_name"],
+                    "rows": row["rows"],
+                    "modified": row["modified_at"],
+                    "detail": row["detail"],
+                }
+                for row in ingest_snapshots
+            ]
+        )
+        st.markdown("**Latest drop-zone files**")
+        st.dataframe(intake_df, width='stretch', hide_index=True)
+        st.caption("Validated files are intake-ready. Invalid files stay visible with the exact reason they were rejected. Nothing should be trusted downstream until it passes this gate.")
+
+        st.markdown("**Recent ingest audit**")
+        if ingest_audit_entries:
+            audit_df = pd.DataFrame(ingest_audit_entries)
+            audit_columns = [col for col in ["timestamp", "zone", "file_name", "status", "rows", "role", "detail"] if col in audit_df.columns]
+            st.dataframe(audit_df[audit_columns], width='stretch', hide_index=True)
+        else:
+            st.info("No intake events logged yet. When a file appears, changes, or is staged from this tab, WAIMS logs the validation result here.")
+
+        st.markdown("**Operational rules**")
+        st.markdown("- Core database tables are validated before load.")
+        st.markdown("- Optional processed files are validated before use and fall back safely if invalid.")
+        st.markdown("- Files uploaded here are previewed first, then only written to `data_drop` after explicit confirmation.")
+        st.markdown("- ACWR remains contextual only; this intake surface is about data trust, not promoting ACWR as a model driver.")
+
 if "fc" in tab_map:
-    with tab_map["fc"]:
+    with tab_map["fc"], _section_guard("Forecast"):
         coach_view = current_role() in ("head_coach", "asst_coach")
         staff_forecast_view = current_role() in ("sport_scientist", "medical")
 
@@ -2473,7 +3071,7 @@ if "fc" in tab_map:
 # ==============================================================================
 
 if "ins" in tab_map:
-    with tab_map["ins"]:
+    with tab_map["ins"], _section_guard("Insights"):
 
             # ── SECTION A: ASK ────────────────────────────────────────────────────────
         st.markdown(
