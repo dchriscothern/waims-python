@@ -66,13 +66,15 @@ _Update at the end of every session._
 - [x] Coach Command Center roster status now shows a compact summary with the full player card grid behind a collapsed detail dropdown.
 - [x] Forecast / Insights jump-profile merge path hardened so missing `player_id` during force-plate profiling no longer crashes the app.
 - [x] PR review blockers addressed: retrain workflow push target hardened, GM availability access restored, and duplicate/corrupted research-log evidence row removed.
+- [x] Staging mobile-web polish started for athlete-facing views by stacking high-density cards/charts into fewer side-by-side columns.
 
 **Known issues:**
 - [ ] Need visual QA in Streamlit to confirm the new roster summary/dropdown spacing feels right on deployed layout.
 - [ ] Need deployed app verification that Forecast / Insights loads cleanly with current Cloud data snapshot.
+- [ ] Coach Command Center still needs a separate phone-focused layout pass if staff will use that tab regularly on small screens.
 
 **Next priority:**
-- [ ] Run a focused deployed smoke test across Coach, Forecast, and Insights after the updated PR merges.
+- [ ] Run a staging mobile QA pass on athlete and profile tabs, then decide whether to extend the same treatment to coach-facing sections.
 
 ---
 

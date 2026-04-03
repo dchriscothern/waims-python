@@ -374,21 +374,19 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
     st.markdown("## My Readiness")
     st.caption("Your athlete view shows only your own data. No teammate information appears here.")
 
-    top_left, top_right = st.columns([0.95, 1.05], gap="medium")
-    with top_left:
-        st.markdown(
-            f'<div style="background:{status_bg};border-left:4px solid {status_color};border-radius:0 10px 10px 0;padding:12px 14px;">'
-            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;color:{status_color};text-transform:uppercase;margin-bottom:8px;">Today</div>'
-            f'<div style="font-size:22px;font-weight:800;color:#0f172a;margin-bottom:8px;">{status} - {readiness:.0f}/100</div>'
-            f'<div style="font-size:13px;color:#334155;line-height:1.5;">{guidance}</div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-    with top_right:
-        metric_cols = st.columns(3)
-        metric_cols[0].metric("Sleep", f"{float(athlete.get('sleep_hours', 0.0)):.1f} hrs")
-        metric_cols[1].metric("Soreness", f"{float(athlete.get('soreness', 0.0)):.0f}/10")
-        metric_cols[2].metric("Stress", f"{float(athlete.get('stress', 0.0)):.0f}/10")
+    st.markdown(
+        f'<div style="background:{status_bg};border-left:4px solid {status_color};border-radius:0 10px 10px 0;padding:12px 14px;">'
+        f'<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;color:{status_color};text-transform:uppercase;margin-bottom:8px;">Today</div>'
+        f'<div style="font-size:22px;font-weight:800;color:#0f172a;margin-bottom:8px;">{status} - {readiness:.0f}/100</div>'
+        f'<div style="font-size:13px;color:#334155;line-height:1.5;">{guidance}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    metric_cols = st.columns(3)
+    metric_cols[0].metric("Sleep", f"{float(athlete.get('sleep_hours', 0.0)):.1f} hrs")
+    metric_cols[1].metric("Soreness", f"{float(athlete.get('soreness', 0.0)):.0f}/10")
+    metric_cols[2].metric("Stress", f"{float(athlete.get('stress', 0.0)):.0f}/10")
 
     practice_minutes = float(recent_load["practice_minutes"].fillna(0).sum()) if len(recent_load) and "practice_minutes" in recent_load.columns else 0.0
     game_minutes = float(recent_load["game_minutes"].fillna(0).sum()) if len(recent_load) and "game_minutes" in recent_load.columns else 0.0
@@ -409,25 +407,21 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
         next_game_line_one = "No game scheduled"
         next_game_line_two = "Schedule not available"
 
-    context_cols = st.columns(3)
-    with context_cols[0]:
-        _render_compact_context_card(
-            "This Week",
-            f"Avg sleep {avg_sleep:.1f} hrs",
-            f"Soreness {avg_sore:.1f}/10",
-        )
-    with context_cols[1]:
-        _render_compact_context_card(
-            "Load",
-            f"7-day: {load7:.0f} AU",
-            f"Today's load: {today_load:.0f} AU",
-        )
-    with context_cols[2]:
-        _render_compact_context_card(
-            "Next Game",
-            next_game_line_one,
-            next_game_line_two,
-        )
+    _render_compact_context_card(
+        "This Week",
+        f"Avg sleep {avg_sleep:.1f} hrs",
+        f"Soreness {avg_sore:.1f}/10",
+    )
+    _render_compact_context_card(
+        "Load",
+        f"7-day: {load7:.0f} AU",
+        f"Today's load: {today_load:.0f} AU",
+    )
+    _render_compact_context_card(
+        "Next Game",
+        next_game_line_one,
+        next_game_line_two,
+    )
 
     plan_text = (
         "Full practice is appropriate today."
@@ -585,7 +579,7 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
         height=56,
     )
 
-    q1, q2, q3, q4, q5 = st.columns(5)
+    q1, q2, q3 = st.columns(3)
     with q1:
         if st.button("How Am I Doing?", width='stretch', key="ath_q_today"):
             st.session_state["athlete_query_to_run"] = "how am i doing today"
@@ -598,6 +592,7 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
         if st.button("Soreness & Stress", width='stretch', key="ath_q_sore"):
             st.session_state["athlete_query_to_run"] = "soreness and stress"
             st.rerun()
+    q4, q5 = st.columns(2)
     with q4:
         if st.button("Didn't Play", width='stretch', key="ath_q_dnp"):
             st.session_state["athlete_query_to_run"] = "did not play"
@@ -679,19 +674,17 @@ def athlete_home_view(wellness_df: pd.DataFrame, players_df: pd.DataFrame, train
         )
     elif detail_view == "Recovery Trends":
         if len(recent):
-            trend_cols = st.columns(2)
             trend_frame = recent.copy()
             trend_frame["date"] = pd.to_datetime(trend_frame["date"])
-            with trend_cols[0]:
-                st.markdown("### Sleep Trend")
-                sleep_fig = px.line(trend_frame, x="date", y="sleep_hours", markers=True)
-                sleep_fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="", yaxis_title="Hours")
-                st.plotly_chart(sleep_fig, width='stretch')
-            with trend_cols[1]:
-                st.markdown("### Soreness & Stress")
-                stress_fig = px.line(trend_frame, x="date", y=["soreness", "stress"], markers=True)
-                stress_fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="", yaxis_title="Score")
-                st.plotly_chart(stress_fig, width='stretch')
+            st.markdown("### Sleep Trend")
+            sleep_fig = px.line(trend_frame, x="date", y="sleep_hours", markers=True)
+            sleep_fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="", yaxis_title="Hours")
+            st.plotly_chart(sleep_fig, width='stretch')
+
+            st.markdown("### Soreness & Stress")
+            stress_fig = px.line(trend_frame, x="date", y=["soreness", "stress"], markers=True)
+            stress_fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="", yaxis_title="Score")
+            st.plotly_chart(stress_fig, width='stretch')
         else:
             st.caption("Recovery trends will appear here when the last 7 days of athlete data are available.")
     else:
