@@ -1871,11 +1871,13 @@ if "jt" in tab_map:
                             avg[col] = pd.to_numeric(ordered[col], errors="coerce").mean()
                     return avg
 
-                profile_df = (
-                    filtered_fp.groupby("player_id", group_keys=False)
-                    .apply(_profile_row)
-                    .reset_index(drop=True)
-                )
+                profile_rows = []
+                for profile_pid, group in filtered_fp.groupby("player_id", sort=False):
+                    profile_row = _profile_row(group).copy()
+                    profile_row["player_id"] = profile_row.get("player_id", profile_pid)
+                    profile_rows.append(profile_row)
+
+                profile_df = pd.DataFrame(profile_rows).reset_index(drop=True)
 
                 def _monthly_change(group: pd.DataFrame, metric: str) -> float | None:
                     ordered = group.sort_values("date")
@@ -1889,9 +1891,26 @@ if "jt" in tab_map:
                     days = max((ordered["date"].iloc[-1] - ordered["date"].iloc[0]).days, 1)
                     return (last_val - first_val) / days * 30.0
 
-                cmj_monthly = filtered_fp.groupby("player_id").apply(lambda g: _monthly_change(g, "cmj_height_cm")).rename("cmj_monthly_change")
-                rsi_monthly = filtered_fp.groupby("player_id").apply(lambda g: _monthly_change(g, "rsi_modified")).rename("rsi_monthly_change")
-                latest_test_date = filtered_fp.groupby("player_id")["date"].max().rename("latest_test_date")
+                profile_df["player_id"] = profile_df["player_id"].astype(str)
+                filtered_fp["player_id"] = filtered_fp["player_id"].astype(str)
+
+                cmj_monthly = (
+                    filtered_fp.groupby("player_id")
+                    .apply(lambda g: _monthly_change(g, "cmj_height_cm"))
+                    .rename("cmj_monthly_change")
+                    .reset_index()
+                )
+                rsi_monthly = (
+                    filtered_fp.groupby("player_id")
+                    .apply(lambda g: _monthly_change(g, "rsi_modified"))
+                    .rename("rsi_monthly_change")
+                    .reset_index()
+                )
+                latest_test_date = (
+                    filtered_fp.groupby("player_id", as_index=False)["date"]
+                    .max()
+                    .rename(columns={"date": "latest_test_date"})
+                )
                 profile_df = profile_df.merge(cmj_monthly, on="player_id", how="left")
                 profile_df = profile_df.merge(rsi_monthly, on="player_id", how="left")
                 profile_df = profile_df.merge(latest_test_date, on="player_id", how="left")

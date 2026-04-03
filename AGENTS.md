@@ -64,12 +64,14 @@ _Update at the end of every session._
 
 **Last completed:**
 - [x] Coach Command Center roster status now shows a compact summary with the full player card grid behind a collapsed detail dropdown.
+- [x] Forecast / Insights jump-profile merge path hardened so missing `player_id` during force-plate profiling no longer crashes the app.
 
 **Known issues:**
 - [ ] Need visual QA in Streamlit to confirm the new roster summary/dropdown spacing feels right on deployed layout.
+- [ ] Need deployed app verification that Forecast / Insights loads cleanly with current Cloud data snapshot.
 
 **Next priority:**
-- [ ] Tighten coach tab information density further if any other sections still feel too busy at first glance.
+- [ ] Run a focused deployed smoke test across Coach, Forecast, and Insights after the next push.
 
 ---
 
