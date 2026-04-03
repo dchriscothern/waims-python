@@ -29,6 +29,20 @@ generate_database.py  ──►  waims_demo.db  ──►  train_models.py  ─�
 
 ---
 
+## Test Commands
+
+Use `pytest` from the project virtualenv:
+
+```bash
+pytest test_waims.py -v -k "not db"
+pytest test_waims.py::TestDatabaseIntegrity -v
+pytest test_oura_integration.py -v
+```
+
+`pytest.ini` registers the `db` marker for the database-backed integration tests.
+
+---
+
 ## Module Reference
 
 ### `generate_database.py`
