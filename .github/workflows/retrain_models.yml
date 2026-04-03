@@ -9,13 +9,21 @@ on:
       - 'train_models.py'
       - 'generate_database.py'
 
+permissions:
+  contents: write
+
 jobs:
   retrain:
     runs-on: ubuntu-latest
+    env:
+      TARGET_BRANCH: ${{ github.ref_name }}
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,7 +48,7 @@ jobs:
                   data/processed_data.csv 2>/dev/null || true
           git diff --staged --quiet || \
             git commit -m "Weekly model retrain $(date +%Y-%m-%d)"
-          git push
+          git push origin HEAD:${TARGET_BRANCH}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

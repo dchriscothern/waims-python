@@ -141,11 +141,11 @@ def athlete_photo_block(ath_key: str):
     for ext in (".jpg", ".jpeg", ".png"):
         path = f"{PHOTOS_DIR}/{ath_key}{ext}"
         if os.path.exists(path):
-            st.image(path, use_container_width=True)
+            st.image(path, width="stretch")
             return
     st.image(
         f"https://via.placeholder.com/200x250/2E86AB/FFFFFF?text={ath_key.replace('_', '+')}",
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -357,11 +357,11 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         st.markdown("**Overall Readiness**")
         if HAVE_ENHANCED_MODULES:
             fig = create_clean_speedometer(readiness, "Readiness Score", thresholds=[60, 80])
-            st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
+            st.plotly_chart(fig, width="stretch", key=f"gauge_readiness_{athlete_id}")
             st.markdown(create_recommendation_box(readiness, context="competition"), unsafe_allow_html=True)
         else:
             fig = create_gauge_chart(readiness, "Readiness Score", thresholds=[60, 80])
-            st.plotly_chart(fig, use_container_width=True, key=f"gauge_readiness_{athlete_id}")
+            st.plotly_chart(fig, width="stretch", key=f"gauge_readiness_{athlete_id}")
             if readiness >= 80:
                 st.success("Full training cleared")
             elif readiness >= 60:
@@ -380,7 +380,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             "cmj_height_cm": latest_cmj if latest_cmj else 30,
         }
         fig = create_radar_chart(radar_data, selected_athlete)
-        st.plotly_chart(fig, use_container_width=True, key=f"radar_{athlete_id}")
+        st.plotly_chart(fig, width="stretch", key=f"radar_{athlete_id}")
 
     # ------------------------------------------------------------------
     # METRIC CARDS (4 across, clean, no icons)
@@ -484,7 +484,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         fig.add_trace(go.Scatter(x=weekly["date"], y=weekly["sleep_hours"], mode="lines+markers", name="Sleep (hrs)", line=dict(color="#2E86AB", width=2)))
         fig.add_trace(go.Scatter(x=weekly["date"], y=weekly["soreness"],    mode="lines+markers", name="Soreness (0–10)", line=dict(color="#A23B72", width=2)))
         fig.update_layout(title=f"{selected_athlete} — Weekly Trends", yaxis_title="Value", height=300, hovermode="x unified")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     else:
         st.info("Insufficient data for 7-day trends")
 
