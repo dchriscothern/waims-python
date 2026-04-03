@@ -1361,47 +1361,6 @@
     "decision_notes": ""
   },
   {
-    "id": "pmid_41713798",
-    "pmid": "41713798",
-    "source": "PubMed",
-    "source_type": "pubmed",
-    "trust_level": "PRIMARY",
-    "title": "A systematic review and meta-analysis of the evidence on the acute effects of caffeine on sport-specific skills, physical performance, and physiological function in female basketball players.",
-    "authors": "Zhang Z et al.",
-    "journal": "Front Nutr",
-    "pub_date": "2026",
-    "doi": "10.3389/fnut.2026.1766993",
-    "url": "https://pubmed.ncbi.nlm.nih.gov/41809105/",
-    "topics": [
-      "Basketball Load Monitoring",
-      "Female Athlete Monitoring & Recovery",
-      "Sleep & Injury Risk"
-    ],
-    "waims_signal": "All signals -- basketball-specific context and baselines",
-    "waims_action": "Direct application, especially female basketball and positional norms",
-    "tags": [
-      "basketball",
-      "load",
-      "sleep",
-      "injury"
-    ],
-    "quality_score": 25,
-    "quality_labels": [
-      "META-ANALYSIS",
-      "SYSTEMATIC REVIEW",
-      "BASKETBALL",
-      "FEMALE",
-      "REVIEW"
-    ],
-    "decision": "REJECTED",
-    "gate_status": "CANDIDATE",
-    "gate_note": "ELIGIBLE FOR THRESHOLD REVIEW. Check: same population? Same sport/sex? Meaningful effect size? If yes -- schedule formal review with performance staff.",
-    "date_found": "2026-03-16",
-    "decision_by": "",
-    "decision_date": "2026-03-24",
-    "decision_notes": ""
-  },
-  {
     "id": "pmid_41753086",
     "pmid": "41753086",
     "source": "PubMed",

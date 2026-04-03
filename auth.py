@@ -45,7 +45,7 @@ TAB_ACCESS = {
     "asst_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False, di=False),
     "sport_scientist": dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True,  di=True),
     "medical":         dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True,  di=False),
-    "gm":              dict(cc=True,  rd=False,  ap=False, tr=False,jt=False, inj=False, fc=False, ins=False, di=False),
+    "gm":              dict(cc=True,  rd=False,  ap=False, tr=False,jt=False, inj=True,  fc=False, ins=False, di=False),
     "athlete":         dict(cc=False, rd=True,   ap=False, tr=False,jt=False, inj=False, fc=False, ins=False, di=False),
 }
 
