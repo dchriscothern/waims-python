@@ -1290,7 +1290,47 @@ def coach_command_center(wellness, players, force_plate, training_load, acwr, en
         yest = yesterday_scores.get(r["pid"])
         r["overnight_delta"] = round(r["score"] - yest, 1) if yest is not None else None
 
-    with st.expander("Roster Status", expanded=False):
+    protect_count = sum(1 for r in grid_rows if r["score"] < 60)
+    monitor_count = sum(1 for r in grid_rows if 60 <= r["score"] < 80)
+    ready_count = sum(1 for r in grid_rows if r["score"] >= 80)
+    priority_count = protect_count + monitor_count
+
+    status_parts = []
+    if protect_count:
+        status_parts.append(f"{protect_count} protect")
+    if monitor_count:
+        status_parts.append(f"{monitor_count} monitor")
+    if ready_count:
+        status_parts.append(f"{ready_count} ready")
+
+    roster_summary = " | ".join(status_parts) if status_parts else "No roster statuses available"
+    detail_label = (
+        f"Roster Status Detail ({priority_count} priority)"
+        if priority_count
+        else f"Roster Status Detail ({ready_count} ready)"
+    )
+
+    st.markdown(
+        '<div style="font-size:11px;font-weight:700;letter-spacing:0.18em;'
+        'text-transform:uppercase;color:#94a3b8;margin-bottom:8px;">Roster Status</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;'
+        'padding:10px 14px;margin-bottom:10px;font-size:13px;color:#334155;line-height:1.5;">'
+        f'<b>Today:</b> {roster_summary}'
+        + (
+            f' &nbsp;&middot;&nbsp; <span style="color:#b45309;font-weight:700;">'
+            f'{priority_count} players need follow-up</span>'
+            if priority_count
+            else ' &nbsp;&middot;&nbsp; <span style="color:#166534;font-weight:700;">'
+                 'All players ready for full training</span>'
+        )
+        + '</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.expander(detail_label, expanded=False):
         roster_filter = st.selectbox(
             "Roster filter",
             ["Priority Only", "All", "Protect", "Monitor", "Ready", "Guards", "Wings / Forwards", "Centers / Bigs"],

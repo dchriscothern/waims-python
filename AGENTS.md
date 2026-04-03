@@ -63,13 +63,13 @@ WAIMS (Wellness and Injury Management System) is a Python + Streamlit athlete mo
 _Update at the end of every session._
 
 **Last completed:**
-- [ ] Describe what was finished
+- [x] Coach Command Center roster status now shows a compact summary with the full player card grid behind a collapsed detail dropdown.
 
 **Known issues:**
-- [ ] List any current bugs or rough edges
+- [ ] Need visual QA in Streamlit to confirm the new roster summary/dropdown spacing feels right on deployed layout.
 
 **Next priority:**
-- [ ] Single next thing to do
+- [ ] Tighten coach tab information density further if any other sections still feel too busy at first glance.
 
 ---
 
