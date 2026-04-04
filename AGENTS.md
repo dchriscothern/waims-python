@@ -67,6 +67,7 @@ _Update at the end of every session._
 - [x] Forecast / Insights jump-profile merge path hardened so missing `player_id` during force-plate profiling no longer crashes the app.
 - [x] PR review blockers addressed: retrain workflow push target hardened, GM availability access restored, and duplicate/corrupted research-log evidence row removed.
 - [x] Staging mobile-web polish started for athlete-facing views by stacking high-density cards/charts into fewer side-by-side columns.
+- [x] Data Intake tab no longer throws `NameError` for `render_soft_card_grid`; connector status cards now render locally in `dashboard.py`.
 
 **Known issues:**
 - [ ] Need visual QA in Streamlit to confirm the new roster summary/dropdown spacing feels right on deployed layout.
@@ -74,7 +75,7 @@ _Update at the end of every session._
 - [ ] Coach Command Center still needs a separate phone-focused layout pass if staff will use that tab regularly on small screens.
 
 **Next priority:**
-- [ ] Run a staging mobile QA pass on athlete and profile tabs, then decide whether to extend the same treatment to coach-facing sections.
+- [ ] Run a staging smoke test for sports scientist tabs after the Data Intake fix, then continue the coach-facing mobile polish pass.
 
 ---
 

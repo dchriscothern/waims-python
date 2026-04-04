@@ -288,6 +288,45 @@ def _connector_status_card(title: str, status: str, note: str) -> dict:
     return {"title": title, "winner": status, "note": note}
 
 
+def render_soft_card_grid(cards: list[dict], columns_per_row: int = 3, top_margin: str = "16px") -> None:
+    if top_margin:
+        st.markdown(f"<div style='margin-top:{top_margin};'></div>", unsafe_allow_html=True)
+    if not cards:
+        st.caption("No connector status cards are available yet.")
+        return
+
+    def _status_style(status: str) -> tuple[str, str, str]:
+        label = str(status or "Unknown")
+        normalized = label.strip().lower()
+        if normalized in {"healthy", "active", "loaded", "ready"}:
+            return "#ecfdf5", "#16a34a", label
+        if normalized in {"missing", "not connected"}:
+            return "#fef2f2", "#dc2626", label
+        if normalized in {"attention", "warning"}:
+            return "#fffbeb", "#d97706", label
+        return "#eff6ff", "#2563eb", label
+
+    per_row = max(1, int(columns_per_row or 1))
+    for start in range(0, len(cards), per_row):
+        row_cards = cards[start:start + per_row]
+        cols = st.columns(len(row_cards))
+        for col, card in zip(cols, row_cards):
+            bg, accent, label = _status_style(card.get("winner", "Unknown"))
+            title = str(card.get("title", "Connector"))
+            note = str(card.get("note", "") or "No detail available.")
+            with col:
+                st.markdown(
+                    f'<div style="background:{bg};border:1px solid #e2e8f0;border-left:4px solid {accent};'
+                    f'border-radius:12px;padding:14px 16px;height:100%;">'
+                    f'<div style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;'
+                    f'color:#94a3b8;margin-bottom:10px;">{title}</div>'
+                    f'<div style="font-size:22px;font-weight:800;color:{accent};margin-bottom:6px;">{label}</div>'
+                    f'<div style="font-size:12px;line-height:1.55;color:#475569;">{note}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+
 def connector_status_snapshot(end_date: pd.Timestamp) -> list[dict]:
     latest_day = pd.Timestamp(end_date).strftime("%Y-%m-%d")
     snapshots = [
