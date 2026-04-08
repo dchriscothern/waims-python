@@ -921,7 +921,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     st.markdown("---")
     st.markdown("### Key Metrics")
 
-    c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
+    c1, c2, c3, c4 = st.columns(4)
 
     with c1:
         hrs = latest_wellness["sleep_hours"]
@@ -943,6 +943,8 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         # ACWR shown as context only — not scored (Impellizzeri 2020)
         s = "good" if 0.8 <= latest_acwr <= 1.3 else ("warning" if latest_acwr <= 1.5 else "bad")
         st.markdown(create_metric_card("ACWR ⚠", f"{latest_acwr:.2f}", s), unsafe_allow_html=True)
+
+    c5, c6, c7, c8 = st.columns(4)
 
     with c5:
         if latest_cmj is not None:
@@ -1024,64 +1026,61 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
 
     # sleep_v / sore_v / stress_v defined at top of function
 
-    load_col1, load_col2 = st.columns([1, 2])
-    with load_col1:
-        load_scenario_ap = st.radio(
-            "Tonight's plan:",
-            ["Rest / Practice only", "Typical game load (~28 min)",
-             "Heavy game load (~36 min)", "Back-to-back game"],
-            horizontal=False, key=f"load_scenario_{athlete_id}",
-        )
-    with load_col2:
-        projection = project_load_scenario(
-            _readiness_row,
-            position=athlete_info.get("position", "F"),
-            latest_cmj=latest_cmj,
-            latest_rsi=latest_rsi,
-            scenario=load_scenario_ap,
-        )
-        today_score_ap = projection["today_score"]
-        tomorrow_score = projection["tomorrow_score"]
-        delta_ap = projection["delta"]
-        delta_str_ap = f"+{delta_ap:.0f}" if delta_ap > 0 else f"{delta_ap:.0f}"
-        tmr_status = projection["status"]
+    load_scenario_ap = st.radio(
+        "Tonight's plan:",
+        ["Rest / Practice only", "Typical game load (~28 min)",
+         "Heavy game load (~36 min)", "Back-to-back game"],
+        horizontal=False, key=f"load_scenario_{athlete_id}",
+    )
+    projection = project_load_scenario(
+        _readiness_row,
+        position=athlete_info.get("position", "F"),
+        latest_cmj=latest_cmj,
+        latest_rsi=latest_rsi,
+        scenario=load_scenario_ap,
+    )
+    today_score_ap = projection["today_score"]
+    tomorrow_score = projection["tomorrow_score"]
+    delta_ap = projection["delta"]
+    delta_str_ap = f"+{delta_ap:.0f}" if delta_ap > 0 else f"{delta_ap:.0f}"
+    tmr_status = projection["status"]
 
-        mins_4d_proj = sum_recent_total_minutes(
-            training_load,
-            athlete_id,
-            pd.Timestamp(latest_date),
-            days=4,
-        )
-        recommendation = build_load_projection_recommendation(
-            ath_key,
-            tmr_status,
-            tomorrow_score,
-            mins_4d_proj,
-        )
+    mins_4d_proj = sum_recent_total_minutes(
+        training_load,
+        athlete_id,
+        pd.Timestamp(latest_date),
+        days=4,
+    )
+    recommendation = build_load_projection_recommendation(
+        ath_key,
+        tmr_status,
+        tomorrow_score,
+        mins_4d_proj,
+    )
 
-        _mc1, _mc2, _mc3 = st.columns(3)
-        _mc1.metric("Today", f"{today_score_ap:.0f}%")
-        _mc2.metric("Tomorrow (projected)", f"{tomorrow_score:.0f}%", delta=delta_str_ap)
-        _mc3.metric("Status", tmr_status)
+    _mc1, _mc2, _mc3 = st.columns(3)
+    _mc1.metric("Today", f"{today_score_ap:.0f}%")
+    _mc2.metric("Tomorrow (projected)", f"{tomorrow_score:.0f}%", delta=delta_str_ap)
+    _mc3.metric("Status", tmr_status)
 
-        st.markdown(
-            f'<div style="background:{recommendation["bg"]};border-left:4px solid {recommendation["color"]};'
-            f'border-radius:0 8px 8px 0;padding:12px 16px;margin-top:6px;">'
-            f'<div style="font-size:11px;font-weight:700;letter-spacing:0.1em;'
-            f'text-transform:uppercase;color:{recommendation["color"]};margin-bottom:4px;">{recommendation["label"]}</div>'
-            f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">{recommendation["head"]}</div>'
-            f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{recommendation["body"]}</div>'
-            + (
-                f'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">'
-                f'Load context: {mins_4d_proj:.0f} min in last 4 days</div>'
-                if mins_4d_proj is not None else ""
-            )
-            + '</div>',
-            unsafe_allow_html=True
+    st.markdown(
+        f'<div style="background:{recommendation["bg"]};border-left:4px solid {recommendation["color"]};'
+        f'border-radius:0 8px 8px 0;padding:12px 16px;margin-top:6px;">'
+        f'<div style="font-size:11px;font-weight:700;letter-spacing:0.1em;'
+        f'text-transform:uppercase;color:{recommendation["color"]};margin-bottom:4px;">{recommendation["label"]}</div>'
+        f'<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px;">{recommendation["head"]}</div>'
+        f'<div style="font-size:12px;color:#1e293b;line-height:1.6;">{recommendation["body"]}</div>'
+        + (
+            f'<div style="font-size:11px;color:#94a3b8;margin-top:6px;">'
+            f'Load context: {mins_4d_proj:.0f} min in last 4 days</div>'
+            if mins_4d_proj is not None else ""
         )
-        st.caption("Projections: Pernigoni 2024 (44-study basketball SR, female-specific CMJ recovery); "
-                   "Goulart 2022 (female meta-analysis); Charest 2021 JCSM (B2B sleep/travel). "
-                   "Minutes thresholds: Orlando Magic sport science framework (NBA practitioner 2024).")
+        + '</div>',
+        unsafe_allow_html=True
+    )
+    st.caption("Projections: Pernigoni 2024 (44-study basketball SR, female-specific CMJ recovery); "
+               "Goulart 2022 (female meta-analysis); Charest 2021 JCSM (B2B sleep/travel). "
+               "Minutes thresholds: Orlando Magic sport science framework (NBA practitioner 2024).")
 
     st.markdown("---")
 
@@ -1128,7 +1127,8 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
             unsafe_allow_html=True
         )
 
-        g1, g2, g3, g4, g5, g6 = st.columns(6)
+        g1, g2, g3 = st.columns(3)
+        g4, g5, g6 = st.columns(3)
 
         def _gps_metric(col_widget, label, val, emoji, z):
             delta = f"{z:+.1f}σ" if z is not None else "—"
