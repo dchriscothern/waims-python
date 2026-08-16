@@ -63,16 +63,26 @@ WAIMS (Wellness and Injury Management System) is a Python + Streamlit athlete mo
 _Update at the end of every session._
 
 **Last completed:**
-- [x] Coach Command Center roster status now shows a compact summary with the full player card grid behind a collapsed detail dropdown.
-- [x] Forecast / Insights jump-profile merge path hardened so missing `player_id` during force-plate profiling no longer crashes the app.
-- [x] PR review blockers addressed: retrain workflow push target hardened, GM availability access restored, and duplicate/corrupted research-log evidence row removed.
+- [x] Updated WAIMS with 2026 WNBA mid-season stats via enhanced fetch_wehoop_data.py
+- [x] Created multi-sport architecture with parallel waims-wnba/ and waims-mens/ directories
+- [x] Implemented Arkansas Men's Basketball version with real roster (14 players)
+- [x] Extended sport_config.py to common/sport_config_extended.py supporting WNBA + Men's Power 5
+- [x] Generated 1,260 synthetic records for Arkansas with men-specific GPS baselines
+- [x] Trained Random Forest injury risk model for Arkansas (100 trees, 28 features)
+- [x] Created multi-sport launcher (launcher.py) with setup wizard and sport selection
+- [x] Comprehensive documentation: MULTI_SPORT_SETUP.md + IMPLEMENTATION_SUMMARY.md
+- [x] Fixed Windows Unicode encoding issues (PowerShell cp1252)
 
 **Known issues:**
-- [ ] Need visual QA in Streamlit to confirm the new roster summary/dropdown spacing feels right on deployed layout.
-- [ ] Need deployed app verification that Forecast / Insights loads cleanly with current Cloud data snapshot.
+- [ ] Dashboard needs sport/team selector parameter integration (dashboard.py customization pending)
+- [ ] Wehoop API testing needed (requires live 2026 data fetch)
+- [ ] Role-based access validation across sports not yet tested in UI
 
 **Next priority:**
-- [ ] Run a focused deployed smoke test across Coach, Forecast, and Insights after the updated PR merges.
+- [ ] Integrate sport parameter into dashboard.py (allow --sport wnba/mens)
+- [ ] Test full dashboard launch: `python launcher.py --sport mens`
+- [ ] Validate WNBA dashboard with 2026 wehoop stats
+- [ ] Add more Power 5 teams (Duke, Kansas, UCLA) following Arkansas template
 
 ---
 
