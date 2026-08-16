@@ -91,6 +91,10 @@ def _load_tables(db_path: str) -> dict[str, pd.DataFrame]:
             pd.read_sql_query("SELECT * FROM period_starters", conn)
             if "period_starters" in tables else pd.DataFrame()
         )
+        data["prior_seasons"] = (
+            pd.read_sql_query("SELECT * FROM player_prior_season_games", conn)
+            if "player_prior_season_games" in tables else pd.DataFrame()
+        )
         return data
     finally:
         conn.close()
@@ -108,6 +112,7 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
         return
 
     games, box, pbp, starters = data["games"], data["box"], data["pbp"], data["starters"]
+    prior_seasons = data["prior_seasons"]
 
     wins = int((games["result"] == "W").sum())
     losses = int((games["result"] == "L").sum())
@@ -177,6 +182,35 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
                 player_rows[list(log_cols)].rename(columns=log_cols),
                 hide_index=True, width="stretch",
             )
+
+            player_id = ark_box.loc[ark_box["player_name_matched"] == player_choice, "player_id"].iloc[0]
+            player_prior = prior_seasons[prior_seasons["player_id"] == player_id]
+            if not player_prior.empty:
+                for season, season_rows in player_prior.groupby("season"):
+                    season_rows = season_rows.sort_values("date")
+                    source = season_rows["source"].iloc[0]
+                    st.markdown(f"**{season} Season (Full Year) -- source: {source}**")
+                    p_gp = len(season_rows)
+                    p_cols = st.columns(6)
+                    p_cols[0].metric("GP", p_gp)
+                    p_cols[1].metric("PPG", f"{season_rows['pts'].mean():.1f}")
+                    p_cols[2].metric("RPG", f"{season_rows['reb'].mean():.1f}")
+                    p_cols[3].metric("APG", f"{season_rows['ast'].mean():.1f}")
+                    p_fga, p_fgm = season_rows["fga"].sum(), season_rows["fgm"].sum()
+                    p_cols[4].metric("FG%", f"{(p_fgm / p_fga * 100):.1f}" if p_fga else "-")
+                    p_fta, p_ftm = season_rows["fta"].sum(), season_rows["ftm"].sum()
+                    p_cols[5].metric("FT%", f"{(p_ftm / p_fta * 100):.1f}" if p_fta else "-")
+
+                    prior_log_cols = {
+                        "date": "Date", "opponent": "Opp", "home_or_away": "H/A", "result": "Result",
+                        "min": "MIN", "fgm": "FGM", "fga": "FGA", "fg3m": "3PM", "fg3a": "3PA",
+                        "ftm": "FTM", "fta": "FTA", "reb": "REB", "ast": "AST",
+                        "tov": "TOV", "stl": "STL", "blk": "BLK", "pts": "PTS",
+                    }
+                    st.dataframe(
+                        season_rows[list(prior_log_cols)].rename(columns=prior_log_cols),
+                        hide_index=True, width="stretch",
+                    )
 
     # ── Shot Detail ─────────────────────────────────────────────────────────
     with shot_tab:
