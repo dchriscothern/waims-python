@@ -15,6 +15,15 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 
+from game_analytics import (
+    assist_creation,
+    lineup_stints,
+    lineup_summary,
+    shot_efficiency_by_type,
+    team_possessions_and_ppp,
+    turnover_breakdown,
+)
+
 BOX_SCORE_DISPLAY_COLUMNS = {
     "player_number": "#",
     "player_name_matched": "Name",
@@ -78,6 +87,10 @@ def _load_tables(db_path: str) -> dict[str, pd.DataFrame]:
             data["pbp"] = pd.read_sql_query("SELECT * FROM play_by_play_events", conn)
         else:
             data["pbp"] = pd.DataFrame()
+        data["starters"] = (
+            pd.read_sql_query("SELECT * FROM period_starters", conn)
+            if "period_starters" in tables else pd.DataFrame()
+        )
         return data
     finally:
         conn.close()
@@ -94,7 +107,7 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
                 "(and scripts/parse_arkansas_play_by_play.py for shot detail) to populate this tab.")
         return
 
-    games, box, pbp = data["games"], data["box"], data["pbp"]
+    games, box, pbp, starters = data["games"], data["box"], data["pbp"], data["starters"]
 
     wins = int((games["result"] == "W").sum())
     losses = int((games["result"] == "L").sum())
@@ -106,7 +119,9 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
     m2.metric("Record", f"{wins}-{losses}")
     m3.metric("Team PPG", f"{team_ppg:.1f}" if pd.notna(team_ppg) else "-")
 
-    box_tab, log_tab, shot_tab = st.tabs(["Box Scores", "Player Game Log", "Shot Detail"])
+    box_tab, log_tab, shot_tab, adv_tab = st.tabs(
+        ["Box Scores", "Player Game Log", "Shot Detail", "Advanced Metrics"]
+    )
 
     # ── Box Scores ──────────────────────────────────────────────────────────
     with box_tab:
@@ -197,3 +212,82 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
                 made = shots[shots["event_type"].isin(["fg_made", "ft_made"])]
                 attempted = shots[shots["event_type"].isin(["fg_made", "fg_missed", "ft_made", "ft_missed"])]
                 st.caption(f"{len(made)} made / {len(attempted)} attempted in this view")
+
+    # ── Advanced Metrics ────────────────────────────────────────────────────
+    with adv_tab:
+        if pbp.empty:
+            st.info("No play-by-play data loaded. Run scripts/parse_arkansas_play_by_play.py to populate advanced metrics.")
+        else:
+            st.caption(
+                "Built from the possession-level play-by-play, not just box score totals. "
+                "Everything below is exact from the parsed events -- shot type/zone splits, assist "
+                "points created, and lineup net rating are all directly computable, with one caveat: "
+                "defensive impact beyond steals/blocks/rebounds and offensive action-type taxonomy "
+                "(pick-and-roll, iso, post-up) require charting game film and aren't in this data."
+            )
+
+            st.markdown("**Team efficiency (points per possession)**")
+            ppp = team_possessions_and_ppp(box)
+            ppp_display = ppp.merge(games[["game_id", "date", "opponent"]], on="game_id")
+            ppp_display["Team"] = ppp_display.apply(
+                lambda r: "Arkansas" if r["team"] == "ARK" else r["opponent"], axis=1
+            )
+            ppp_cols = {"date": "Date", "opponent": "Opp", "Team": "Team", "possessions": "Poss", "pts": "PTS", "ppp": "PPP"}
+            st.dataframe(
+                ppp_display.sort_values(["date", "team"])[list(ppp_cols)].rename(columns=ppp_cols),
+                hide_index=True, width="stretch",
+            )
+
+            st.markdown("**Shot efficiency by play type (Arkansas, all games)**")
+            eff_scope = st.radio("Split by", ["Team-wide", "Per player"], horizontal=True, key="gp_adv_eff_scope")
+            group_cols = ["player_name_matched"] if eff_scope == "Per player" else []
+            eff = shot_efficiency_by_type(pbp[pbp["team"] == "ARK"], group_cols=group_cols)
+            eff_cols = (["player_name_matched"] if group_cols else []) + [
+                "origin", "attempts", "makes", "points", "pts_per_attempt", "fg_pct"
+            ]
+            rename_cols = {"player_name_matched": "Player", "origin": "Type", "attempts": "Att",
+                           "makes": "Makes", "points": "Pts", "pts_per_attempt": "Pts/Att", "fg_pct": "FG%"}
+            origin_df = eff["origin"]
+            st.dataframe(
+                origin_df[[c for c in eff_cols if c in origin_df.columns]].rename(columns=rename_cols),
+                hide_index=True, width="stretch",
+            )
+
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown("**Assist creation (points created, all games)**")
+                ac = assist_creation(pbp)
+                st.dataframe(
+                    ac.rename(columns={
+                        "player_name_matched": "Player", "assists": "AST",
+                        "points_created": "Pts Created", "points_per_assist": "Pts/AST",
+                    }),
+                    hide_index=True, width="stretch",
+                )
+            with col_b:
+                st.markdown("**Turnover breakdown (all games)**")
+                tb = turnover_breakdown(pbp)
+                st.dataframe(
+                    tb.rename(columns={"player_name_matched": "Player", "subtype": "Type", "count": "Count"}),
+                    hide_index=True, width="stretch",
+                )
+
+            st.markdown("**Lineup net rating (5-man units, all games)**")
+            st.caption(
+                "Point margin while each 5-man Arkansas unit was on the floor, reconstructed from "
+                "substitutions and the running score. Small sample per unit -- read as early signal."
+            )
+            if starters.empty:
+                st.info("No period-starters data loaded; lineup net rating needs it to seed each half's unit.")
+            else:
+                stints = lineup_stints(pbp, starters)
+                if stints.empty:
+                    st.info("No lineup stints could be reconstructed for these games.")
+                else:
+                    summary = lineup_summary(stints)
+                    st.dataframe(
+                        summary[["lineup_label", "stints", "net_rating"]].rename(
+                            columns={"lineup_label": "Lineup", "stints": "Stints", "net_rating": "Net Rating"}
+                        ),
+                        hide_index=True, width="stretch",
+                    )

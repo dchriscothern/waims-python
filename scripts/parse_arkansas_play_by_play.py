@@ -119,6 +119,11 @@ def _text_in_column(row_items: list[dict], col: tuple[float, float]) -> str:
 
 
 PLAYER_LEAD_RE = re.compile(r"^(\d{1,2})\s*([A-Z][A-Za-z,.\s]*?)(?=[a-z]|\d)")
+# Period Starters cells are just "NUM Name" with nothing trailing, unlike the
+# main event log's ALL-CAPS-name-then-lowercase-action format PLAYER_LEAD_RE
+# is tuned for -- its non-greedy lookahead stops at the first internal
+# lowercase letter, which for a Title Case name ("Wilkinson") is character 2.
+STARTER_NAME_RE = re.compile(r"^(\d{1,2})\s*(.+)$")
 TRAILING_COUNT_RE = re.compile(r"\((\d+)\)\s*$")
 FOUL_COUNT_RE = re.compile(r"\((\d+)\s*-\s*(\d+)\)\s*$")
 SHOT_VALUE_RE = re.compile(r"(\d)\s*pt\s*FG", re.IGNORECASE)
@@ -194,6 +199,122 @@ def _classify_event(text: str) -> dict:
     return event
 
 
+STARTER_LABEL_RE = re.compile(r"^(ARK|[A-Z]{2,4})$")
+
+
+def _cluster_by_x(items: list[dict], gap: float = 40) -> list[list[dict]]:
+    """Group items into column clusters by x-gap -- robust to OCR splitting
+    a single logical cell ("5 Wilkinson J") into multiple boxes, which it
+    does inconsistently even across otherwise-identical page renders.
+    """
+    ordered = sorted(items, key=lambda i: i["x_min"])
+    clusters: list[list[dict]] = []
+    current: list[dict] = []
+    last_x_max = None
+    for item in ordered:
+        if last_x_max is not None and item["x_min"] - last_x_max > gap:
+            clusters.append(current)
+            current = []
+        current.append(item)
+        last_x_max = item["x_max"]
+    if current:
+        clusters.append(current)
+    return clusters
+
+
+def _cluster_by_y(items: list[dict], gap: float = 20) -> list[list[dict]]:
+    """Group items into row clusters by y-gap. Used instead of trusting a
+    fixed offset from the row's own team-marker label, whose y-position
+    relative to its row's content shifts a few px run to run (OCR bounding
+    boxes aren't perfectly reproducible even on an identical page render).
+    Clustering the actual content's y-positions is robust to that drift.
+    """
+    ordered = sorted(items, key=lambda i: i["y_min"])
+    clusters: list[list[dict]] = []
+    current: list[dict] = []
+    last_y = None
+    for item in ordered:
+        if last_y is not None and item["y_min"] - last_y > gap:
+            clusters.append(current)
+            current = []
+        current.append(item)
+        last_y = item["y_min"]
+    if current:
+        clusters.append(current)
+    return clusters
+
+
+def _extract_period_starters(items: list[dict]) -> list[dict]:
+    """Pull the "Period Starters" box (5 ARK + 5 opponent names) off the
+    first page of a half, before _strip_page_chrome removes it. Returns
+    [] on continuation pages that don't have this block.
+
+    OCR chunks the "Period Starters:" label and each "NUM Name I" cell
+    inconsistently run to run -- sometimes one box, sometimes split into
+    several, sometimes with duplicate overlapping detections for the same
+    cell -- even on visually identical page renders. This clusters the
+    actual content by position (y then x) rather than trusting any single
+    marker's exact coordinates, and dedupes same-jersey-number entries by
+    keeping the longest (most complete) name reconstruction.
+    """
+    label = next(
+        (i for i in items if "starters" in i["text"].lower().replace(" ", "")), None
+    )
+    header = next(
+        (i for i in items if i["text"].replace(" ", "").lower() == "gametime"), None
+    )
+    if label is None:
+        return []
+    region_end = header["y_min"] if header is not None else label["y_min"] + 200
+
+    candidates = [
+        i for i in items
+        if label["y_min"] < i["y_min"] < region_end and i["x_min"] >= 135
+    ]
+    markers = [
+        i for i in items
+        if label["y_min"] < i["y_min"] < region_end and i["x_min"] < 135
+        and STARTER_LABEL_RE.match(i["text"].strip())
+    ]
+
+    raw_starters = []
+    for row in _cluster_by_y(candidates):
+        row_y = sum(i["y_min"] for i in row) / len(row)
+        marker = min(markers, key=lambda m: abs(m["y_min"] - row_y), default=None)
+        if marker is None or abs(marker["y_min"] - row_y) > 40:
+            continue  # no confident team label for this row; skip rather than guess
+        team = "ARK" if marker["text"].strip() == "ARK" else "OPP"
+
+        for cluster in _cluster_by_x(row):
+            cell_text = " ".join(i["text"] for i in sorted(cluster, key=lambda i: i["x_min"]))
+            lead = STARTER_NAME_RE.match(cell_text)
+            if not lead:
+                continue
+            raw_starters.append({
+                "team": team,
+                "player_number": int(lead.group(1)),
+                "player_name_raw": lead.group(2).strip(" ,."),
+            })
+
+    # Dedupe: OCR occasionally emits overlapping partial + full detections
+    # for the same cell (e.g. "H" and "HUNTER S" for the same jersey number).
+    best_by_key: dict[tuple[str, int], dict] = {}
+    for s in raw_starters:
+        key = (s["team"], s["player_number"])
+        if key not in best_by_key or len(s["player_name_raw"]) > len(best_by_key[key]["player_name_raw"]):
+            best_by_key[key] = s
+
+    starters = []
+    for s in best_by_key.values():
+        roster_match = _match_roster_player(s["player_name_raw"]) if s["team"] == "ARK" else None
+        starters.append({
+            **s,
+            "player_id": roster_match["player_id"] if roster_match else None,
+            "player_name_matched": roster_match["name"] if roster_match else None,
+        })
+    return starters
+
+
 def _strip_page_chrome(items: list[dict]) -> list[dict]:
     """Drop everything above the "Game Time" column header.
 
@@ -219,7 +340,7 @@ def _half_page_indices(total_pages: int) -> tuple[range, range]:
     return first_half, second_half
 
 
-def parse_play_by_play(pdf_path: Path) -> list[dict]:
+def parse_play_by_play(pdf_path: Path) -> tuple[list[dict], list[dict]]:
     game_id = pdf_path.stem
     doc = fitz.open(str(pdf_path))
     total_pages = doc.page_count
@@ -227,10 +348,16 @@ def parse_play_by_play(pdf_path: Path) -> list[dict]:
 
     first_half_pages, second_half_pages = _half_page_indices(total_pages)
     events = []
+    period_starters = []
+    seq = 0
 
     for half, pages in (("H1", first_half_pages), ("H2", second_half_pages)):
         for page_index in pages:
-            items = _strip_page_chrome(_ocr_page(pdf_path, page_index))
+            raw_items = _ocr_page(pdf_path, page_index)
+            if page_index == pages[0]:
+                for starter in _extract_period_starters(raw_items):
+                    period_starters.append({"game_id": game_id, "half": half, **starter})
+            items = _strip_page_chrome(raw_items)
             for row in _rows_from_page(items):
                 score_text = _text_in_column(row["items"], COL_SCORE)
                 diff_text = _text_in_column(row["items"], COL_DIFF)
@@ -248,6 +375,7 @@ def parse_play_by_play(pdf_path: Path) -> list[dict]:
                     ) else None
                     events.append({
                         "game_id": game_id,
+                        "event_seq": seq,
                         "half": half,
                         "page_index": page_index,
                         "game_time": row["game_time"],
@@ -263,14 +391,21 @@ def parse_play_by_play(pdf_path: Path) -> list[dict]:
                         "player_name_matched": roster_match["name"] if roster_match else None,
                         "raw_text": parsed["raw_text"],
                     })
-    return events
+                    seq += 1
+    return events, period_starters
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
+    # Recreated from scratch each run (this data is always fully regenerated
+    # from the PDFs, never incrementally updated), so schema changes -- like
+    # adding event_seq -- don't need a migration path.
+    conn.execute("DROP TABLE IF EXISTS play_by_play_events")
+    conn.execute("DROP TABLE IF EXISTS period_starters")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS play_by_play_events (
             game_id TEXT,
+            event_seq INTEGER,
             half TEXT,
             page_index INTEGER,
             game_time TEXT,
@@ -288,26 +423,56 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS period_starters (
+            game_id TEXT,
+            half TEXT,
+            team TEXT,
+            player_number INTEGER,
+            player_name_raw TEXT,
+            player_id TEXT,
+            player_name_matched TEXT
+        )
+        """
+    )
 
 
-def save_game(conn: sqlite3.Connection, game_id: str, events: list[dict]) -> int:
-    _ensure_schema(conn)
+def save_game(conn: sqlite3.Connection, game_id: str, events: list[dict], period_starters: list[dict]) -> int:
+    # Caller (main()) must have already called _ensure_schema() once. It's
+    # not safe to call again here: it now DROPs and recreates both tables
+    # (to allow schema changes without a migration path), and save_game is
+    # called once per game in a loop -- calling it here would wipe out every
+    # previously-saved game each time the next one is processed.
     cur = conn.cursor()
     cur.execute("DELETE FROM play_by_play_events WHERE game_id = ?", (game_id,))
+    cur.execute("DELETE FROM period_starters WHERE game_id = ?", (game_id,))
     for e in events:
         cur.execute(
             """
             INSERT INTO play_by_play_events (
-                game_id, half, page_index, game_time, team, score, diff,
+                game_id, event_seq, half, page_index, game_time, team, score, diff,
                 event_type, points, stat_count, player_number, player_name_raw,
                 player_id, player_name_matched, raw_text
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
-                e["game_id"], e["half"], e["page_index"], e["game_time"], e["team"],
+                e["game_id"], e["event_seq"], e["half"], e["page_index"], e["game_time"], e["team"],
                 e["score"], e["diff"], e["event_type"], e["points"], e["stat_count"],
                 e["player_number"], e["player_name_raw"], e["player_id"],
                 e["player_name_matched"], e["raw_text"],
+            ),
+        )
+    for s in period_starters:
+        cur.execute(
+            """
+            INSERT INTO period_starters (
+                game_id, half, team, player_number, player_name_raw, player_id, player_name_matched
+            ) VALUES (?,?,?,?,?,?,?)
+            """,
+            (
+                s["game_id"], s["half"], s["team"], s["player_number"],
+                s["player_name_raw"], s["player_id"], s["player_name_matched"],
             ),
         )
     conn.commit()
@@ -354,9 +519,9 @@ def main() -> None:
         if pdf_path.stem in EXCLUDED_GAME_IDS:
             continue
         print(f"Parsing play-by-play: {pdf_path.name} ...")
-        events = parse_play_by_play(pdf_path)
-        n = save_game(conn, pdf_path.stem, events)
-        print(f"  {n} events parsed")
+        events, period_starters = parse_play_by_play(pdf_path)
+        n = save_game(conn, pdf_path.stem, events, period_starters)
+        print(f"  {n} events parsed, {len(period_starters)} period-starter entries")
         validate_against_box_score(conn, pdf_path.stem)
 
     conn.close()
