@@ -11,6 +11,7 @@ from html import escape
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import numpy as np
 from readiness_logic import (
     build_load_projection_recommendation,
@@ -822,6 +823,69 @@ def _render_game_performance_section(db_path, athlete_id):
                 yaxis=dict(title="Points"), showlegend=False,
             )
             st.plotly_chart(fig, width="stretch")
+
+        conn = sqlite3.connect(str(db_path))
+        wellness_rows = pd.read_sql_query(
+            "SELECT date, sleep_hours FROM wellness WHERE player_id = ?",
+            conn, params=(athlete_id,),
+        )
+        fp_rows = pd.read_sql_query(
+            "SELECT date, cmj_height_cm FROM force_plate WHERE player_id = ?",
+            conn, params=(athlete_id,),
+        )
+        conn.close()
+
+        cg = current_games[["date", "opponent", "pts"]].copy()
+        cg["date_norm"] = pd.to_datetime(cg["date"], format="%m/%d/%y", errors="coerce")
+        wellness_rows["date_norm"] = pd.to_datetime(wellness_rows["date"], errors="coerce")
+        fp_rows["date_norm"] = pd.to_datetime(fp_rows["date"], errors="coerce")
+
+        merged = (
+            cg.merge(wellness_rows[["date_norm", "sleep_hours"]], on="date_norm", how="left")
+              .merge(fp_rows[["date_norm", "cmj_height_cm"]], on="date_norm", how="left")
+        )
+
+        if merged["sleep_hours"].notna().any():
+            st.markdown("#### Real Game Stats vs. Synthetic Wellness (same day)")
+            st.caption(
+                "Points (real, from box scores) plotted against sleep hours "
+                "(**synthetic demo data -- not a real observation**) on the same game dates. "
+                f"Only {len(merged)} game(s) so far -- correlation coefficients typically need "
+                "20-30+ paired observations before they're statistically meaningful. This is a "
+                "visual side-by-side, not a finding, until there's a full season of real games."
+            )
+
+            fig2 = make_subplots(specs=[[{"secondary_y": True}]])
+            fig2.add_trace(go.Scatter(
+                x=merged["date_norm"], y=merged["pts"], name="Points (real)",
+                mode="lines+markers", line=dict(color="#2E86AB", width=2),
+            ), secondary_y=False)
+            fig2.add_trace(go.Scatter(
+                x=merged["date_norm"], y=merged["sleep_hours"], name="Sleep hrs (synthetic)",
+                mode="lines+markers", line=dict(color="#f59e0b", width=2, dash="dot"),
+            ), secondary_y=True)
+            fig2.update_layout(height=260, margin=dict(l=10, r=10, t=20, b=20))
+            fig2.update_yaxes(title_text="Points (real)", secondary_y=False)
+            fig2.update_yaxes(title_text="Sleep hrs (synthetic)", secondary_y=True)
+            st.plotly_chart(fig2, width="stretch")
+
+            pair = merged[["pts", "sleep_hours"]].dropna()
+            if len(pair) >= 3:
+                try:
+                    from scipy import stats as scipy_stats
+                    r, _ = scipy_stats.pearsonr(pair["pts"], pair["sleep_hours"])
+                    st.caption(
+                        f"Points vs. sleep: r = {r:+.2f} (n={len(pair)}). "
+                        "**Not statistically meaningful at this sample size** -- shown for "
+                        "completeness only, per the caveat above."
+                    )
+                except Exception:
+                    pass
+            else:
+                st.caption(
+                    f"Only {len(pair)} game(s) have both a real point total and synthetic sleep "
+                    "data -- too few to compute even an illustrative r-value."
+                )
 
     for season, season_rows in prior_games.groupby("season"):
         source = season_rows["source"].iloc[0]
