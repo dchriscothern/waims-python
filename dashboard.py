@@ -208,16 +208,16 @@ def _validate_loaded_frame(
 
 
 @st.cache_data
-def startup_health_report() -> dict:
+def startup_health_report(db_path) -> dict:
     report = {"errors": [], "warnings": []}
-    if not DB_PATH.exists():
-        report["errors"].append(f"Database file not found: {DB_PATH}")
+    if not db_path.exists():
+        report["errors"].append(f"Database file not found: {db_path}")
         return report
 
     required_tables = {"players", "wellness", "training_load", "force_plate", "injuries", "acwr"}
     optional_tables = {"availability"}
     try:
-        conn = sqlite3.connect(str(DB_PATH))
+        conn = sqlite3.connect(str(db_path))
         tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
         missing_required = sorted(required_tables - tables)
         missing_optional = sorted(optional_tables - tables)
@@ -241,8 +241,8 @@ def startup_health_report() -> dict:
 
 
 @st.cache_data
-def load_data():
-    conn = sqlite3.connect(str(DB_PATH))
+def load_data(db_path):
+    conn = sqlite3.connect(str(db_path))
     players = _validate_loaded_frame("players", pd.read_sql_query("SELECT * FROM players", conn), **TABLE_VALIDATION_SPEC["players"])
     wellness = _validate_loaded_frame("wellness", pd.read_sql_query("SELECT * FROM wellness", conn), **TABLE_VALIDATION_SPEC["wellness"])
     training_load = _validate_loaded_frame("training_load", pd.read_sql_query("SELECT * FROM training_load", conn), **TABLE_VALIDATION_SPEC["training_load"])
@@ -266,7 +266,7 @@ injuries = pd.DataFrame()
 acwr = pd.DataFrame()
 availability = pd.DataFrame()
 
-health_report = startup_health_report()
+health_report = startup_health_report(DB_PATH)
 if health_report["errors"]:
     st.error("WAIMS could not start because the local demo database is not healthy.")
     for msg in health_report["errors"]:
@@ -278,7 +278,7 @@ elif health_report["warnings"]:
             st.caption(msg)
 
 try:
-    players, wellness, training_load, force_plate, injuries, acwr, availability = load_data()
+    players, wellness, training_load, force_plate, injuries, acwr, availability = load_data(str(DB_PATH))
 except Exception as e:
     st.error(f"Error loading database: {e}")
     st.info(f"Make sure {DB_PATH.name} is present and readable.")
