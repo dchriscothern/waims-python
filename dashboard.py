@@ -1637,6 +1637,33 @@ with st.sidebar:
     st.info(f"**Active:** {sport_display}")
     st.caption(f"Database: `{DB_PATH.name}`")
     st.caption("This environment is dedicated to one program only.")
+
+    if current_sport == "mens":
+        st.markdown(
+            '<div style="background:#fef2f2;border-left:4px solid #dc2626;'
+            'border-radius:0 6px 6px 0;padding:10px 12px;margin-top:10px;">'
+            '<div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;'
+            'letter-spacing:0.5px;">Data source key</div>'
+            '<div style="font-size:12px;color:#7f1d1d;margin-top:4px;line-height:1.5;">'
+            '<b>Real:</b> roster, Game Performance stats (box scores, play-by-play, prior-season log).<br>'
+            '<b>Synthetic:</b> wellness, sleep, soreness, stress, GPS/load, force plate (CMJ/RSI), '
+            'injuries, ACWR, and readiness/risk scores. Randomly generated for demo purposes -- '
+            'none of it reflects these athletes\' real health or status.'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div style="background:#eff6ff;border-left:4px solid #2563eb;'
+            'border-radius:0 6px 6px 0;padding:10px 12px;margin-top:10px;">'
+            '<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+            'letter-spacing:0.5px;">Data source key</div>'
+            '<div style="font-size:12px;color:#1e3a8a;margin-top:4px;line-height:1.5;">'
+            'All data in this environment -- roster, wellness, performance -- is '
+            '<b>synthetic demo data</b>. The roster is anonymized; nothing here reflects a real person.'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
     st.divider()
 
 # ==============================================================================
@@ -3629,7 +3656,7 @@ if "ins" in tab_map:
             """,
             unsafe_allow_html=True,
         )
-        correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players)
+        correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players, db_path=DB_PATH)
 
 
 # ── Game Performance ──────────────────────────────────────────────────────────

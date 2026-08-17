@@ -782,9 +782,16 @@ def _render_game_performance_section(db_path, athlete_id):
 
     st.markdown("---")
     st.markdown("### Game Performance")
+    st.markdown(
+        '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;'
+        'padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;">'
+        'Real data</span>',
+        unsafe_allow_html=True,
+    )
     st.caption(
-        "On-court production, from parsed box scores and play-by-play. "
-        "See the Game Performance tab for full shot detail, play-type efficiency, and lineup analytics."
+        "On-court production, from parsed box scores and play-by-play (not synthetic, unlike the "
+        "wellness/load/force-plate sections below). See the Game Performance tab for full shot "
+        "detail, play-type efficiency, and lineup analytics."
     )
 
     def _season_summary(label, df):
@@ -823,7 +830,11 @@ def _render_game_performance_section(db_path, athlete_id):
 
 def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None, db_path=None):
     st.header("Athlete Profiles")
-
+    st.caption(
+        "Wellness, sleep, soreness, stress, GPS/load, force plate, injuries, ACWR, and readiness/risk "
+        "scores below are synthetic demo data -- randomly generated, not real observations. "
+        "(Game Performance further down is real -- see the badge there.)"
+    )
 
     athlete_names    = sorted(players["name"].tolist())
     selected_athlete = st.selectbox("Select Athlete", athlete_names)
