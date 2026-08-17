@@ -23,10 +23,19 @@ from scipy import stats
 # DATA PREPARATION
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_master(wellness, training_load, force_plate, acwr, injuries, players):
+def _build_master(wellness, training_load, force_plate, acwr, injuries, players, db_path=None):
     """
     Merge all tables into a single flat daily frame.
     Adds injury_within_7days label, GPS columns if present.
+
+    NOTE ON WHAT'S REAL HERE: wellness/training_load/force_plate/acwr/injuries
+    are synthetic demo data for both sports (see the sidebar "Data source key").
+    The game-performance columns merged in below are REAL for Arkansas (parsed
+    box scores/play-by-play) and synthetic for WNBA. Any correlation this tab
+    surfaces between a synthetic signal and anything else is a demonstration
+    of the mechanism, not a real finding about a real athlete -- that's
+    unavoidable as long as one side of the correlation is fabricated, and is
+    called out again in correlation_explorer_tab()'s own banner.
     """
     df = wellness.copy()
     df = df.merge(
@@ -92,20 +101,24 @@ def _build_master(wellness, training_load, force_plate, acwr, injuries, players)
     df = df.merge(players[["player_id", "name", "position"]], on="player_id", how="left")
     df = df.sort_values(["player_id", "date"])
 
-    # ── ESPN game outcome context ─────────────────────────────────────────────
-    # Join team-level game results on game dates so Correlation Explorer can show:
+    # ── Game outcome context ──────────────────────────────────────────────────
+    # Join game results (and, for Arkansas, individual player box scores) on
+    # game dates so Correlation Explorer can show:
     #   - Readiness score vs game result (W/L)
-    #   - Sleep/CMJ vs team scoring output
-    #   - Back-to-back effect on actual team points
+    #   - Sleep/CMJ vs team (and, for Arkansas, individual) scoring output
+    #   - Back-to-back effect on actual points
     # Non-game days: NaN (excluded from game-day correlations automatically)
     try:
         import sqlite3 as _sq
-        _c = _sq.connect("waims_demo.db")
+        _c = _sq.connect(db_path if db_path else "waims_demo.db")
         _tables = [r[0] for r in _c.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()]
 
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+
         if "game_box_scores" in _tables and "game_results" in _tables:
+            # WNBA schema: per-player box scores, team-level result already computed.
             _boxes   = pd.read_sql_query("SELECT * FROM game_box_scores", _c)
             _results = pd.read_sql_query(
                 "SELECT date, result, score_margin, home_away FROM game_results", _c
@@ -115,7 +128,6 @@ def _build_master(wellness, training_load, force_plate, acwr, injuries, players)
             _boxes["date"]   = pd.to_datetime(_boxes["date"],   errors="coerce")
             _results["date"] = pd.to_datetime(_results["date"], errors="coerce")
 
-            # Team-level aggregate per game date
             _team_day = _boxes.merge(_results, on="date", how="left").groupby("date").agg(
                 game_team_pts   = ("pts",         "mean"),
                 game_team_min   = ("minutes",     "mean"),
@@ -123,16 +135,62 @@ def _build_master(wellness, training_load, force_plate, acwr, injuries, players)
                 game_margin     = ("score_margin", "first"),
                 game_home_away  = ("home_away",    "first"),
             ).reset_index()
-
-            # W=1 L=0 for numeric correlation
             _team_day["game_result_binary"] = (_team_day["game_result"] == "W").astype(float)
-
-            df["date"] = pd.to_datetime(df["date"], errors="coerce")
             df = df.merge(_team_day, on="date", how="left")
+
+        elif "player_game_stats" in _tables and "game_results" in _tables:
+            # Arkansas schema: real per-player box scores, computed here rather
+            # than pre-aggregated. Individual player_id + date join is possible
+            # (unlike the WNBA team-broadcast above) because these box scores
+            # are tied to real individual athletes, not simulated team averages.
+            _box     = pd.read_sql_query("SELECT * FROM player_game_stats WHERE team='ARK'", _c)
+            _results = pd.read_sql_query(
+                "SELECT game_id, date, arkansas_score, opponent_score, result FROM game_results", _c
+            )
+            _c.close()
+
+            _results["date"] = pd.to_datetime(_results["date"], errors="coerce")
+            _box = _box.merge(_results, on="game_id", how="left")
+
+            # Team-day aggregate (broadcast to all players, same shape as WNBA path).
+            _team_day = _box.groupby("date").agg(
+                game_team_pts = ("pts", "sum"),
+                game_margin   = ("arkansas_score", "first"),
+            ).reset_index()
+            _team_day["game_margin"] = (
+                _box.groupby("date")["arkansas_score"].first() - _box.groupby("date")["opponent_score"].first()
+            ).values
+            _team_day["game_result_binary"] = (
+                _box.groupby("date")["result"].first() == "W"
+            ).astype(float).values
+            # Team possessions/PPP: FGA - OREB + TOV + 0.44*FTA (standard estimate).
+            _poss = _box.groupby("date").agg(
+                fga=("fga", "sum"), oreb=("oreb", "sum"), tov=("tov", "sum"), fta=("fta", "sum"),
+            )
+            _team_day["game_team_ppp"] = (
+                _team_day["game_team_pts"].values
+                / (_poss["fga"] - _poss["oreb"] + _poss["tov"] + 0.44 * _poss["fta"]).values
+            ).round(3)
+            df = df.merge(_team_day, on="date", how="left")
+
+            # Individual player-day box score: joined by player_id AND date, so
+            # this reflects THAT player's own real game, not a team broadcast.
+            _player_day = _box.rename(columns={
+                "pts": "game_player_pts", "reb": "game_player_reb", "ast": "game_player_ast",
+                "tov": "game_player_tov", "plus_minus": "game_player_plus_minus",
+            })
+            _player_day["game_player_fg_pct"] = (
+                _player_day["fgm"] / _player_day["fga"].replace(0, np.nan) * 100
+            ).round(1)
+            _player_day = _player_day[[
+                "player_id", "date", "game_player_pts", "game_player_reb", "game_player_ast",
+                "game_player_tov", "game_player_plus_minus", "game_player_fg_pct",
+            ]]
+            df = df.merge(_player_day, on=["player_id", "date"], how="left")
         else:
             _c.close()
     except Exception:
-        pass   # ESPN tables absent — explorer works without them
+        pass   # game tables absent or schema mismatch — explorer works without them
 
     return df
 
@@ -157,10 +215,17 @@ METRIC_LABELS = {
     "total_distance_km": "Distance (km)",
     "hsr_distance_m":    "HSR (m)",
     "injured_within_7days": "Injury (7d)",
-    "game_team_pts":        "Game: Team Avg Pts",
+    "game_team_pts":        "Game: Team Pts",
     "game_margin":          "Game: Score Margin",
     "game_result_binary":   "Game: Win (1) / Loss (0)",
     "game_home_away":       "Game: Home/Away",
+    "game_team_ppp":            "Game: Team PPP",
+    "game_player_pts":          "Game: Player Pts (this athlete)",
+    "game_player_reb":          "Game: Player Reb (this athlete)",
+    "game_player_ast":          "Game: Player Ast (this athlete)",
+    "game_player_tov":          "Game: Player TOV (this athlete)",
+    "game_player_plus_minus":   "Game: Player +/- (this athlete)",
+    "game_player_fg_pct":       "Game: Player FG% (this athlete)",
 }
 
 RESEARCH_NOTES = {
@@ -640,16 +705,27 @@ def _model_audit_section():
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
-def correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players):
+def correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players, db_path=None):
     st.header("🔬 Correlation Explorer")
     st.markdown(
         "Surfaces hidden relationships between monitoring signals. "
         "Use this to identify which metrics predict injury, fatigue, and readiness "
         "in **your specific dataset** — not just the published literature."
     )
+    st.markdown(
+        '<div style="background:#fef2f2;border-left:4px solid #dc2626;border-radius:0 6px 6px 0;'
+        'padding:10px 14px;margin-bottom:14px;">'
+        '<span style="font-size:12px;color:#7f1d1d;">'
+        '<b>Wellness, load, force-plate, ACWR, and injury metrics here are synthetic demo data</b> '
+        '(see sidebar). "Game:" columns are real for Arkansas, synthetic for WNBA. Any correlation '
+        'involving a synthetic metric demonstrates the analysis mechanism only -- it is not a real '
+        'finding about a real athlete, since one side of the relationship was randomly generated.'
+        '</span></div>',
+        unsafe_allow_html=True,
+    )
 
     with st.spinner("Building master dataset..."):
-        df = _build_master(wellness, training_load, force_plate, acwr, injuries, players)
+        df = _build_master(wellness, training_load, force_plate, acwr, injuries, players, db_path=db_path)
 
     total_records = len(df)
     n_players     = df["player_id"].nunique()

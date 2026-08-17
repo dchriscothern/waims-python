@@ -12,41 +12,80 @@ Roles and access:
 In production: replace DEMO_USERS with a database lookup + hashed passwords.
 """
 
+import os
 import streamlit as st
 
 # ---------------------------------------------------------------------------
 # DEMO USER CREDENTIALS
-# In production: query a users table with hashed passwords (bcrypt / argon2)
+# Each app instance is bound to a specific sport and only exposes credentials for it.
 # ---------------------------------------------------------------------------
 DEMO_USERS = {
-    "coach":     {"password": "coach123",   "role": "head_coach",      "display": "Head Coach",
-                  "name": "Coach Demo"},
-    "acoach":    {"password": "acoach123",  "role": "asst_coach",      "display": "Asst. Coach",
-                  "name": "Asst. Coach Demo"},
-    "scientist": {"password": "sci123",     "role": "sport_scientist", "display": "Sport Scientist / Medical",
-                  "name": "Sport Scientist Demo"},
-    "medical":   {"password": "med123",     "role": "medical",         "display": "Medical / AT",
-                  "name": "Medical Staff Demo"},
-    "gm":        {"password": "gm123",      "role": "gm",              "display": "General Manager",
-                  "name": "GM Demo"},
-    "athlete":   {"password": "athlete123", "role": "athlete",         "display": "Athlete",
-                  "name": "Athlete Demo", "player_id": "P001"},
-    "athlete2":  {"password": "athlete234", "role": "athlete",         "display": "Athlete",
-                  "name": "Athlete Demo 2", "player_id": "P002"},
+    "wnba": {
+        "wnba_coach":     {"password": "wnba_coach",   "role": "head_coach",      "display": "WNBA Head Coach",
+                           "name": "WNBA Coach Demo"},
+        "wnba_acoach":    {"password": "wnba_acoach",  "role": "asst_coach",      "display": "WNBA Asst. Coach",
+                           "name": "WNBA Asst. Coach Demo"},
+        "wnba_scientist": {"password": "wnba_sci",     "role": "sport_scientist", "display": "WNBA Sport Scientist",
+                           "name": "WNBA Scientist Demo"},
+        "wnba_medical":   {"password": "wnba_med",     "role": "medical",         "display": "WNBA Medical / AT",
+                           "name": "WNBA Medical Demo"},
+        "wnba_gm":        {"password": "wnba_gm",      "role": "gm",              "display": "WNBA GM",
+                           "name": "WNBA GM Demo"},
+        "wnba_athlete":   {"password": "wnba_athlete", "role": "athlete",         "display": "WNBA Athlete",
+                           "name": "WNBA Athlete Demo", "player_id": "P001"},
+    },
+    "mens": {
+        "ark_coach":      {"password": "ark_coach",    "role": "head_coach",      "display": "Arkansas Head Coach",
+                           "name": "Arkansas Coach Demo"},
+        "ark_acoach":     {"password": "ark_acoach",   "role": "asst_coach",      "display": "Arkansas Asst. Coach",
+                           "name": "Arkansas Asst. Coach Demo"},
+        "ark_scientist":  {"password": "ark_sci",      "role": "sport_scientist", "display": "Arkansas Sport Scientist",
+                           "name": "Arkansas Scientist Demo"},
+        "ark_medical":    {"password": "ark_med",      "role": "medical",         "display": "Arkansas Medical / AT",
+                           "name": "Arkansas Medical Demo"},
+        "ark_gm":         {"password": "ark_gm",       "role": "gm",              "display": "Arkansas GM",
+                           "name": "Arkansas GM Demo"},
+        "ark_athlete":    {"password": "ark_athlete",  "role": "athlete",         "display": "Arkansas Athlete",
+                           "name": "Arkansas Athlete Demo", "player_id": "P001"},
+    },
 }
+
+
+def get_active_sport_key() -> str:
+    sport = os.environ.get("WAIMS_SPORT", "").strip().lower()
+    if sport in {"wnba", "mens"}:
+        return sport
+    # Streamlit Community Cloud doesn't reliably expose Secrets-panel values
+    # via os.environ (see streamlit/streamlit#4123) -- st.secrets is the one
+    # reliable read path on Cloud, so check it too before falling back.
+    try:
+        sport = str(st.secrets.get("WAIMS_SPORT", "")).strip().lower()
+        if sport in {"wnba", "mens"}:
+            return sport
+    except Exception:
+        pass
+    if "sport" in st.query_params:
+        sport = str(st.query_params["sport"]).strip().lower()
+        if sport in {"wnba", "mens"}:
+            return sport
+    return "wnba"
+
+
+def get_demo_users_for_active_sport() -> dict:
+    return DEMO_USERS.get(get_active_sport_key(), DEMO_USERS["wnba"])
 
 # ---------------------------------------------------------------------------
 # TAB VISIBILITY PER ROLE
 # True = show tab, False = hidden entirely
 # ---------------------------------------------------------------------------
 TAB_ACCESS = {
-    #                            CC     Readiness  Profiles  Trends  Jumps  Injuries  Forecast  Insights  Intake
-    "head_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False, di=False),
-    "asst_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False, di=False),
-    "sport_scientist": dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True,  di=True),
-    "medical":         dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True,  di=False),
-    "gm":              dict(cc=True,  rd=False,  ap=False, tr=False,jt=False, inj=True,  fc=False, ins=False, di=False),
-    "athlete":         dict(cc=False, rd=True,   ap=False, tr=False,jt=False, inj=False, fc=False, ins=False, di=False),
+    #                            CC     Readiness  Profiles  Trends  Jumps  Injuries  Forecast  Insights  Intake  Game Perf
+    "head_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False, di=False, gp=True),
+    "asst_coach":      dict(cc=True,  rd=True,   ap=False, tr=False, jt=False, inj=True,  fc=True,  ins=False, di=False, gp=True),
+    "sport_scientist": dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True,  di=True,  gp=True),
+    "medical":         dict(cc=True,  rd=True,   ap=True,  tr=True, jt=True,  inj=True,  fc=True,  ins=True,  di=False, gp=True),
+    "gm":              dict(cc=True,  rd=False,  ap=False, tr=False,jt=False, inj=True,  fc=False, ins=False, di=False, gp=True),
+    "athlete":         dict(cc=False, rd=True,   ap=False, tr=False,jt=False, inj=False, fc=False, ins=False, di=False, gp=False),
 }
 
 # Tab labels (must match order used in dashboard.py)
@@ -60,6 +99,7 @@ TAB_LABELS = {
     "fc":  "Forecast",
     "ins": "Insights",
     "di":  "Data Intake",
+    "gp":  "Game Performance",
 }
 
 # Data field visibility per role (used to mask columns in dataframes)
@@ -128,12 +168,14 @@ def render_login_page():
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        # Header
+        sport_name = "WNBA" if get_active_sport_key() == "wnba" else "Arkansas"
+
+    # Header
         st.markdown(
             '<div style="text-align:center;margin-bottom:24px;">'
             '<div style="font-size:28px;font-weight:800;color:#1e3a5f;">WAIMS</div>'
             '<div style="font-size:14px;color:#64748b;margin-top:4px;">'
-            'Wellness & Athlete Injury Management System<br>WNBA Demo | v1.1</div>'
+            f'Wellness & Athlete Injury Management System<br>{sport_name} Environment | v1.1</div>'
             '</div>',
             unsafe_allow_html=True
         )
@@ -141,12 +183,13 @@ def render_login_page():
         # Login form inside a native Streamlit container
         with st.container(border=True):
             with st.form("login_form"):
-                username  = st.text_input("Username", placeholder="e.g. coach")
+                username  = st.text_input("Username", placeholder=f"e.g. {sport_name.lower()}_coach")
                 password  = st.text_input("Password", type="password", placeholder="Password")
                 submitted = st.form_submit_button("Sign In", width="stretch")
 
             if submitted:
-                user = DEMO_USERS.get(username.strip().lower())
+                users = get_demo_users_for_active_sport()
+                user = users.get(username.strip().lower())
                 if user and user["password"] == password.strip():
                     st.session_state["authenticated"] = True
                     st.session_state["username"]      = username.strip().lower()
@@ -154,27 +197,38 @@ def render_login_page():
                     st.session_state["display_role"]  = user["display"]
                     st.session_state["user_name"]     = user["name"]
                     st.session_state["player_id"]     = user.get("player_id")
+                    st.session_state["active_sport"]  = get_active_sport_key()
                     st.rerun()
                 else:
-                    st.error("Incorrect username or password.")
+                    st.error("Incorrect username or password for this environment.")
 
         # Demo credentials panel
         st.markdown("<div style='margin-top:16px;'></div>", unsafe_allow_html=True)
         with st.container(border=True):
             st.markdown(
                 "<div style='font-size:12px;font-weight:700;color:#1e3a5f;"
-                "margin-bottom:10px;'>Demo Credentials</div>",
+                f"margin-bottom:10px;'>{sport_name} Demo Credentials</div>",
                 unsafe_allow_html=True
             )
-            creds = [
-                ("coach / coach123",    "Head Coach",        "#1e3a5f"),
-                ("acoach / acoach123",  "Asst. Coach",       "#2563eb"),
-                ("scientist / sci123",  "Sport Scientist",   "#059669"),
-                ("medical / med123",    "Medical / AT",      "#7c3aed"),
-                ("gm / gm123",          "General Manager",   "#b45309"),
-                ("athlete / athlete123","Athlete",           "#0f766e"),
-                ("athlete2 / athlete234","Athlete",          "#0f766e"),
-            ]
+            users = get_demo_users_for_active_sport()
+            creds = []
+            for username_key, user in users.items():
+                role_label = {
+                    "head_coach": "Head Coach",
+                    "asst_coach": "Asst. Coach",
+                    "sport_scientist": "Sport Scientist",
+                    "medical": "Medical / AT",
+                    "gm": "General Manager",
+                    "athlete": "Athlete",
+                }.get(user["role"], user["role"])
+                creds.append((f"{username_key} / {user['password']}", role_label, {
+                    "head_coach": "#1e3a5f",
+                    "asst_coach": "#2563eb",
+                    "sport_scientist": "#059669",
+                    "medical": "#7c3aed",
+                    "gm": "#b45309",
+                    "athlete": "#0f766e",
+                }.get(user["role"], "#374151")))
             for user_str, role_str, color in creds:
                 st.markdown(
                     f'<div style="display:flex;justify-content:space-between;'
@@ -268,4 +322,9 @@ def get_visible_tabs() -> list[tuple[str, str]]:
     """Return list of (key, label) tuples for tabs the current role can see."""
     role = current_role()
     access = TAB_ACCESS.get(role, {})
-    return [(k, TAB_LABELS[k]) for k, visible in access.items() if visible]
+    tabs = [(k, TAB_LABELS[k]) for k, visible in access.items() if visible]
+    if get_active_sport_key() != "mens":
+        # Game Performance is sourced from Arkansas-only tables (player_game_stats,
+        # play_by_play_events) that don't exist in the WNBA database.
+        tabs = [t for t in tabs if t[0] != "gp"]
+    return tabs

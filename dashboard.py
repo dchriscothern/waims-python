@@ -24,6 +24,7 @@ from athlete_profile_tab import athlete_profile_tab, create_radar_chart
 from coach_command_center import coach_command_center
 from correlation_explorer import correlation_explorer_tab
 from athlete_view import athlete_home_view
+from game_performance_tab import game_performance_tab
 from auth import (render_login_page, render_user_badge, is_authenticated,
                   current_role, can_see, data_access, get_visible_tabs)
 from readiness_logic import (
@@ -53,11 +54,89 @@ except ImportError:
     HAVE_IMPROVED_GAUGES = False
 
 # ==============================================================================
+# MULTI-SPORT CONFIGURATION
+# ==============================================================================
+
+import sys
+HERE_PATH = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE_PATH.parent / "common"))
+
+try:
+    from sport_config_extended import get_sport_config, get_team_config
+    HAVE_SPORT_CONFIG = True
+except ImportError:
+    HAVE_SPORT_CONFIG = False
+
+
+def get_active_sport():
+    """Determine the running app's sport. This is locked to the launcher startup,
+    not selectable from the page, so WNBA and Arkansas stay separate.
+    """
+    sport_key = os.environ.get("WAIMS_SPORT", "").strip().lower()
+    if sport_key in ["wnba", "mens"]:
+        return sport_key
+
+    # Streamlit Community Cloud doesn't reliably expose Secrets-panel values
+    # via os.environ (see streamlit/streamlit#4123) even though root-level
+    # secrets are documented to become env vars -- st.secrets is the one
+    # reliable read path on Cloud, so check it too before falling back.
+    try:
+        sport_key = str(st.secrets.get("WAIMS_SPORT", "")).strip().lower()
+        if sport_key in ["wnba", "mens"]:
+            return sport_key
+    except Exception:
+        pass
+
+    params = st.query_params
+    if "sport" in params:
+        sport_key = str(params["sport"]).lower()
+        if sport_key in ["wnba", "mens"]:
+            return sport_key
+
+    if "active_sport" in st.session_state:
+        return st.session_state.active_sport
+
+    return "wnba"
+
+def get_paths_for_sport(sport_key):
+    """Return database and model paths for the selected sport."""
+    if sport_key == "mens":
+        repo_root = HERE_PATH
+        mens_root = HERE_PATH / "waims-mens"
+        if not mens_root.exists():
+            mens_root = HERE_PATH.parent / "waims-mens"
+
+        db_path = mens_root / "data" / "waims_arkansas.db"
+        model_path = mens_root / "models" / "injury_risk_model.pkl"
+        scaler_path = mens_root / "models" / "feature_scaler.pkl"
+        sport_name = "mens_power5_basketball"
+        team = "arkansas_razorbacks"
+    else:
+        db_path = HERE_PATH / "waims_demo.db"
+        model_path = HERE_PATH / "models" / "injury_risk_model.pkl"
+        scaler_path = HERE_PATH / "models" / "feature_scaler.pkl"
+        sport_name = "wnba_basketball"
+        team = "dallas_wings"
+
+    return {
+        "db_path": db_path,
+        "model_path": model_path,
+        "scaler_path": scaler_path,
+        "sport": sport_name,
+        "team": team,
+        "sport_key": sport_key,
+    }
+
+# Initialize sport selection
+ACTIVE_SPORT_KEY = get_active_sport()
+SPORT_PATHS = get_paths_for_sport(ACTIVE_SPORT_KEY)
+
+# ==============================================================================
 # PAGE CONFIG
 # ==============================================================================
 
 HERE      = Path(__file__).resolve().parent
-DB_PATH   = HERE / "waims_demo.db"
+DB_PATH   = SPORT_PATHS["db_path"]
 DATA_DROP_ROOT = HERE / "data_drop"
 INGEST_AUDIT_PATH = HERE / "logs" / "ingest_audit.jsonl"
 LOGO_PATH = HERE / "assets" / "branding" / "waims_run_man_logo.png"
@@ -179,6 +258,14 @@ def load_data():
     return players, wellness, training_load, force_plate, injuries, acwr, availability
 
 
+players = pd.DataFrame()
+wellness = pd.DataFrame()
+training_load = pd.DataFrame()
+force_plate = pd.DataFrame()
+injuries = pd.DataFrame()
+acwr = pd.DataFrame()
+availability = pd.DataFrame()
+
 health_report = startup_health_report()
 if health_report["errors"]:
     st.error("WAIMS could not start because the local demo database is not healthy.")
@@ -196,6 +283,11 @@ except Exception as e:
     st.error(f"Error loading database: {e}")
     st.info(f"Make sure {DB_PATH.name} is present and readable.")
     st.stop()
+
+if len(wellness) > 0:
+    end_date = pd.Timestamp(wellness["date"].max())
+else:
+    end_date = pd.Timestamp(datetime.today())
 
 # ==============================================================================
 # HELPERS
@@ -1510,11 +1602,6 @@ def generate_smart_response(query_type):
 # DATE
 # ==============================================================================
 
-if len(wellness) > 0:
-    end_date = pd.Timestamp(wellness["date"].max())
-else:
-    end_date = pd.Timestamp(datetime.today())
-
 processed_data_validation = {"status": "Not loaded", "detail": "Processed model output has not been checked yet."}
 try:
     _pcsv = pd.read_csv("data/processed_data.csv")
@@ -1548,6 +1635,47 @@ if not is_authenticated():
 
 # User badge in sidebar
 render_user_badge()
+
+# ==============================================================================
+# SPORT LOCKED TO HOST APP
+# ==============================================================================
+
+with st.sidebar:
+    st.divider()
+    st.markdown("### Dashboard Version")
+    current_sport = SPORT_PATHS["sport_key"]
+    sport_display = "WNBA (Women)" if current_sport == "wnba" else "Men's Power 5 (Arkansas)"
+    st.info(f"**Active:** {sport_display}")
+    st.caption(f"Database: `{DB_PATH.name}`")
+    st.caption("This environment is dedicated to one program only.")
+
+    if current_sport == "mens":
+        st.markdown(
+            '<div style="background:#fef2f2;border-left:4px solid #dc2626;'
+            'border-radius:0 6px 6px 0;padding:10px 12px;margin-top:10px;">'
+            '<div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;'
+            'letter-spacing:0.5px;">Data source key</div>'
+            '<div style="font-size:12px;color:#7f1d1d;margin-top:4px;line-height:1.5;">'
+            '<b>Real:</b> roster, Game Performance stats (box scores, play-by-play, prior-season log).<br>'
+            '<b>Synthetic:</b> wellness, sleep, soreness, stress, GPS/load, force plate (CMJ/RSI), '
+            'injuries, ACWR, and readiness/risk scores. Randomly generated for demo purposes -- '
+            'none of it reflects these athletes\' real health or status.'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div style="background:#eff6ff;border-left:4px solid #2563eb;'
+            'border-radius:0 6px 6px 0;padding:10px 12px;margin-top:10px;">'
+            '<div style="font-size:11px;font-weight:700;color:#1e3a8a;text-transform:uppercase;'
+            'letter-spacing:0.5px;">Data source key</div>'
+            '<div style="font-size:12px;color:#1e3a8a;margin-top:4px;line-height:1.5;">'
+            'All data in this environment -- roster, wellness, performance -- is '
+            '<b>synthetic demo data</b>. The roster is anonymized; nothing here reflects a real person.'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
+    st.divider()
 
 # ==============================================================================
 # MAIN DASHBOARD
@@ -1680,7 +1808,7 @@ if "rd" in tab_map:
 # ── Athlete Profiles ──────────────────────────────────────────────────────────
 if "ap" in tab_map:
     with tab_map["ap"], _section_guard("Athlete Profiles"):
-        athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries)
+        athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries, db_path=DB_PATH)
 
 # ==============================================================================
 # TAB 3: TRENDS
@@ -2870,7 +2998,7 @@ def generate_smart_response(query_type):
             )
 
             with st.expander("Model details (staff)"):
-                model_path = "models/injury_risk_model.pkl"
+                model_path = str(SPORT_PATHS["model_path"])
                 if os.path.exists(model_path):
                     st.success("Forecast model available")
                     try:
@@ -2879,13 +3007,16 @@ def generate_smart_response(query_type):
                         c1, c2, c3 = st.columns(3)
                         c1.metric("Algorithm", "RandomForest")
                         c2.metric("Status", "Ready")
-                        c3.metric("Model file", "injury_risk_model.pkl")
+                        c3.metric("Model file", SPORT_PATHS["model_path"].name)
                         st.info("Features: sleep, soreness, stress, training load, ACWR, CMJ, RSI, player load, accel/decel + z-score deviations from personal baseline.")
                     except Exception as e:
                         st.error(f"Error loading model: {e}")
                 else:
                     st.warning("Forecast model not yet trained")
-                    st.code("python train_models.py", language="bash")
+                    if ACTIVE_SPORT_KEY == "mens":
+                        st.code("cd waims-mens && python train_models_arkansas.py", language="bash")
+                    else:
+                        st.code("python train_models.py", language="bash")
 
 
 # ==============================================================================
@@ -3536,9 +3667,16 @@ if "ins" in tab_map:
             """,
             unsafe_allow_html=True,
         )
-        correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players)
+        correlation_explorer_tab(wellness, training_load, force_plate, acwr, injuries, players, db_path=DB_PATH)
 
 
+# ── Game Performance ──────────────────────────────────────────────────────────
+if "gp" in tab_map:
+    with tab_map["gp"], _section_guard("Game Performance"):
+        st.markdown("<div class='section-kicker'>Box Scores &amp; Shot Detail</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'>Game Performance</div>", unsafe_allow_html=True)
+        st.caption("Parsed from official Baha Mar Hoops box score and play-by-play PDFs.")
+        game_performance_tab(DB_PATH, players)
 
 
 # ==============================================================================

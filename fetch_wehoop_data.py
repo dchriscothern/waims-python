@@ -1,6 +1,6 @@
 """
 WAIMS Python - Fetch Real WNBA Data via wehoop
-Downloads 2025 season game statistics from ESPN API
+Downloads 2026 season game statistics from ESPN API (mid-season update)
 
 Usage:
     python fetch_wehoop_data.py
@@ -11,7 +11,7 @@ import sqlite3
 from datetime import datetime
 
 print("=" * 60)
-print("WAIMS - Fetching Real WNBA Game Data")
+print("WAIMS - Fetching Real WNBA Game Data (2026 Mid-Season)")
 print("=" * 60)
 
 try:
@@ -24,22 +24,24 @@ except ImportError:
     exit(0)
 
 # ==============================================================================
-# FETCH 2025 SEASON DATA
+# FETCH 2026 SEASON DATA
 # ==============================================================================
 
-print("\n1. Fetching 2025 WNBA season data from ESPN API...")
+print("\n1. Fetching 2026 WNBA season data from ESPN API...")
 
 try:
-    # Get 2025 season player box scores
-    games_2025 = load_wnba_player_box(seasons=2025)
-    print(f"✓ Retrieved {len(games_2025)} game records from 2025 season")
+    # Get 2026 season player box scores
+    # Season is mid-way (August 14, 2026), so we get all games to date
+    games_2026 = load_wnba_player_box(seasons=2026)
+    print(f"✓ Retrieved {len(games_2026)} game records from 2026 season")
     
-    # Filter to recent games (last 50 days to match our simulated data)
-    games_2025['game_date'] = pd.to_datetime(games_2025['game_date'])
-    cutoff_date = games_2025['game_date'].max() - pd.Timedelta(days=50)
-    recent_games = games_2025[games_2025['game_date'] >= cutoff_date].copy()
+    # Filter to last 90 days for consistent lookback window (matches synthetic data span)
+    games_2026['game_date'] = pd.to_datetime(games_2026['game_date'])
+    cutoff_date = games_2026['game_date'].max() - pd.Timedelta(days=90)
+    recent_games = games_2026[games_2026['game_date'] >= cutoff_date].copy()
     
-    print(f"✓ Filtered to {len(recent_games)} games from last 50 days")
+    print(f"✓ Filtered to {len(recent_games)} games from last 90 days")
+    print(f"  Date range: {recent_games['game_date'].min()} to {recent_games['game_date'].max()}")
     
 except Exception as e:
     print(f"❌ Error fetching data: {e}")
@@ -90,7 +92,7 @@ print(f"✓ Processed {len(game_data)} game records")
 print("\n3. Saving wehoop data...")
 
 # Save as CSV
-output_file = 'wehoop_2025_games.csv'
+output_file = 'wehoop_2026_games.csv'
 game_data.to_csv(output_file, index=False)
 print(f"✓ Saved to: {output_file}")
 
@@ -131,14 +133,14 @@ print(f"   Records: {wehoop_count}")
 print(f"   Teams: {len(teams)}")
 print(f"   Date range: {date_range['start'].values[0]} to {date_range['end'].values[0]}")
 print(f"\n📁 Files created:")
-print(f"   - wehoop_2025_games.csv")
+print(f"   - wehoop_2026_games.csv")
 print(f"   - waims_demo.db (updated with wehoop_games table)")
 
 print(f"\n💡 Usage:")
-print(f"   The dashboard will now show real game statistics")
+print(f"   The dashboard will now show real game statistics from 2026 mid-season")
 print(f"   Run: streamlit run dashboard.py")
 
-print("\n✓ Real WNBA data now integrated!")
+print("\n✓ Real WNBA 2026 mid-season data now integrated!")
 print("=" * 60)
 
 
