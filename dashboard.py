@@ -1770,7 +1770,7 @@ if "rd" in tab_map:
 # ── Athlete Profiles ──────────────────────────────────────────────────────────
 if "ap" in tab_map:
     with tab_map["ap"], _section_guard("Athlete Profiles"):
-        athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries)
+        athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries, db_path=DB_PATH)
 
 # ==============================================================================
 # TAB 3: TRENDS

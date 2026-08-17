@@ -4,6 +4,7 @@ Includes GPS / Kinexon section (player load, accel count, decel count)
 """
 
 import os
+import sqlite3
 from datetime import datetime, timedelta
 from html import escape
 
@@ -744,8 +745,83 @@ def render_data_sources_panel(latest_wellness, latest_force, gps_row, latest_dat
             _render_data_source_card(source)
 
 
+def _render_game_performance_section(db_path, athlete_id):
+    """On-court production summary for this athlete, if game data has been
+    parsed in for their program (currently: Arkansas box scores/play-by-play
+    via scripts/parse_arkansas_box_scores.py and load_prior_season_log.py).
+    A no-op for athletes/sports without this data -- e.g. WNBA.
+    """
+    try:
+        conn = sqlite3.connect(str(db_path))
+        tables = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+    except sqlite3.OperationalError:
+        return
 
-def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None):
+    if "player_game_stats" not in tables:
+        conn.close()
+        return
+
+    current_games = pd.read_sql_query(
+        "SELECT s.*, g.date, g.opponent FROM player_game_stats s "
+        "JOIN game_results g ON g.game_id = s.game_id "
+        "WHERE s.player_id = ? AND s.team = 'ARK' ORDER BY g.date",
+        conn, params=(athlete_id,),
+    )
+    prior_games = pd.DataFrame()
+    if "player_prior_season_games" in tables:
+        prior_games = pd.read_sql_query(
+            "SELECT * FROM player_prior_season_games WHERE player_id = ? ORDER BY date",
+            conn, params=(athlete_id,),
+        )
+    conn.close()
+
+    if current_games.empty and prior_games.empty:
+        return
+
+    st.markdown("---")
+    st.markdown("### Game Performance")
+    st.caption(
+        "On-court production, from parsed box scores and play-by-play. "
+        "See the Game Performance tab for full shot detail, play-type efficiency, and lineup analytics."
+    )
+
+    def _season_summary(label, df):
+        st.markdown(f"**{label}**")
+        cols = st.columns(6)
+        cols[0].metric("GP", len(df))
+        cols[1].metric("PPG", f"{df['pts'].mean():.1f}")
+        cols[2].metric("RPG", f"{df['reb'].mean():.1f}")
+        cols[3].metric("APG", f"{df['ast'].mean():.1f}")
+        fga_sum, fgm_sum = df["fga"].sum(), df["fgm"].sum()
+        cols[4].metric("FG%", f"{(fgm_sum / fga_sum * 100):.1f}" if fga_sum else "-")
+        fta_sum, ftm_sum = df["fta"].sum(), df["ftm"].sum()
+        cols[5].metric("FT%", f"{(ftm_sum / fta_sum * 100):.1f}" if fta_sum else "-")
+
+    if not current_games.empty:
+        _season_summary("Current Season", current_games)
+
+        if len(current_games) > 1:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=current_games["date"], y=current_games["pts"],
+                name="Points", mode="lines+markers",
+                line=dict(color="#2E86AB", width=2),
+                hovertext=current_games["opponent"], hoverinfo="text+y",
+            ))
+            fig.update_layout(
+                height=220, margin=dict(l=10, r=10, t=20, b=20),
+                yaxis=dict(title="Points"), showlegend=False,
+            )
+            st.plotly_chart(fig, width="stretch")
+
+    for season, season_rows in prior_games.groupby("season"):
+        source = season_rows["source"].iloc[0]
+        _season_summary(f"{season} Season (Prior Year -- source: {source})", season_rows)
+
+
+def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None, db_path=None):
     st.header("Athlete Profiles")
 
 
@@ -1203,6 +1279,13 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     else:
         st.info("No GPS data available for this athlete today." if has_gps else
                 "GPS columns not found in database — run generate_database.py to add GPS data.")
+
+    # ==========================================================================
+    # GAME PERFORMANCE (box score / play-by-play -- only present where that
+    # data has been parsed in, e.g. Arkansas. Silently absent otherwise.)
+    # ==========================================================================
+    if db_path is not None:
+        _render_game_performance_section(db_path, athlete_id)
 
     # ==========================================================================
     # PERSONAL BASELINE Z-SCORES (wellness + CMJ/RSI)
