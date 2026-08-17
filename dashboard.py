@@ -76,6 +76,17 @@ def get_active_sport():
     if sport_key in ["wnba", "mens"]:
         return sport_key
 
+    # Streamlit Community Cloud doesn't reliably expose Secrets-panel values
+    # via os.environ (see streamlit/streamlit#4123) even though root-level
+    # secrets are documented to become env vars -- st.secrets is the one
+    # reliable read path on Cloud, so check it too before falling back.
+    try:
+        sport_key = str(st.secrets.get("WAIMS_SPORT", "")).strip().lower()
+        if sport_key in ["wnba", "mens"]:
+            return sport_key
+    except Exception:
+        pass
+
     params = st.query_params
     if "sport" in params:
         sport_key = str(params["sport"]).lower()
