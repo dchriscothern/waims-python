@@ -62,27 +62,21 @@ WAIMS (Wellness and Injury Management System) is a Python + Streamlit athlete mo
 ## Session State
 _Update at the end of every session._
 
-**Last completed:**
-- [x] Updated WAIMS with 2026 WNBA mid-season stats via enhanced fetch_wehoop_data.py
-- [x] Created multi-sport architecture with parallel waims-wnba/ and waims-mens/ directories
-- [x] Implemented Arkansas Men's Basketball version with real roster (14 players)
-- [x] Extended sport_config.py to common/sport_config_extended.py supporting WNBA + Men's Power 5
-- [x] Generated 1,260 synthetic records for Arkansas with men-specific GPS baselines
-- [x] Trained Random Forest injury risk model for Arkansas (100 trees, 28 features)
-- [x] Created multi-sport launcher (launcher.py) with setup wizard and sport selection
-- [x] Comprehensive documentation: MULTI_SPORT_SETUP.md + IMPLEMENTATION_SUMMARY.md
-- [x] Fixed Windows Unicode encoding issues (PowerShell cp1252)
+**Last completed (2026-08-17):**
+- [x] Multi-sport routing: one shared `dashboard.py`, sport selected via `WAIMS_SPORT` env var / `st.secrets` / `?sport=` query param — not separate `waims-wnba/`/`waims-mens/` dashboards (an earlier plan described that split; it was never built)
+- [x] Real Arkansas game data: box scores + play-by-play parsed via OCR from 4 real Baha Mar summer games (`scripts/parse_arkansas_box_scores.py`, `scripts/parse_arkansas_play_by_play.py`), real prior-season log for Billy Richmond III (37 games, ESPN)
+- [x] Game Performance tab (box scores, player log, shot detail, advanced possession/lineup metrics) and a real-game-stats section on the Athlete Profile tab
+- [x] Real-vs-synthetic data labeling audited and fixed app-wide (sidebar banner, per-section captions, "Real data" badges)
+- [x] Correlation Explorer extended to Arkansas's real game data, with sample-size caveats
+- [x] Fixed a real production bug: `load_data()`/`startup_health_report()` in `dashboard.py` cached with zero arguments, so a shared Streamlit Cloud process stuck on whichever sport loaded first regardless of later requests — now parameterized by `db_path`
+- [x] Docs corrected: `SETUP_GUIDE.md`, `MULTI_SPORT_SETUP.md` rewritten to match actual architecture; `IMPLEMENTATION_SUMMARY.md` marked as a historical snapshot; new `GOING_LIVE_CHECKLIST.md` for real-team production readiness
 
 **Known issues:**
-- [ ] Dashboard needs sport/team selector parameter integration (dashboard.py customization pending)
-- [ ] Wehoop API testing needed (requires live 2026 data fetch)
-- [ ] Role-based access validation across sports not yet tested in UI
+- [ ] `sandbox` and `main` have different-shaped git histories after a squash merge — future `sandbox` → `main` PRs may show a false "merge conflicts" error; resync `sandbox` onto `main` before the next round of work
+- [ ] No real authentication, encryption at rest, or audit logging — fine for the current synthetic-data demo, see `GOING_LIVE_CHECKLIST.md` before this ever touches real athlete data
 
 **Next priority:**
-- [ ] Integrate sport parameter into dashboard.py (allow --sport wnba/mens)
-- [ ] Test full dashboard launch: `python launcher.py --sport mens`
-- [ ] Validate WNBA dashboard with 2026 wehoop stats
-- [ ] Add more Power 5 teams (Duke, Kansas, UCLA) following Arkansas template
+- [ ] User-driven — no single next task queued as of 2026-08-17
 
 ---
 
