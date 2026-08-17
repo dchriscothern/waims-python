@@ -2,6 +2,22 @@
 **Date:** August 14, 2026  
 **Status:** ✅ COMPLETE - Ready for deployment
 
+> **Historical snapshot — read with caution.** This describes the
+> multi-sport work as it stood on 2026-08-14, before the real Arkansas
+> game-data pipeline (box scores, play-by-play, Game Performance tab,
+> real prior-season stats) was built on 2026-08-16/17. Two things below
+> are now factually wrong, kept as-written for the historical record:
+> - **"Parallel directory structure" (`waims-wnba/` + `waims-mens/`,
+>   each with its own `dashboard.py`)** never actually happened — there
+>   is one shared `dashboard.py` at the repo root, routed by sport at
+>   runtime. See `MULTI_SPORT_SETUP.md`.
+> - **"All statistics synthetic" for Arkansas** is no longer true — real
+>   box scores, play-by-play, and a real prior season are now loaded.
+>   See `SETUP_GUIDE.md`'s database table for what's real vs. synthetic.
+>
+> For current, accurate setup/architecture info, use `SETUP_GUIDE.md` and
+> `MULTI_SPORT_SETUP.md` instead of this file.
+
 ---
 
 ## 🎯 Objectives Completed

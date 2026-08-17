@@ -1,166 +1,77 @@
-"""
-WAIMS Multi-Sport Setup Guide
-==============================
+# WAIMS Multi-Sport Architecture
 
-This guide explains how to set up and run both the WNBA and Men's Power 5
-basketball versions of WAIMS (Wellness & Athlete Injury Management System).
-
----
-
-## ✅ Quick Start
-
-### Option 1: Guided Setup (Recommended for first run)
-```bash
-cd c:\GitHub\waims-python
-python launcher.py --setup
-```
-
-### Option 2: Direct Launch
-
-**WNBA Version (Dallas Wings Demo):**
-```bash
-python launcher.py --sport wnba
-```
-
-**Men's Version (Arkansas Razorbacks):**
-```bash
-python launcher.py --sport mens
-```
-
-### Option 3: View Available Options
-```bash
-python launcher.py --list
-```
+How WNBA and Arkansas Men's Basketball share one codebase, and what's
+actually real vs. synthetic in each. For install/run commands, see
+`SETUP_GUIDE.md` — this doc is about *why* it's built the way it is.
 
 ---
 
-## 📁 Directory Structure
+## The actual architecture (corrects an earlier draft of this doc)
 
-```
-waims-python/
-├── launcher.py                          # Multi-sport launcher (NEW)
-├── common/                              # Shared utilities (NEW)
-│   └── sport_config_extended.py        # Extended sport configuration
-│
-├── waims-wnba/                          # WNBA version (refactored)
-│   ├── dashboard.py
-│   ├── coach_command_center.py
-│   ├── athlete_profile_tab.py
-│   ├── improved_gauges.py
-│   ├── z_score_module.py
-│   ├── research_citations.py
-│   ├── data/
-│   │   └── (WNBA database)
-│   └── models/
-│       └── (WNBA models)
-│
-├── waims-mens/                          # Men's Power 5 version (NEW)
-│   ├── dashboard.py                     # (shared from WNBA, configurable)
-│   ├── coach_command_center.py          # (shared from WNBA, configurable)
-│   ├── roster_arkansas.py              # Arkansas roster data
-│   ├── generate_database_arkansas.py   # Men's data generator
-│   ├── train_models_arkansas.py        # Men's model training
-│   ├── data/
-│   │   └── waims_arkansas.db           # Arkansas database
-│   └── models/
-│       ├── injury_risk_model.pkl       # Trained model
-│       └── feature_scaler.pkl          # Feature scaler
-│
-├── generate_database.py                 # WNBA data generator (existing)
-├── train_models.py                      # WNBA model training (existing)
-├── fetch_wehoop_data.py                # 2026 WNBA stats fetcher (UPDATED)
-└── [other existing files...]
-```
+There is **one shared `dashboard.py`** (and one shared `auth.py`,
+`athlete_profile_tab.py`, etc.) at the repo root. There is no separate
+`waims-wnba/dashboard.py` or `waims-mens/dashboard.py` — an earlier
+version of this document described that split as if it existed; it never
+did. Which sport you get is decided entirely by `get_active_sport()` in
+`dashboard.py`, which checks, in order:
+
+1. `WAIMS_SPORT` environment variable (reliable locally)
+2. `st.secrets["WAIMS_SPORT"]` (Streamlit Cloud's Secrets panel — proven
+   unreliable in practice, see `SETUP_GUIDE.md`)
+3. `?sport=` query parameter on the page URL (the reliable Cloud option)
+4. Falls back to `wnba` if none of the above are set
+
+`waims-mens/` holds Arkansas-specific data files (`roster_arkansas.py`,
+the database, models) but the dashboard code itself is not duplicated —
+`get_paths_for_sport()` just points `DB_PATH`/`model_path` at the right
+files for whichever sport is active.
 
 ---
 
-## 🚀 Getting Started
-
-### Step 1: Environment Setup
-
-Ensure you have Python 3.9+ and the required dependencies:
+## Quick Start
 
 ```bash
-cd c:\GitHub\waims-python
-pip install -r requirements.txt
+python launcher.py --sport wnba     # WNBA
+python launcher.py --sport mens     # Arkansas
+python launcher.py --list           # Show available sports
+python launcher.py --setup          # Interactive first-time setup
 ```
 
-Key packages:
-- streamlit (dashboard UI)
-- pandas, numpy (data processing)
-- scikit-learn (machine learning)
-- sqlite3 (database)
-- plotly (visualization)
-- wehoop (WNBA data fetching)
-
-### Step 2: Choose Your Version
-
-**For WNBA (first time):**
-```bash
-python launcher.py --setup
-# Select option 1: WNBA Basketball
-# This generates synthetic data and trains the model
-```
-
-**For Arkansas Men's (first time):**
-```bash
-python launcher.py --setup
-# Select option 2: Men's Power 5 Basketball
-# This generates synthetic data and trains the model
-```
-
-### Step 3: Launch Dashboard
-
-**WNBA:**
-```bash
-python launcher.py --sport wnba
-```
-
-**Arkansas Men's:**
-```bash
-python launcher.py --sport mens
-```
-
-The dashboard will open automatically in your browser at `http://localhost:8501`
+Full install steps: `SETUP_GUIDE.md`.
 
 ---
 
-## 📊 What's in Each Version?
+## What's in each version — and what's real
 
-### WNBA Version
-- **Team:** Dallas Wings (fictional demo roster)
-- **Population:** Female basketball players
-- **Data:** 90 days synthetic, 2026 season mid-way
-- **Database:** `waims_demo.db`
-- **Thresholds:** Women-specific (sleep, CMJ, RSI, GPS)
-- **Models:** Random Forest injury risk classifier, readiness calculator
+### WNBA
+- Anonymized roster, fully synthetic wellness/load/force-plate/game data
+- `waims_demo.db`
 
-**Key Differences from Men's:**
-- Lower GPS baselines (decel counts, sprint distance)
-- Different sleep targets (9h optimal vs 9.5h)
-- Female-specific physiology in CMJ/RSI expectations
-- WNBA-specific schedule (40-game season, ~3 games/week)
+### Arkansas Razorbacks
+- Real roster names
+- **Real game data**: box scores and play-by-play from 4 real Baha Mar
+  summer games (parsed via OCR from the official PDFs), plus a real full
+  2025-26 prior season for Billy Richmond III (37 games, from ESPN)
+- **Synthetic** wellness, sleep, load, force plate, injuries, ACWR —
+  same as WNBA, randomly generated, not real observations
+- `waims-mens/data/waims_arkansas.db`
 
-### Men's Power 5 Version (Arkansas Razorbacks)
-- **Team:** Arkansas Razorbacks (SEC)
-- **Population:** Male college basketball players (real 14-player roster)
-- **Data:** 90 days synthetic, reflects college schedule
-- **Database:** `waims-mens/data/waims_arkansas.db`
-- **Thresholds:** Men-specific (higher CMJ, different sleep patterns)
-- **Models:** Random Forest injury risk classifier, readiness calculator
+The app is explicit about this split in the UI itself: a sidebar "Data
+source key" banner, a green "Real data" badge on the Game Performance
+section of the Athlete Profile tab, and disclosure captions on the
+Correlation Explorer tab. If you're extending this to a new team, keep
+that real/synthetic labeling — don't let synthetic data pass as real or
+vice versa; that's a trust problem, not just a cosmetic one.
 
-**Key Differences from WNBA:**
-- Higher GPS baselines (male athletes produce more force)
-- Higher sleep targets (college recovery crucial)
-- Different soreness thresholds (college athletes report differently)
-- NCAA compliance considerations (FERPA, state consent laws)
-- Tournament play common (frequent back-to-back games)
+An earlier version of this doc's FAQ said Arkansas was "real names, all
+statistics synthetic" — that was accurate when written, before the real
+game-data pipeline was built, and is no longer true. Corrected above.
 
 ---
 
-## 🔧 Customization
+## Customization
 
-### Adjusting Sport Thresholds
+### Adjusting sport thresholds
 
 Edit `common/sport_config_extended.py`:
 
@@ -169,14 +80,13 @@ Edit `common/sport_config_extended.py`:
     "thresholds": {
         "sleep_minimum_hrs": 6.5,
         "sleep_flag_hrs": 7.5,
-        "cmj_zscore_flag": -0.9,  # Adjust as needed
+        "cmj_zscore_flag": -0.9,
         "minutes_4day_flag": 130,
-        # ... other thresholds
     }
 }
 ```
 
-### Adding a New Team
+### Adding a new team (synthetic data only)
 
 ```python
 TEAM_CONFIGS = {
@@ -184,11 +94,8 @@ TEAM_CONFIGS = {
         "display_name": "Arkansas Razorbacks",
         "sport": "mens_power5_basketball",
         "conference": "SEC",
-        "threshold_overrides": {
-            "minutes_4day_flag": 135,  # Team-specific
-        },
+        "threshold_overrides": {"minutes_4day_flag": 135},
     },
-    # Add new team here:
     "duke_blue_devils": {
         "display_name": "Duke Blue Devils",
         "sport": "mens_power5_basketball",
@@ -198,212 +105,83 @@ TEAM_CONFIGS = {
 }
 ```
 
-### Adding a New Sport
+This gets you a new team with synthetic wellness/load data out of the
+box. It does **not** get you real game data — that requires either
+manually running the OCR pipeline against that team's own box-score PDFs
+(see `scripts/parse_arkansas_box_scores.py` — currently tuned to one
+specific PDF layout, would need column-position adjustments for a
+different source) or an ESPN gamelog fetch like
+`scripts/load_prior_season_log.py` does for Billy Richmond. There's no
+one-command "add real data for a new team" path yet.
 
-1. Add sport config to `common/sport_config_extended.py`:
+### Adding a new sport
 
-```python
-"my_sport_basketball": {
-    "display_name": "My Sport Basketball",
-    "population": "mixed",
-    "readiness_weights": { ... },
-    "thresholds": { ... },
-    # ... etc
-}
-```
-
-2. Create version-specific directory:
-```bash
-mkdir waims-mysport
-# Create dashboard.py, data generator, model training scripts
-```
-
-3. Update `launcher.py` to include new sport in `SPORT_CONFIGS`
+1. Add a sport config block to `common/sport_config_extended.py`
+2. `get_paths_for_sport()` in `dashboard.py` needs a new branch pointing
+   at that sport's database/model paths
+3. Update `launcher.py`'s `SPORT_CONFIGS` dict
 
 ---
 
-## 📈 Data Workflow
+## Security considerations
 
-### WNBA Workflow
-1. **fetch_wehoop_data.py** → Fetches real 2026 WNBA stats via wehoop API
-2. **generate_database.py** → Creates synthetic demo data (merges with real stats if available)
-3. **train_models.py** → Trains RF model on wellness + GPS + force plate data
-4. **dashboard.py** → Displays readiness, injury risk, trends, etc.
+**Current state (portfolio/demo):** logins are hardcoded username/password
+pairs in `auth.py` (`DEMO_USERS`), no encryption at rest, no audit
+logging, databases are just files distinguished by path. That's
+appropriate for a demo — it is not appropriate for real athletes' real
+data.
 
-### Arkansas Men's Workflow
-1. **roster_arkansas.py** → Defines 14-player roster with realistic attributes
-2. **generate_database_arkansas.py** → Creates synthetic college basketball data
-3. **train_models_arkansas.py** → Trains RF model with men's-specific baselines
-4. **dashboard.py** → Same UI, different thresholds and data
-
----
-
-## 🧪 Testing
-
-### Check Available Sports
-```bash
-python launcher.py --list
-```
-
-### Verify Database Creation
-```bash
-cd waims-wnba
-python ../generate_database.py
-# Check for: waims_demo.db
-
-cd ../waims-mens
-python generate_database_arkansas.py
-# Check for: data/waims_arkansas.db
-```
-
-### Verify Model Training
-```bash
-python train_models.py          # WNBA
-python train_models_arkansas.py # Arkansas
-# Check for .pkl files in models/ directory
-```
-
-### Run Dashboard Locally
-```bash
-python launcher.py --sport wnba  # Test WNBA
-python launcher.py --sport mens  # Test Arkansas
-# Navigate to http://localhost:8501
-```
+**If this were ever used with a real team's real data**, that gap needs
+to close before anything else does. See `GOING_LIVE_CHECKLIST.md` for the
+actual list — it's a substantially bigger lift than anything documented
+here (real auth, compliant hosting, legal/compliance review), not a
+config change.
 
 ---
 
-## 🔐 Multi-Sport Security Considerations
+## Troubleshooting
 
-### Data Isolation
-- WNBA data: `waims_demo.db` (root)
-- Arkansas data: `waims-mens/data/waims_arkansas.db` (separate)
-- No cross-team data access in current V1
-
-### Future (V2)
-- RBAC (role-based access control)
-- SSO (Okta/Azure AD)
-- Encryption at rest
-- Audit logs
-- Separate database servers per sport/team
+| Symptom | Fix |
+|---------|-----|
+| "Database not found" on first run | `python launcher.py --setup`, pick your sport |
+| Arkansas dashboard shows placeholder names (`P2`, etc.) instead of real ones | Stale Cloud deploy or the zero-argument caching bug (fixed as of PR #24) — reboot the app |
+| Import errors | Confirm you're in the repo root and ran `pip install -r requirements.txt` |
 
 ---
 
-## 📝 Shared Components
+## Key Resources
 
-### Used by Both Versions
-- `sport_config_extended.py` — Sport/team configuration
-- `improved_gauges.py` — Readiness visualization components
-- `z_score_module.py` — Baseline z-score calculations
-- `research_citations.py` — Evidence base display
-- `auth.py` — Role-based login
-
-### Sport-Specific Components
-- **WNBA:** `generate_database.py`, `train_models.py`, dashboard with WNBA thresholds
-- **Arkansas:** `generate_database_arkansas.py`, `train_models_arkansas.py`, dashboard with men's thresholds
+- `SETUP_GUIDE.md` — install/run commands, deployment, troubleshooting
+- `GOING_LIVE_CHECKLIST.md` — what "actually using this with a real team" requires
+- `PRIVACY.md` — FERPA/HIPAA guidance (product guidance, not legal advice)
+- `RESEARCH_FOUNDATION.md` — evidence base for thresholds
 
 ---
 
-## 🐛 Troubleshooting
-
-### "Database not found" on first run
-```bash
-python launcher.py --setup
-# Select your sport and let it generate data automatically
-```
-
-### "Model not found" error
-```bash
-cd waims-wnba           # or waims-mens
-python train_models.py  # or train_models_arkansas.py
-```
-
-### Streamlit connection errors
-```bash
-# Restart streamlit
-# Close browser, run launcher.py again
-python launcher.py --sport wnba
-```
-
-### Import errors
-```bash
-# Ensure you're in the right directory
-cd c:\GitHub\waims-python
-python -m pip install -r requirements.txt
-```
-
----
-
-## 📚 Key Resources
-
-- `README.md` — Full project documentation
-- `RESEARCH_FOUNDATION.md` — Evidence base for thresholds
-- `WAIMS_GLOBAL_CONTEXT.md` — Session context
-- `AGENTS.md` — Development planning
-- `claude.md` — Claude AI notes
-
----
-
-## 🎯 Next Steps
-
-### Short-term (V1.1)
-- [ ] Deploy WNBA version with 2026 stats
-- [ ] Test Arkansas Men's version locally
-- [ ] Add more Power 5 teams as needed
-
-### Medium-term (V2)
-- [ ] Integrate live Kinexon/ForceDecks APIs
-- [ ] Add positional GPS norms
-- [ ] Implement RBAC + SSO
-- [ ] NCAA compliance review (FERPA, state laws)
-- [ ] Second Spectrum / Springbok Analytics integration
-
-### Long-term (V3)
-- [ ] MCP server integration
-- [ ] Athlete-facing mobile app
-- [ ] Predictive analytics expansion
-
----
-
-## ❓ FAQ
+## FAQ
 
 **Q: Can I run both versions simultaneously?**
-A: Yes, but on different ports:
+A: Yes, on different ports:
 ```bash
-# Terminal 1: WNBA
-streamlit run waims-wnba/dashboard.py --server.port 8501
-
-# Terminal 2: Arkansas
-streamlit run waims-mens/dashboard.py --server.port 8502
+WAIMS_SPORT=wnba streamlit run dashboard.py --server.port 8501
+WAIMS_SPORT=mens streamlit run dashboard.py --server.port 8502
 ```
-
-**Q: How do I update WNBA stats?**
-A: Run the updated fetch_wehoop_data.py script:
-```bash
-python fetch_wehoop_data.py
-# This pulls 2026 season stats and updates waims_demo.db
-```
-
-**Q: Can I add my own team?**
-A: Yes! Follow the "Adding a New Team" section in Customization above.
+(PowerShell: `$env:WAIMS_SPORT="mens"; streamlit run dashboard.py --server.port 8502`)
 
 **Q: Is real player data used?**
-A: Arkansas roster uses real 2024-25 player names (for portfolio). 
-All statistics are synthetic/demo. WNBA version uses fully anonymized names.
+A: For Arkansas: real roster names, real 4-game box scores/play-by-play,
+real prior-season stats for Billy Richmond III — all real. Wellness,
+sleep, load, force plate, injuries are synthetic for both teams. See the
+in-app "Real data" badges and disclosure captions for exactly which
+section is which.
 
-**Q: What about GDPR/HIPAA compliance?**
-A: This is portfolio demo code. Real deployment requires:
-- Consent management
-- Encryption at rest & in transit
-- Audit logging
-- Data residency compliance
-- WNBA CBA review (for WNBA)
-- FERPA review (for NCAA)
+**Q: What about GDPR/HIPAA/FERPA compliance if this became real?**
+A: See `GOING_LIVE_CHECKLIST.md`. Short version: real auth, compliant
+hosting with a signable BAA, a real legal/compliance review, and (if
+partnering with a university) IRB approval are all required — none of
+that exists yet, by design, since this is currently a demo with synthetic
+sensitive data.
 
 ---
 
-Last updated: August 14, 2026
-"""
-
-# Print this to console if run directly
-if __name__ == "__main__":
-    print(__doc__)
+Last updated: 2026-08-17
