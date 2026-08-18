@@ -151,7 +151,7 @@ waims-python/
 ├── requirements.txt
 ├── models/                         # WNBA models
 ├── assets/
-└── waims_demo.db                   # WNBA database (gitignored, regenerate locally)
+└── waims_demo.db                   # WNBA database (committed to the repo, same as models/*.pkl)
 ```
 
 ---

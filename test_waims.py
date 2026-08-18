@@ -1,23 +1,35 @@
 """
 WAIMS Unit Tests
 ================
-Tests for core logic: readiness formula, query parsing,
-z-score calculations, data quality, sport config, and auth.
+Tests for core logic: readiness formula, z-score calculations, data
+quality, sport config, and auth. Query parsing and full-page rendering
+are covered in test_app_rendering.py instead, via AppTest -- parse_query
+lives inline in dashboard.py, which can't be import-tested directly (it's
+a full Streamlit script; importing it executes the whole app).
 
 Run:
     pytest test_waims.py -v
     pytest test_waims.py -v --tb=short   # shorter tracebacks
-    pytest test_waims.py::TestReadiness  # single class
+    pytest test_waims.py::TestReadinessFormula  # single class
 
-These tests use only synthetic data — no database required for most tests.
+These tests import the real functions from readiness_logic.py,
+z_score_module.py, and common/sport_config_extended.py -- not local
+copies of the logic. If a test here breaks, the real behavior changed,
+not just the test's own private assumptions.
+
 Database tests are marked @pytest.mark.db and require waims_demo.db.
 """
+
+import sys
+from pathlib import Path
 
 import pytest
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "common"))
 
 
 # ==============================================================================
@@ -26,146 +38,90 @@ from unittest.mock import patch, MagicMock
 
 class TestReadinessFormula:
     """
-    Tests for the core readiness scoring formula.
-    Formula: CMJ 35pts + RSI 25pts + Sleep 20pts + Soreness 10pts + Mood/Stress 10pts
-    
-    These test the formula logic directly without importing dashboard.py
-    (which requires streamlit context).
+    Tests for the REAL readiness scoring formula in readiness_logic.py --
+    the same function dashboard.py and athlete_profile_tab.py both call
+    (calculate_readiness_score, imported there as shared_calculate_readiness_score).
     """
 
-    def _score(self, sleep=8.0, soreness=2, stress=2, mood=8,
-               cmj_z=0.5, rsi_z=0.5):
-        """Replicate the readiness formula used in dashboard.py"""
-        sleep_pct    = min(100, (sleep / 8) * 100)
-        physical_pct = ((10 - soreness) / 10) * 100
-        mental_pct   = (mood / 10) * 100
-        stress_pct   = ((10 - stress) / 10) * 100
+    def _row(self, **overrides):
+        row = {
+            "sleep_hours": 8.0, "sleep_quality": 8, "soreness": 2, "mood": 8,
+            "stress": 2, "cmj_height_cm": 34, "rsi_modified": 0.45,
+            "position": "F", "is_back_to_back": 0, "days_rest": 3,
+            "travel_flag": 0, "time_zone_diff": 0, "unrivaled_flag": 0,
+        }
+        row.update(overrides)
+        return row
 
-        # Simplified formula matching dashboard
-        score = (
-            (sleep / 8) * 30 +
-            ((10 - soreness) / 10) * 25 +
-            ((10 - stress) / 10) * 25 +
-            (mood / 10) * 20
-        )
-        return round(min(100, max(0, score)), 1)
+    def test_near_full_recovery_scores_high(self):
+        from readiness_logic import calculate_readiness_score
+        score = calculate_readiness_score(self._row(
+            sleep_hours=8, sleep_quality=10, soreness=0, mood=10, stress=0,
+            cmj_height_cm=34, rsi_modified=0.45,
+        ))
+        assert score >= 85, f"Expected a high score for near-ideal inputs, got {score}"
 
-    def test_perfect_athlete_scores_100(self):
-        score = self._score(sleep=8, soreness=0, stress=0, mood=10)
-        assert score == 100.0
-
-    def test_worst_case_scores_zero(self):
-        score = self._score(sleep=0, soreness=10, stress=10, mood=0)
-        assert score == 0.0
-
-    def test_good_athlete_scores_ready(self):
-        """8hr sleep, low soreness/stress, good mood → READY (≥80)"""
-        score = self._score(sleep=8, soreness=2, stress=2, mood=8)
-        assert score >= 80, f"Expected ≥80, got {score}"
+    def test_poor_recovery_scores_low(self):
+        from readiness_logic import calculate_readiness_score
+        score = calculate_readiness_score(self._row(
+            sleep_hours=4, sleep_quality=2, soreness=9, mood=2, stress=9,
+            is_back_to_back=1, days_rest=0, travel_flag=1, time_zone_diff=3,
+        ))
+        assert score < 50, f"Expected a low score for poor-recovery inputs, got {score}"
 
     def test_poor_sleep_drops_score(self):
-        """Sleep drops from 8h to 5h should drop score significantly"""
-        good = self._score(sleep=8, soreness=2, stress=2, mood=8)
-        poor = self._score(sleep=5, soreness=2, stress=2, mood=8)
+        from readiness_logic import calculate_readiness_score
+        good = calculate_readiness_score(self._row(sleep_hours=8, sleep_quality=8))
+        poor = calculate_readiness_score(self._row(sleep_hours=4, sleep_quality=3))
         assert poor < good
-        assert good - poor >= 10, f"Expected ≥10pt drop, got {good - poor:.1f}"
 
     def test_high_soreness_drops_score(self):
-        good = self._score(soreness=2)
-        bad  = self._score(soreness=9)
+        from readiness_logic import calculate_readiness_score
+        good = calculate_readiness_score(self._row(soreness=1))
+        bad = calculate_readiness_score(self._row(soreness=9))
         assert bad < good
 
-    def test_sleep_weight_is_30pts(self):
-        """Sleep contributes 30pts at max — difference between 0 and 8hrs sleep"""
-        full_sleep  = self._score(sleep=8,  soreness=0, stress=0, mood=10)
-        no_sleep    = self._score(sleep=0,  soreness=0, stress=0, mood=10)
-        sleep_contribution = full_sleep - no_sleep
-        assert abs(sleep_contribution - 30) < 1, \
-            f"Sleep weight should be ~30pts, got {sleep_contribution}"
+    def test_low_cmj_drops_score(self):
+        """A CMJ well below the position benchmark should score lower than one at it."""
+        from readiness_logic import calculate_readiness_score
+        at_bench = calculate_readiness_score(self._row(position="F", cmj_height_cm=34))
+        below_bench = calculate_readiness_score(self._row(position="F", cmj_height_cm=20))
+        assert below_bench < at_bench
 
-    def test_soreness_weight_is_25pts(self):
-        """Soreness contributes 25pts at max"""
-        no_soreness  = self._score(sleep=8, soreness=0,  stress=0, mood=10)
-        max_soreness = self._score(sleep=8, soreness=10, stress=0, mood=10)
-        diff = no_soreness - max_soreness
-        assert abs(diff - 25) < 1, f"Soreness weight should be ~25pts, got {diff}"
+    def test_back_to_back_drops_score(self):
+        from readiness_logic import calculate_readiness_score
+        normal = calculate_readiness_score(self._row(is_back_to_back=0, days_rest=3))
+        b2b = calculate_readiness_score(self._row(is_back_to_back=1, days_rest=0))
+        assert b2b < normal
 
-    def test_score_never_exceeds_100(self):
-        score = self._score(sleep=12, soreness=0, stress=0, mood=10)
-        assert score <= 100
+    def test_score_bounded_0_100(self):
+        from readiness_logic import calculate_readiness_score
+        high = calculate_readiness_score(self._row(
+            sleep_hours=12, sleep_quality=10, soreness=0, mood=10, stress=0,
+            cmj_height_cm=60, rsi_modified=1.0,
+        ))
+        low = calculate_readiness_score(self._row(
+            sleep_hours=0, sleep_quality=0, soreness=10, mood=0, stress=10,
+            is_back_to_back=1, days_rest=0, travel_flag=1, time_zone_diff=10,
+            unrivaled_flag=1,
+        ))
+        assert 0 <= high <= 100
+        assert 0 <= low <= 100
 
-    def test_score_never_below_0(self):
-        score = self._score(sleep=0, soreness=10, stress=10, mood=0)
-        assert score >= 0
+    def test_missing_cmj_and_rsi_does_not_crash(self):
+        """No force-plate data yet for this athlete -- should degrade gracefully, not error."""
+        from readiness_logic import calculate_readiness_score
+        row = self._row()
+        row.pop("cmj_height_cm")
+        row.pop("rsi_modified")
+        score = calculate_readiness_score(row)
+        assert 0 <= score <= 100
 
-    def test_traffic_light_thresholds(self):
-        """Test READY/MONITOR/PROTECT threshold boundaries"""
-        ready   = self._score(sleep=8, soreness=1, stress=1, mood=9)
-        monitor = self._score(sleep=7, soreness=5, stress=5, mood=6)
-        protect = self._score(sleep=5, soreness=8, stress=8, mood=3)
-
-        assert ready >= 80,    f"Expected READY (≥80), got {ready}"
-        assert 60 <= monitor < 80, f"Expected MONITOR (60-79), got {monitor}"
-        assert protect < 60,   f"Expected PROTECT (<60), got {protect}"
-
-
-# ==============================================================================
-# QUERY PARSING TESTS
-# ==============================================================================
-
-class TestQueryParsing:
-    """Tests for the Ask the Watchlist query parser."""
-
-    def _parse(self, text):
-        """Replicate parse_query logic from dashboard.py"""
-        text = text.lower().strip()
-        if any(w in text for w in ["poor sleep", "bad sleep", "tired", "sleep"]):
-            return "poor_sleep"
-        elif any(w in text for w in ["high risk", "at risk", "injury risk"]):
-            return "high_risk"
-        elif any(w in text for w in ["readiness", "ready"]):
-            return "readiness"
-        elif "compare position" in text or "position comparison" in text:
-            return "position_comparison"
-        elif any(w in text for w in ["back to back", "back-to-back", "b2b", "schedule", "rest"]):
-            return "back_to_back"
-        return "unknown"
-
-    def test_poor_sleep_keywords(self):
-        assert self._parse("poor sleep") == "poor_sleep"
-        assert self._parse("bad sleep last night") == "poor_sleep"
-        assert self._parse("who is tired") == "poor_sleep"
-        assert self._parse("sleep") == "poor_sleep"
-
-    def test_high_risk_keywords(self):
-        assert self._parse("high risk players") == "high_risk"
-        assert self._parse("who is at risk") == "high_risk"
-        assert self._parse("injury risk today") == "high_risk"
-
-    def test_readiness_keywords(self):
-        assert self._parse("readiness") == "readiness"
-        assert self._parse("who is ready") == "readiness"
-        assert self._parse("show me readiness scores") == "readiness"
-
-    def test_position_comparison(self):
-        assert self._parse("compare positions") == "position_comparison"
-        assert self._parse("position comparison") == "position_comparison"
-
-    def test_back_to_back(self):
-        assert self._parse("back to back") == "back_to_back"
-        assert self._parse("back-to-back games") == "back_to_back"
-        assert self._parse("b2b") == "back_to_back"
-        assert self._parse("schedule") == "back_to_back"
-        assert self._parse("rest days") == "back_to_back"
-
-    def test_unknown_query(self):
-        assert self._parse("random nonsense xyz") == "unknown"
-        assert self._parse("") == "unknown"
-
-    def test_case_insensitive(self):
-        assert self._parse("POOR SLEEP") == "poor_sleep"
-        assert self._parse("HIGH RISK") == "high_risk"
-        assert self._parse("Back To Back") == "back_to_back"
+    def test_readiness_bucket_thresholds(self):
+        from readiness_logic import readiness_bucket
+        assert readiness_bucket(85)[0] == "READY"
+        assert readiness_bucket(70)[0] == "MONITOR"
+        assert readiness_bucket(40)[0] == "PROTECT"
 
 
 # ==============================================================================
@@ -173,51 +129,61 @@ class TestQueryParsing:
 # ==============================================================================
 
 class TestZScoreCalculations:
-    """Tests for personal baseline z-score logic."""
-
-    def _zscore(self, value, mean, std, min_std=0.1):
-        """Replicate z-score calculation from z_score_module.py"""
-        std = max(std, min_std)
-        return (value - mean) / std
+    """Tests for the REAL z_score_module.calculate_z_score."""
 
     def test_value_at_mean_is_zero(self):
-        z = self._zscore(7.0, mean=7.0, std=0.5)
+        from z_score_module import calculate_z_score
+        z = calculate_z_score(7.0, 7.0, 0.5)
         assert abs(z) < 0.001
 
     def test_one_std_above_mean(self):
-        z = self._zscore(7.5, mean=7.0, std=0.5)
+        from z_score_module import calculate_z_score
+        z = calculate_z_score(7.5, 7.0, 0.5)
         assert abs(z - 1.0) < 0.001
 
     def test_one_std_below_mean(self):
-        z = self._zscore(6.5, mean=7.0, std=0.5)
+        from z_score_module import calculate_z_score
+        z = calculate_z_score(6.5, 7.0, 0.5)
         assert abs(z - (-1.0)) < 0.001
 
-    def test_zero_std_uses_floor(self):
-        """Zero std should not cause division by zero"""
-        z = self._zscore(7.5, mean=7.0, std=0.0)
+    def test_zero_std_uses_real_floor_of_0_5(self):
+        """The real function floors std to 0.5, not an arbitrary small value --
+        a 1.0-unit gap with std=0 lands at z=2.0, not something huge/undefined."""
+        from z_score_module import calculate_z_score
+        z = calculate_z_score(8.0, 7.0, 0.0)
         assert not np.isnan(z)
         assert not np.isinf(z)
+        assert abs(z - 2.0) < 0.001, f"Expected z=2.0 with the 0.5 floor, got {z}"
 
     def test_flag_threshold_z_minus_1(self):
         """z < -1.0 should trigger a flag for CMJ/RSI"""
-        z = self._zscore(20.0, mean=30.0, std=5.0)  # CMJ dropped 2σ
+        from z_score_module import calculate_z_score
+        z = calculate_z_score(20.0, 30.0, 5.0)  # CMJ dropped 2σ
         assert z < -1.0, f"Expected z < -1.0, got {z}"
 
     def test_high_threshold_z_minus_1_5(self):
         """z < -1.5 triggers high alert"""
-        z = self._zscore(22.5, mean=30.0, std=5.0)
+        from z_score_module import calculate_z_score
+        z = calculate_z_score(22.5, 30.0, 5.0)
         assert z <= -1.5, f"Expected z ≤ -1.5, got {z}"
 
     def test_above_baseline_not_flagged(self):
         """Good day (above baseline) should not flag"""
-        z = self._zscore(35.0, mean=30.0, std=5.0)
+        from z_score_module import calculate_z_score
+        z = calculate_z_score(35.0, 30.0, 5.0)
         assert z > 0
 
     def test_sleep_z_score_interpretation(self):
         """Sleep z-score: higher is better"""
+        from z_score_module import calculate_z_score
         # Player normally sleeps 7.5hrs, last night slept 6.0hrs
-        z = self._zscore(6.0, mean=7.5, std=0.7)
+        z = calculate_z_score(6.0, 7.5, 0.7)
         assert z < -1.0, "Poor sleep should be well below personal baseline"
+
+    def test_interpret_z_score_labels(self):
+        from z_score_module import interpret_z_score
+        assert interpret_z_score(1.5)[0] == "Above Baseline"
+        assert interpret_z_score(-2.0)[0] == "Well Below Baseline"
 
 
 # ==============================================================================
@@ -308,7 +274,9 @@ class TestDataQuality:
 # ==============================================================================
 
 class TestSportConfig:
-    """Tests for sport_config.py multi-team architecture."""
+    """Tests for the legacy sport_config.py (WNBA-only). See
+    TestSportConfigExtended below for the multi-sport config that's
+    actually wired into dashboard.py today."""
 
     def test_wnba_config_loads(self):
         try:
@@ -374,6 +342,67 @@ class TestSportConfig:
         # Should have sport-level thresholds since no overrides set
         assert "thresholds" in config
         assert config["thresholds"]["sleep_flag_hrs"] == 7.0
+
+
+# ==============================================================================
+# SPORT CONFIG EXTENDED TESTS (the multi-sport config actually live today)
+# ==============================================================================
+
+class TestSportConfigExtended:
+    """Tests for common/sport_config_extended.py -- the per-sport thresholds
+    dashboard.py actually wires into Athlete Profile flagging today. Directly
+    regression-tests that Arkansas and WNBA get genuinely different values,
+    not both silently falling back to the same defaults (which is exactly
+    what happened before the sys.path bug in dashboard.py was fixed)."""
+
+    def test_arkansas_and_wnba_thresholds_differ(self):
+        from sport_config_extended import get_thresholds
+        ark = get_thresholds("arkansas_razorbacks")
+        wnba = get_thresholds("dallas_wings")
+        assert ark["sleep_flag_hrs"] != wnba["sleep_flag_hrs"]
+        assert ark["cmj_zscore_flag"] != wnba["cmj_zscore_flag"]
+
+    def test_arkansas_thresholds_match_known_values(self):
+        from sport_config_extended import get_thresholds
+        ark = get_thresholds("arkansas_razorbacks")
+        assert ark["sleep_flag_hrs"] == 7.5
+        assert ark["sleep_minimum_hrs"] == 6.5
+        assert ark["cmj_zscore_flag"] == -0.9
+
+    def test_wnba_thresholds_match_known_values(self):
+        from sport_config_extended import get_thresholds
+        wnba = get_thresholds("dallas_wings")
+        assert wnba["sleep_flag_hrs"] == 7.0
+        assert wnba["sleep_minimum_hrs"] == 6.0
+        assert wnba["cmj_zscore_flag"] == -1.0
+
+    def test_arkansas_team_override_applied(self):
+        """arkansas_razorbacks overrides minutes_4day_flag to 135, above the
+        mens_power5_basketball sport default of 130."""
+        from sport_config_extended import get_thresholds
+        ark = get_thresholds("arkansas_razorbacks")
+        assert ark["minutes_4day_flag"] == 135
+
+    def test_get_thresholds_for_sport_key_maps_correctly(self):
+        from sport_config_extended import get_thresholds_for_sport_key, get_thresholds
+        assert get_thresholds_for_sport_key("mens") == get_thresholds("arkansas_razorbacks")
+        assert get_thresholds_for_sport_key("wnba") == get_thresholds("dallas_wings")
+
+    def test_unknown_sport_key_falls_back_to_wnba(self):
+        from sport_config_extended import get_thresholds_for_sport_key, get_thresholds
+        assert get_thresholds_for_sport_key("unknown_sport") == get_thresholds("dallas_wings")
+
+    def test_invalid_sport_raises(self):
+        from sport_config_extended import get_sport_config
+        with pytest.raises(KeyError):
+            get_sport_config("invalid_sport_xyz")
+
+    def test_unknown_team_falls_back_to_wnba_sport_defaults(self):
+        """An unrecognized team name should fall back gracefully (WNBA
+        defaults), not raise -- only an unrecognized *sport* key raises."""
+        from sport_config_extended import get_team_config, get_sport_config
+        fallback = get_team_config("some_team_that_does_not_exist")
+        assert fallback["thresholds"] == get_sport_config("wnba_basketball")["thresholds"]
 
 
 # ==============================================================================
