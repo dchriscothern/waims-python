@@ -1649,7 +1649,8 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         )
 
         _is_mens = sport_key == "mens"
-        st.markdown(f"#### Active Thresholds ({'Men\'s College Basketball' if _is_mens else 'WNBA'})")
+        _sport_label = "Men's College Basketball" if _is_mens else "WNBA"
+        st.markdown(f"#### Active Thresholds ({_sport_label})")
         st.markdown(
             "| Signal | Threshold | Basis |\n"
             "|---|---|---|\n"
@@ -1664,9 +1665,8 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         )
 
         if key_evidence:
-            st.markdown(
-                f"#### Evidence Base -- {'Men\'s College Basketball (Power 5)' if _is_mens else 'WNBA'}"
-            )
+            _evidence_sport_label = "Men's College Basketball (Power 5)" if _is_mens else "WNBA"
+            st.markdown(f"#### Evidence Base -- {_evidence_sport_label}")
             st.caption(
                 "From common/sport_config_extended.py's per-sport evidence list -- curated for this "
                 "population's gender, age, and competition level, not shared unmodified with the other sport."
