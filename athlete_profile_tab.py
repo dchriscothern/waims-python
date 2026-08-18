@@ -1262,7 +1262,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         st.markdown(pill_meter(latest_wellness["mood"],     "Mood",     max_val=10, good_max=4, warn_max=7, invert=False, suffix="/10"), unsafe_allow_html=True)
 
     st.markdown("---")
-    with st.expander("GPS / Kinexon -- External Locomotor Load", expanded=False):
+    with st.expander("GPS / Kinexon -- Movement & Distance Tracking", expanded=False):
 
         if has_gps and gps_row:
             # ── GPS 3.0 framing (Boskovic et al. 2024, Sport Performance & Science Reports) ──
@@ -1279,7 +1279,7 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
                 '<div style="background:#fefce8;border-left:3px solid #ca8a04;'
                 'border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:10px;">'
                 '<span style="font-size:11px;color:#713f12;">'
-                '<b>GPS = external locomotor load only.</b> Not a direct measure of neuromuscular fatigue. '
+                '<b>GPS measures movement volume only (distance, speed, load).</b> Not a direct measure of neuromuscular fatigue. '
                 'Use CMJ/RSI (above) as the true neuromuscular response signal. '
                 'Decel count is the most relevant GPS metric for basketball injury risk — '
                 'drops below baseline indicate protective avoidance before subjective soreness appears. '
