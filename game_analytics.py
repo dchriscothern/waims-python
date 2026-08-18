@@ -265,3 +265,91 @@ def lineup_summary(stints: pd.DataFrame, min_stints: int = 1) -> pd.DataFrame:
     summary = summary[summary["stints"] >= min_stints]
     summary["lineup_label"] = summary["lineup"].apply(lambda l: ", ".join(l))
     return summary.sort_values("net_rating", ascending=False)
+
+
+# ── Traditional-plus rate stats (descriptive, not inferential) ──────────────
+#
+# Everything below reports what actually happened -- shooting efficiency and
+# usage rates computed from real box score totals -- as opposed to the
+# correlation/trend-style stats elsewhere in this app that need many games
+# before they mean anything. A rate stat over even 1 game is just an accurate
+# fact about that game; it doesn't carry the same small-sample-size caveat.
+
+def _parse_minutes(min_str) -> float:
+    """'MM:SS' -> float minutes. Returns 0.0 for missing/unparseable values."""
+    if not min_str or not isinstance(min_str, str) or ":" not in min_str:
+        return 0.0
+    try:
+        m, s = min_str.split(":")
+        return int(m) + int(s) / 60
+    except ValueError:
+        return 0.0
+
+
+def traditional_plus_stats(box: pd.DataFrame) -> pd.DataFrame:
+    """Per-player-per-game eFG%, TS%, Usage%, and AST/TO ratio -- standard
+    formulas, computed entirely from box score totals already in this table.
+    Usage% needs team totals for the same game, so it's computed per game_id.
+    """
+    rows = []
+    for game_id, game_df in box.groupby("game_id"):
+        for team, team_df in game_df.groupby("team"):
+            team_min = team_df["min"].apply(_parse_minutes).sum()
+            team_fga, team_fta, team_tov = team_df["fga"].sum(), team_df["fta"].sum(), team_df["tov"].sum()
+            for _, p in team_df.iterrows():
+                p_min = _parse_minutes(p["min"])
+                efg = ((p["fgm"] + 0.5 * p["fg3m"]) / p["fga"] * 100) if p["fga"] else None
+                ts_denom = 2 * (p["fga"] + 0.44 * p["fta"])
+                ts = (p["pts"] / ts_denom * 100) if ts_denom else None
+                usg = None
+                team_poss_proxy = team_fga + 0.44 * team_fta + team_tov
+                if p_min and team_min and team_poss_proxy:
+                    usg = (
+                        (p["fga"] + 0.44 * p["fta"] + p["tov"]) * (team_min / 5)
+                        / (p_min * team_poss_proxy) * 100
+                    )
+                ast_to = (p["ast"] / p["tov"]) if p["tov"] else None
+                rows.append({
+                    "game_id": game_id, "team": team,
+                    "player_id": p.get("player_id"), "player_name_matched": p.get("player_name_matched"),
+                    "player_name_raw": p.get("player_name_raw"),
+                    "min": round(p_min, 1),
+                    "efg_pct": round(efg, 1) if efg is not None else None,
+                    "ts_pct": round(ts, 1) if ts is not None else None,
+                    "usg_pct": round(usg, 1) if usg is not None else None,
+                    "ast_to_ratio": round(ast_to, 2) if ast_to is not None else None,
+                })
+    return pd.DataFrame(rows)
+
+
+def team_pace(box: pd.DataFrame) -> pd.DataFrame:
+    """Pace factor (possessions per 40 minutes) per game -- both teams'
+    possession estimates averaged, per the standard KenPom-style formula.
+    """
+    poss = team_possessions_and_ppp(box)
+    rows = []
+    for game_id, game_df in poss.groupby("game_id"):
+        if len(game_df) < 2:
+            continue
+        avg_poss = game_df["possessions"].mean()
+        box_game = box[box["game_id"] == game_id]
+        team_min = box_game[box_game["team"] == "ARK"]["min"].apply(_parse_minutes).sum()
+        pace = (40 * avg_poss / (team_min / 5)) if team_min else None
+        rows.append({"game_id": game_id, "pace": round(pace, 1) if pace is not None else None})
+    return pd.DataFrame(rows)
+
+
+def points_by_situation(pbp: pd.DataFrame) -> pd.DataFrame:
+    """Points scored per game by situation (transition / second-chance / off
+    a turnover / half-court), for Arkansas, using the same origin tags shot
+    efficiency already relies on -- surfaced here as named team totals rather
+    than per-shot efficiency.
+    """
+    shots = pbp[(pbp["team"] == "ARK") & (pbp["event_type"] == "fg_made")].copy()
+    if shots.empty:
+        return pd.DataFrame(columns=["game_id", "origin", "points"])
+    shots["origin"] = shots["raw_text"].apply(_shot_origin)
+    return (
+        shots.groupby(["game_id", "origin"], as_index=False)["points"].sum()
+        .sort_values(["game_id", "origin"])
+    )
