@@ -30,6 +30,37 @@ This changes everything else, so decide it first.
   synthetic in WAIMS and needs to stay synthetic until the rest of this
   checklist is actually done.
 
+### Where WAIMS stops: Teamworks (or any EMR)
+
+Most SEC athletic departments already run **Teamworks** (or a similar
+platform) as their electronic medical record (EMR) / athlete management
+system — injury records, treatment logs, medical clearance, compliance
+paperwork. **WAIMS is not, and should not become, an EMR.** It's a
+sport-science/readiness layer that sits alongside one, not a
+replacement — no integration with Teamworks is planned or wired up.
+Worth being explicitly aware of so WAIMS gets positioned correctly in
+any real conversation with an athletic department (a complementary tool,
+not a competing purchase), and so medical/legal record-of-truth stays in
+the system built for that job.
+
+---
+
+## Integrations — what's ready, what's V2
+
+- **Live API connector:** Oura (`oura_connector.py`) — a real POC, demo-mode
+  fallback when no token is configured.
+- **Drop-folder CSV ingest** (schema-validated, not a live poll — see
+  `INGEST_DROP_SPEC` in `dashboard.py`): Kinexon-shaped GPS/wellness export,
+  VALD ForceDecks-shaped force plate export (CMJ/RSI/asymmetry), and a
+  vendor-agnostic velocity-based-training (VBS) shape compatible with
+  Perch/GymAware/Vitruve/PUSH.
+- **Not built, V2 candidate:** an API/ingest path for strength coach workout
+  prescriptions (planned lifts/sets/reps, as opposed to the VBS shape above
+  which is *actual measured* bar-speed output). No vendor identified yet —
+  build this once one is.
+- **Explicitly out of scope:** Teamworks / EMR integration — see the note
+  in Phase 0 above.
+
 ---
 
 ## Phase 1: Legal & compliance foundation

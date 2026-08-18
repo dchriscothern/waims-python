@@ -506,10 +506,21 @@ def connector_status_snapshot(end_date: pd.Timestamp) -> list[dict]:
     return snapshots
 
 
+# Column names in each spec are shaped to match a specific vendor's typical
+# export, so a staff member can drop that vendor's CSV export in as-is:
+#   wellness/training_load -> Kinexon-shaped GPS/wellness export
+#   force_plate            -> VALD ForceDecks-shaped export (CMJ/RSI/asymmetry)
+#   velocity_based_training -> generic velocity-based-training (VBS) shape --
+#                              Perch/GymAware/Vitruve/PUSH all export roughly
+#                              this same load/velocity/power-per-rep shape, so
+#                              this isn't locked to one vendor
+# None of this is a live API poll (except Oura, see oura_connector.py) --
+# it's schema validation for a manually-exported/dropped file.
 INGEST_DROP_SPEC = {
     "wellness": {"required": {"player_id", "date", "sleep_hours", "soreness", "stress", "mood"}, "dates": ["date"], "numeric": ["sleep_hours", "soreness", "stress", "mood"]},
     "training_load": {"required": {"player_id", "date"}, "dates": ["date"], "numeric": ["player_load", "accel_count", "decel_count", "practice_minutes", "total_distance_km"]},
-    "force_plate": {"required": {"player_id", "date"}, "dates": ["date"], "numeric": ["cmj_height_cm", "rsi_modified"]},
+    "force_plate": {"required": {"player_id", "date"}, "dates": ["date"], "numeric": ["cmj_height_cm", "rsi_modified", "asymmetry_percent"]},
+    "velocity_based_training": {"required": {"player_id", "date", "exercise"}, "dates": ["date"], "numeric": ["load_kg", "mean_velocity_ms", "peak_velocity_ms", "peak_power_w", "rep_number"]},
     "injuries": {"required": {"player_id", "injury_date"}, "dates": ["injury_date", "return_date"], "numeric": ["days_missed"]},
     "schedule": {"required": {"date", "opponent"}, "dates": ["date"], "numeric": ["days_rest"]},
     "_processed": {"required": {"player_id", "date", "readiness_score", "injury_risk_score"}, "dates": ["date"], "numeric": ["readiness_score", "injury_risk_score"]},
