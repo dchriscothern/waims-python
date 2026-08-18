@@ -19,10 +19,22 @@ from game_analytics import (
     assist_creation,
     lineup_stints,
     lineup_summary,
+    points_by_situation,
     shot_efficiency_by_type,
+    team_pace,
     team_possessions_and_ppp,
+    traditional_plus_stats,
     turnover_breakdown,
 )
+
+MIN_GAMES_FOR_CORRELATION = 20
+
+ROADMAP_METRICS = [
+    ("Offensive Gravity", "Needs optical player/ball tracking (defender X/Y/Z position at every moment) -- not extractable from a box score or play-by-play log."),
+    ("Expected Shot Quality (qSQ) / EPV", "Needs precise shot-location coordinates and defender distance at release, not just paint/perimeter tags."),
+    ("Potential / Secondary Assists", "Needs every pass tracked, not just the ones that led to a made shot -- our play-by-play only logs actual assists on makes."),
+    ("Play-type efficiency (PnR, isolation, post-up, spot-up)", "This is Synergy Sports-style video-charted data. Hand-chartable from film (see the manual-tracking guide) -- not derivable from this data source."),
+]
 
 BOX_SCORE_DISPLAY_COLUMNS = {
     "player_number": "#",
@@ -272,6 +284,49 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
                 hide_index=True, width="stretch",
             )
 
+            st.markdown("**Traditional-plus rate stats (per player, averaged across all games)**")
+            st.caption(
+                "eFG%, TS%, Usage%, and AST/TO -- standard formulas from box score totals. These are "
+                "descriptive (what actually happened), not inferential, so they're valid at any game "
+                "count -- unlike the correlation view further down, which needs many more games."
+            )
+            tps = traditional_plus_stats(box[box["team"] == "ARK"])
+            if not tps.empty:
+                tps_summary = tps.groupby("player_name_matched", as_index=False).agg(
+                    gp=("game_id", "count"), min=("min", "mean"),
+                    efg_pct=("efg_pct", "mean"), ts_pct=("ts_pct", "mean"),
+                    usg_pct=("usg_pct", "mean"), ast_to_ratio=("ast_to_ratio", "mean"),
+                )
+                for c in ("min", "efg_pct", "ts_pct", "usg_pct", "ast_to_ratio"):
+                    tps_summary[c] = tps_summary[c].round(1)
+                st.dataframe(
+                    tps_summary.rename(columns={
+                        "player_name_matched": "Player", "gp": "GP", "min": "MIN",
+                        "efg_pct": "eFG%", "ts_pct": "TS%", "usg_pct": "USG%", "ast_to_ratio": "AST/TO",
+                    }).sort_values("USG%", ascending=False),
+                    hide_index=True, width="stretch",
+                )
+
+            pace_col, situ_col = st.columns(2)
+            with pace_col:
+                st.markdown("**Team pace (possessions / 40 min)**")
+                pace_df = team_pace(box).merge(games[["game_id", "date", "opponent"]], on="game_id")
+                st.dataframe(
+                    pace_df[["date", "opponent", "pace"]].rename(
+                        columns={"date": "Date", "opponent": "Opp", "pace": "Pace"}
+                    ),
+                    hide_index=True, width="stretch",
+                )
+            with situ_col:
+                st.markdown("**Points by situation (Arkansas, all games)**")
+                situ_df = points_by_situation(pbp)
+                if not situ_df.empty:
+                    situ_pivot = situ_df.pivot_table(
+                        index="game_id", columns="origin", values="points", fill_value=0
+                    ).reset_index().merge(games[["game_id", "date", "opponent"]], on="game_id")
+                    situ_pivot = situ_pivot.drop(columns="game_id").rename(columns={"date": "Date", "opponent": "Opp"})
+                    st.dataframe(situ_pivot, hide_index=True, width="stretch")
+
             st.markdown("**Shot efficiency by play type (Arkansas, all games)**")
             eff_scope = st.radio("Split by", ["Team-wide", "Per player"], horizontal=True, key="gp_adv_eff_scope")
             group_cols = ["player_name_matched"] if eff_scope == "Per player" else []
@@ -325,3 +380,23 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
                         ),
                         hide_index=True, width="stretch",
                     )
+
+            st.markdown("---")
+            st.markdown("#### Coming as more data accumulates")
+            n_games = len(games)
+            games_pct = min(100, round(n_games / MIN_GAMES_FOR_CORRELATION * 100))
+            st.markdown(
+                '<div style="border-left:4px solid #94a3b8;padding:8px 14px;background:#f8fafc;">'
+                f'<b>Expanded correlation / trend analysis:</b> needs roughly {MIN_GAMES_FOR_CORRELATION}+ real games '
+                f'before it says anything reliable. Currently at <b>{n_games} of ~{MIN_GAMES_FOR_CORRELATION}</b>.'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            st.progress(games_pct / 100, text=f"{n_games} / ~{MIN_GAMES_FOR_CORRELATION} games")
+            st.caption(
+                "The metrics below need a different data source entirely (optical player tracking or "
+                "hand-charted video), not just more games -- listed here so it's clear what's planned "
+                "and why it isn't built yet, not left as an unexplained gap."
+            )
+            for name, why in ROADMAP_METRICS:
+                st.markdown(f"- **{name}** -- {why}")
