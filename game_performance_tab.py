@@ -383,7 +383,9 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
                     )
 
             st.markdown("---")
-            st.markdown("#### Coming as more data accumulates")
+            st.markdown("#### Roadmap")
+
+            st.markdown("**Unlocks automatically with more games**")
             n_games = len(games)
             games_pct = min(100, round(n_games / MIN_GAMES_FOR_CORRELATION * 100))
             st.markdown(
@@ -394,10 +396,12 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
                 unsafe_allow_html=True,
             )
             st.progress(games_pct / 100, text=f"{n_games} / ~{MIN_GAMES_FOR_CORRELATION} games")
+
+            st.markdown("**Planned, pending a different data source**")
             st.caption(
-                "The metrics below need a different data source entirely (optical player tracking or "
-                "hand-charted video), not just more games -- listed here so it's clear what's planned "
-                "and why it isn't built yet, not left as an unexplained gap."
+                "These don't unlock with more Arkansas games -- each needs data this app doesn't "
+                "ingest today (optical player tracking, hand-charted video, or a league-wide reference "
+                "dataset). Listed here so it's a stated plan, not an unexplained gap."
             )
             for name, why in ROADMAP_METRICS:
                 st.markdown(f"- **{name}** -- {why}")
