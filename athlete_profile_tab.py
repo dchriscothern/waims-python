@@ -892,7 +892,17 @@ def _render_game_performance_section(db_path, athlete_id):
         _season_summary(f"{season} Season (Prior Year -- source: {source})", season_rows)
 
 
-def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None, db_path=None):
+_DEFAULT_THRESHOLDS = {
+    "sleep_minimum_hrs": 6.0, "sleep_flag_hrs": 7.0, "sleep_target_hrs": 9.0,
+    "soreness_action": 7, "acwr_flag": 1.5, "acwr_caution": 1.3,
+    "cmj_zscore_flag": -1.0, "cmj_zscore_high": -1.5, "rsi_zscore_flag": -1.0,
+    "minutes_4day_flag": 120, "minutes_4day_b2b_flag": 80,
+}
+
+
+def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None, db_path=None, thresholds=None):
+    thresholds = thresholds or _DEFAULT_THRESHOLDS
+    rsi_zscore_high = thresholds["rsi_zscore_flag"] * 1.5  # no separate "high" tier defined for RSI; scaled to match the CMJ flag->high ratio
     st.header("Athlete Profiles")
     st.caption(
         "Wellness, sleep, soreness, stress, GPS/load, force plate, injuries, ACWR, and readiness/risk "
@@ -1001,14 +1011,14 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         # Pre-compute flags here (also used in col2 for compact card)
         _risk_flags_c1 = 0
         _risk_reasons_c1 = []
-        if sleep_v < 6.0:   _risk_flags_c1 += 2; _risk_reasons_c1.append("critical sleep")
-        elif sleep_v < 7.0: _risk_flags_c1 += 1; _risk_reasons_c1.append("short sleep")
-        if sore_v > 7:      _risk_flags_c1 += 1; _risk_reasons_c1.append("high soreness")
+        if sleep_v < thresholds["sleep_minimum_hrs"]:   _risk_flags_c1 += 2; _risk_reasons_c1.append("critical sleep")
+        elif sleep_v < thresholds["sleep_flag_hrs"]: _risk_flags_c1 += 1; _risk_reasons_c1.append("short sleep")
+        if sore_v > thresholds["soreness_action"]:      _risk_flags_c1 += 1; _risk_reasons_c1.append("high soreness")
         if stress_v > 7:    _risk_flags_c1 += 1; _risk_reasons_c1.append("high stress")
-        if cmj_z is not None and cmj_z < -1.5: _risk_flags_c1 += 2; _risk_reasons_c1.append("CMJ low")
-        elif cmj_z is not None and cmj_z < -1.0: _risk_flags_c1 += 1; _risk_reasons_c1.append("CMJ below baseline")
-        if rsi_z is not None and rsi_z < -1.5: _risk_flags_c1 += 2; _risk_reasons_c1.append("RSI low")
-        elif rsi_z is not None and rsi_z < -1.0: _risk_flags_c1 += 1; _risk_reasons_c1.append("RSI below baseline")
+        if cmj_z is not None and cmj_z < thresholds["cmj_zscore_high"]: _risk_flags_c1 += 2; _risk_reasons_c1.append("CMJ low")
+        elif cmj_z is not None and cmj_z < thresholds["cmj_zscore_flag"]: _risk_flags_c1 += 1; _risk_reasons_c1.append("CMJ below baseline")
+        if rsi_z is not None and rsi_z < rsi_zscore_high: _risk_flags_c1 += 2; _risk_reasons_c1.append("RSI low")
+        elif rsi_z is not None and rsi_z < thresholds["rsi_zscore_flag"]: _risk_flags_c1 += 1; _risk_reasons_c1.append("RSI below baseline")
         _pr = min(100, _risk_flags_c1 * 15)
         if _pr >= 60:   _rc1, _rl1 = "#dc2626", "HIGH RISK"
         elif _pr >= 30: _rc1, _rl1 = "#d97706", "ELEVATED"
@@ -1076,13 +1086,13 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
 
     with c1:
         hrs = latest_wellness["sleep_hours"]
-        # Walsh 2021: ≥7.0 good, 6.0-6.9 warning, <6.0 bad
-        s   = "good" if hrs >= 7.0 else ("warning" if hrs >= 6.0 else "bad")
+        s   = "good" if hrs >= thresholds["sleep_flag_hrs"] else ("warning" if hrs >= thresholds["sleep_minimum_hrs"] else "bad")
         st.markdown(create_metric_card("Sleep", f"{hrs:.1f} hrs", s), unsafe_allow_html=True)
 
     with c2:
         sor = latest_wellness["soreness"]
-        s   = "good" if sor <= 4 else ("warning" if sor <= 7 else "bad")
+        _sor_action = thresholds["soreness_action"]
+        s   = "good" if sor <= _sor_action - 3 else ("warning" if sor <= _sor_action else "bad")
         st.markdown(create_metric_card("Soreness", f"{sor:.0f}/10", s), unsafe_allow_html=True)
 
     with c3:
@@ -1092,21 +1102,21 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
 
     with c4:
         # ACWR shown as context only — not scored (Impellizzeri 2020)
-        s = "good" if 0.8 <= latest_acwr <= 1.3 else ("warning" if latest_acwr <= 1.5 else "bad")
+        s = "good" if 0.8 <= latest_acwr <= thresholds["acwr_caution"] else ("warning" if latest_acwr <= thresholds["acwr_flag"] else "bad")
         st.markdown(create_metric_card("ACWR ⚠", f"{latest_acwr:.2f}", s), unsafe_allow_html=True)
 
     c5, c6, c7, c8 = st.columns(4)
 
     with c5:
         if latest_cmj is not None:
-            s = "bad" if (cmj_z is not None and cmj_z <= -2.0) else ("warning" if (cmj_z is not None and cmj_z <= -1.0) else "good")
+            s = "bad" if (cmj_z is not None and cmj_z <= thresholds["cmj_zscore_high"]) else ("warning" if (cmj_z is not None and cmj_z <= thresholds["cmj_zscore_flag"]) else "good")
             st.markdown(create_metric_card("CMJ", f"{latest_cmj:.1f} cm", s), unsafe_allow_html=True)
         else:
             st.markdown(create_metric_card("CMJ", "No data", "warning"), unsafe_allow_html=True)
 
     with c6:
         if latest_rsi is not None:
-            s = "bad" if (rsi_z is not None and rsi_z <= -2.0) else ("warning" if (rsi_z is not None and rsi_z <= -1.0) else "good")
+            s = "bad" if (rsi_z is not None and rsi_z <= rsi_zscore_high) else ("warning" if (rsi_z is not None and rsi_z <= thresholds["rsi_zscore_flag"]) else "good")
             st.markdown(create_metric_card("RSI-Mod", f"{latest_rsi:.2f}", s), unsafe_allow_html=True)
         else:
             st.markdown(create_metric_card("RSI-Mod", "No data", "warning"), unsafe_allow_html=True)
@@ -1412,21 +1422,25 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
                 alerts = add_z_score_alerts(
                     dict(latest_wellness),
                     baselines,
-                    {"sleep": 7.0, "soreness": 7, "acwr": 1.5},  # Walsh 2021
+                    {
+                        "sleep": thresholds["sleep_flag_hrs"],
+                        "soreness": thresholds["soreness_action"],
+                        "acwr": thresholds["acwr_flag"],
+                    },
                 )
-                if cmj_z is not None and cmj_z <= -2.0:
+                if cmj_z is not None and cmj_z <= thresholds["cmj_zscore_high"]:
                     alerts.append({"type": "critical", "metric": "CMJ",
                                     "message": f"CMJ {latest_cmj:.1f} cm — {abs(cmj_z):.1f}σ below baseline (severe neuromuscular fatigue)",
                                     "color": "#ef4444"})
-                elif cmj_z is not None and cmj_z <= -1.0:
+                elif cmj_z is not None and cmj_z <= thresholds["cmj_zscore_flag"]:
                     alerts.append({"type": "warning", "metric": "CMJ",
                                     "message": f"CMJ {latest_cmj:.1f} cm — {abs(cmj_z):.1f}σ below baseline (neuromuscular fatigue)",
                                     "color": "#f59e0b"})
-                if rsi_z is not None and rsi_z <= -2.0:
+                if rsi_z is not None and rsi_z <= rsi_zscore_high:
                     alerts.append({"type": "critical", "metric": "RSI",
                                     "message": f"RSI {latest_rsi:.2f} — {abs(rsi_z):.1f}σ below baseline (reduced reactive strength)",
                                     "color": "#ef4444"})
-                elif rsi_z is not None and rsi_z <= -1.0:
+                elif rsi_z is not None and rsi_z <= thresholds["rsi_zscore_flag"]:
                     alerts.append({"type": "warning", "metric": "RSI",
                                     "message": f"RSI {latest_rsi:.2f} — {abs(rsi_z):.1f}σ below baseline",
                                     "color": "#f59e0b"})
@@ -1506,8 +1520,13 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
         # Cross-reference requirement enforced: GPS signals never actioned alone
         _flags_bsrc = []
 
-        if cmj_z is not None and cmj_z < -1.0:
-            severity = "HIGH" if cmj_z < -1.5 else "MODERATE"
+        _cmj_flag, _cmj_high = thresholds["cmj_zscore_flag"], thresholds["cmj_zscore_high"]
+        _rsi_flag = thresholds["rsi_zscore_flag"]
+        _sleep_flag, _sleep_min = thresholds["sleep_flag_hrs"], thresholds["sleep_minimum_hrs"]
+        _sore_action = thresholds["soreness_action"]
+
+        if cmj_z is not None and cmj_z < _cmj_flag:
+            severity = "HIGH" if cmj_z < _cmj_high else "MODERATE"
             _flags_bsrc.append((
                 severity,
                 "CMJ below personal baseline",
@@ -1519,9 +1538,9 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
                 + "This is the primary actionable signal."
             ))
 
-        if rsi_z is not None and rsi_z < -1.0:
+        if rsi_z is not None and rsi_z < _rsi_flag:
             _flags_bsrc.append((
-                "HIGH" if rsi_z < -1.5 else "MODERATE",
+                "HIGH" if rsi_z < rsi_zscore_high else "MODERATE",
                 "RSI below personal baseline",
                 f"z = {rsi_z:.2f}. Reactive strength index reduced — landing mechanics "
                 "and first-step explosiveness likely impaired. "
@@ -1530,7 +1549,8 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
 
         if dc_z is not None and dc_z < -1.0:
             # GPS signal — requires CMJ/RSI cross-reference per Clubb 2025
-            cmj_also_low = cmj_z is not None and cmj_z < -1.0
+            # (no sport-specific decel z-threshold defined in sport_config_extended.py yet)
+            cmj_also_low = cmj_z is not None and cmj_z < _cmj_flag
             _flags_bsrc.append((
                 "MODERATE",
                 "Decel count below personal baseline (GPS)",
@@ -1541,17 +1561,17 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
                         "Possible causes: session structure, not fatigue. (Clubb 2025)")
             ))
 
-        if sleep_v < 7.0:
+        if sleep_v < _sleep_flag:
             _flags_bsrc.append((
-                "HIGH" if sleep_v < 6.0 else "MODERATE",
-                f"Sleep {sleep_v:.1f}h — below 7h threshold",
-                ("Below 6h: hard floor — PROTECT status applies regardless of other signals. "
-                 if sleep_v < 6.0
-                 else "Reaction time and neuromuscular coordination impaired at <7h (Walsh 2021 consensus; "
+                "HIGH" if sleep_v < _sleep_min else "MODERATE",
+                f"Sleep {sleep_v:.1f}h — below {_sleep_flag:g}h threshold",
+                (f"Below {_sleep_min:g}h: hard floor — PROTECT status applies regardless of other signals. "
+                 if sleep_v < _sleep_min
+                 else f"Reaction time and neuromuscular coordination impaired at <{_sleep_flag:g}h (Walsh 2021 consensus; "
                       "2025 meta OR=1.34). Compound risk if CMJ is also depressed.")
             ))
 
-        if sore_v > 7:
+        if sore_v > _sore_action:
             _flags_bsrc.append((
                 "MODERATE",
                 f"Soreness {sore_v:.0f}/10",

@@ -313,3 +313,20 @@ def list_supported_teams() -> list:
 def get_teams_by_sport(sport: str) -> list:
     """Return all teams configured for a given sport."""
     return [team for team, cfg in TEAM_CONFIGS.items() if cfg.get("sport") == sport]
+
+
+# Maps dashboard.py's WAIMS_SPORT values ("wnba"/"mens") to the demo team
+# whose thresholds should be active. Update this if a second team is ever
+# added for either sport.
+SPORT_KEY_TO_TEAM = {
+    "wnba": "dallas_wings",
+    "mens": "arkansas_razorbacks",
+}
+
+
+def get_thresholds_for_sport_key(sport_key: str) -> dict:
+    """Thresholds for dashboard.py's WAIMS_SPORT value ("wnba" or "mens").
+    Falls back to the WNBA defaults for an unrecognized key.
+    """
+    team = SPORT_KEY_TO_TEAM.get(sport_key, "dallas_wings")
+    return get_thresholds(team)
