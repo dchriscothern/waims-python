@@ -62,10 +62,19 @@ HERE_PATH = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE_PATH.parent / "common"))
 
 try:
-    from sport_config_extended import get_sport_config, get_team_config
+    from sport_config_extended import get_sport_config, get_team_config, get_thresholds
     HAVE_SPORT_CONFIG = True
 except ImportError:
     HAVE_SPORT_CONFIG = False
+
+# Used if sport_config_extended fails to import -- matches the WNBA defaults
+# that were hardcoded throughout the app before per-sport thresholds existed.
+_FALLBACK_THRESHOLDS = {
+    "sleep_minimum_hrs": 6.0, "sleep_flag_hrs": 7.0, "sleep_target_hrs": 9.0,
+    "soreness_action": 7, "acwr_flag": 1.5, "acwr_caution": 1.3,
+    "cmj_zscore_flag": -1.0, "cmj_zscore_high": -1.5, "rsi_zscore_flag": -1.0,
+    "minutes_4day_flag": 120, "minutes_4day_b2b_flag": 80,
+}
 
 
 def get_active_sport():
@@ -130,6 +139,14 @@ def get_paths_for_sport(sport_key):
 # Initialize sport selection
 ACTIVE_SPORT_KEY = get_active_sport()
 SPORT_PATHS = get_paths_for_sport(ACTIVE_SPORT_KEY)
+
+if HAVE_SPORT_CONFIG:
+    try:
+        ACTIVE_THRESHOLDS = get_thresholds(SPORT_PATHS["team"])
+    except Exception:
+        ACTIVE_THRESHOLDS = _FALLBACK_THRESHOLDS
+else:
+    ACTIVE_THRESHOLDS = _FALLBACK_THRESHOLDS
 
 # ==============================================================================
 # PAGE CONFIG
@@ -1808,7 +1825,7 @@ if "rd" in tab_map:
 # ── Athlete Profiles ──────────────────────────────────────────────────────────
 if "ap" in tab_map:
     with tab_map["ap"], _section_guard("Athlete Profiles"):
-        athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries, db_path=DB_PATH)
+        athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries, db_path=DB_PATH, thresholds=ACTIVE_THRESHOLDS)
 
 # ==============================================================================
 # TAB 3: TRENDS
