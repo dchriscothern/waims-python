@@ -2234,32 +2234,31 @@ if "jt" in tab_map:
                     for idx, name in enumerate(compare_names):
                         row = profile_df[profile_df["name"] == name].iloc[0]
                         with compare_cols[idx]:
+                            card_lines = [
+                                f'CMJ: <b>{row["cmj_height_cm"]:.1f} cm</b><br>',
+                                f'RSI: <b>{row["rsi_modified"]:.2f}</b><br>',
+                                f'Profile: <b>{row["profile_type"]}</b><br>',
+                            ]
+                            if pd.notna(row.get("cmj_monthly_change")):
+                                card_lines.append(f'CMJ trend: <b>{row["cmj_monthly_change"]:.1f} / month</b><br>')
+                            if pd.notna(row.get("rsi_monthly_change")):
+                                card_lines.append(f'RSI trend: <b>{row["rsi_monthly_change"]:.2f} / month</b><br>')
+                            if pd.notna(row.get("ppg")):
+                                card_lines.append(f'PPG: <b>{row.get("ppg", 0):.1f}</b><br>')
+                                card_lines.append(f'RPG: <b>{row.get("rpg", 0):.1f}</b><br>')
+                                card_lines.append(f'APG: <b>{row.get("apg", 0):.1f}</b><br>')
+                                card_lines.append(f'eFG%: <b>{row.get("efg_pct", 0):.1f}%</b>')
+
                             st.markdown(
                                 f'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;min-height:180px;">'
                                 f'<div style="font-size:13px;font-weight:800;color:#0f172a;">{name}</div>'
                                 f'<div style="font-size:11px;color:#64748b;margin-bottom:10px;">{row.get("position", "")}</div>'
                                 f'<div style="font-size:12px;color:#0f172a;line-height:1.8;">'
-                                f'CMJ: <b>{row["cmj_height_cm"]:.1f} cm</b><br>'
-                                f'RSI: <b>{row["rsi_modified"]:.2f}</b><br>'
-                                f'Profile: <b>{row["profile_type"]}</b><br>'
-                                f'CMJ trend: <b>{row.get("cmj_monthly_change", float("nan")):.1f} / month</b><br>' if pd.notna(row.get("cmj_monthly_change")) else ''
-                                ,
+                                + ''.join(card_lines) +
+                                '</div>'
+                                '</div>',
                                 unsafe_allow_html=True,
                             )
-                            st.markdown(
-                                f'<div style="font-size:12px;color:#0f172a;line-height:1.8;margin-top:-8px;">'
-                                f'RSI trend: <b>{row.get("rsi_monthly_change", float("nan")):.2f} / month</b><br>' if pd.notna(row.get("rsi_monthly_change")) else '<div style="font-size:12px;color:#0f172a;line-height:1.8;">'
-                            )
-                            if pd.notna(row.get("ppg")):
-                                st.markdown(
-                                    f'<div style="font-size:12px;color:#0f172a;line-height:1.8;">'
-                                    f'PPG: <b>{row.get("ppg", 0):.1f}</b><br>'
-                                    f'RPG: <b>{row.get("rpg", 0):.1f}</b><br>'
-                                    f'APG: <b>{row.get("apg", 0):.1f}</b><br>'
-                                    f'eFG%: <b>{row.get("efg_pct", 0):.1f}%</b>'
-                                    '</div>',
-                                    unsafe_allow_html=True,
-                                )
 
                 st.markdown("### Dynamic Rankings")
                 ranking_cols = ["name", "position", "tests_in_window", "profile_type", "cmj_height_cm", "rsi_modified", "cmj_pct", "rsi_pct", "cmj_monthly_change", "rsi_monthly_change"]
