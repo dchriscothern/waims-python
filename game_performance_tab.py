@@ -273,135 +273,135 @@ def game_performance_tab(db_path, players: pd.DataFrame) -> None:
                 "(pick-and-roll, iso, post-up) require charting game film and aren't in this data."
             )
 
-            st.markdown("**Team efficiency (points per possession)**")
-            ppp = team_possessions_and_ppp(box)
-            ppp_display = ppp.merge(games[["game_id", "date", "opponent"]], on="game_id")
-            ppp_display["Team"] = ppp_display.apply(
-                lambda r: "Arkansas" if r["team"] == "ARK" else r["opponent"], axis=1
-            )
-            ppp_cols = {"date": "Date", "opponent": "Opp", "Team": "Team", "possessions": "Poss", "pts": "PTS", "ppp": "PPP"}
-            st.dataframe(
-                ppp_display.sort_values(["date", "team"])[list(ppp_cols)].rename(columns=ppp_cols),
-                hide_index=True, width="stretch",
-            )
-
-            st.markdown("**Traditional-plus rate stats (per player, averaged across all games)**")
-            st.caption(
-                "eFG%, TS%, Usage%, and AST/TO -- standard formulas from box score totals. These are "
-                "descriptive (what actually happened), not inferential, so they're valid at any game "
-                "count -- unlike the correlation view further down, which needs many more games."
-            )
-            tps = traditional_plus_stats(box[box["team"] == "ARK"])
-            if not tps.empty:
-                tps_summary = tps.groupby("player_name_matched", as_index=False).agg(
-                    gp=("game_id", "count"), min=("min", "mean"),
-                    efg_pct=("efg_pct", "mean"), ts_pct=("ts_pct", "mean"),
-                    usg_pct=("usg_pct", "mean"), ast_to_ratio=("ast_to_ratio", "mean"),
+            with st.expander("Team Efficiency & Pace", expanded=True):
+                st.markdown("**Points per possession**")
+                ppp = team_possessions_and_ppp(box)
+                ppp_display = ppp.merge(games[["game_id", "date", "opponent"]], on="game_id")
+                ppp_display["Team"] = ppp_display.apply(
+                    lambda r: "Arkansas" if r["team"] == "ARK" else r["opponent"], axis=1
                 )
-                for c in ("min", "efg_pct", "ts_pct", "usg_pct", "ast_to_ratio"):
-                    tps_summary[c] = tps_summary[c].round(1)
+                ppp_cols = {"date": "Date", "opponent": "Opp", "Team": "Team", "possessions": "Poss", "pts": "PTS", "ppp": "PPP"}
                 st.dataframe(
-                    tps_summary.rename(columns={
-                        "player_name_matched": "Player", "gp": "GP", "min": "MIN",
-                        "efg_pct": "eFG%", "ts_pct": "TS%", "usg_pct": "USG%", "ast_to_ratio": "AST/TO",
-                    }).sort_values("USG%", ascending=False),
+                    ppp_display.sort_values(["date", "team"])[list(ppp_cols)].rename(columns=ppp_cols),
                     hide_index=True, width="stretch",
                 )
 
-            pace_col, situ_col = st.columns(2)
-            with pace_col:
-                st.markdown("**Team pace (possessions / 40 min)**")
-                pace_df = team_pace(box).merge(games[["game_id", "date", "opponent"]], on="game_id")
-                st.dataframe(
-                    pace_df[["date", "opponent", "pace"]].rename(
-                        columns={"date": "Date", "opponent": "Opp", "pace": "Pace"}
-                    ),
-                    hide_index=True, width="stretch",
-                )
-            with situ_col:
-                st.markdown("**Points by situation (Arkansas, all games)**")
-                situ_df = points_by_situation(pbp)
-                if not situ_df.empty:
-                    situ_pivot = situ_df.pivot_table(
-                        index="game_id", columns="origin", values="points", fill_value=0
-                    ).reset_index().merge(games[["game_id", "date", "opponent"]], on="game_id")
-                    situ_pivot = situ_pivot.drop(columns="game_id").rename(columns={"date": "Date", "opponent": "Opp"})
-                    st.dataframe(situ_pivot, hide_index=True, width="stretch")
-
-            st.markdown("**Shot efficiency by play type (Arkansas, all games)**")
-            eff_scope = st.radio("Split by", ["Team-wide", "Per player"], horizontal=True, key="gp_adv_eff_scope")
-            group_cols = ["player_name_matched"] if eff_scope == "Per player" else []
-            eff = shot_efficiency_by_type(pbp[pbp["team"] == "ARK"], group_cols=group_cols)
-            eff_cols = (["player_name_matched"] if group_cols else []) + [
-                "origin", "attempts", "makes", "points", "pts_per_attempt", "fg_pct"
-            ]
-            rename_cols = {"player_name_matched": "Player", "origin": "Type", "attempts": "Att",
-                           "makes": "Makes", "points": "Pts", "pts_per_attempt": "Pts/Att", "fg_pct": "FG%"}
-            origin_df = eff["origin"]
-            st.dataframe(
-                origin_df[[c for c in eff_cols if c in origin_df.columns]].rename(columns=rename_cols),
-                hide_index=True, width="stretch",
-            )
-
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown("**Assist creation (points created, all games)**")
-                ac = assist_creation(pbp)
-                st.dataframe(
-                    ac.rename(columns={
-                        "player_name_matched": "Player", "assists": "AST",
-                        "points_created": "Pts Created", "points_per_assist": "Pts/AST",
-                    }),
-                    hide_index=True, width="stretch",
-                )
-            with col_b:
-                st.markdown("**Turnover breakdown (all games)**")
-                tb = turnover_breakdown(pbp)
-                st.dataframe(
-                    tb.rename(columns={"player_name_matched": "Player", "subtype": "Type", "count": "Count"}),
-                    hide_index=True, width="stretch",
-                )
-
-            st.markdown("**Lineup net rating (5-man units, all games)**")
-            st.caption(
-                "Point margin while each 5-man Arkansas unit was on the floor, reconstructed from "
-                "substitutions and the running score. Small sample per unit -- read as early signal."
-            )
-            if starters.empty:
-                st.info("No period-starters data loaded; lineup net rating needs it to seed each half's unit.")
-            else:
-                stints = lineup_stints(pbp, starters)
-                if stints.empty:
-                    st.info("No lineup stints could be reconstructed for these games.")
-                else:
-                    summary = lineup_summary(stints)
+                pace_col, situ_col = st.columns(2)
+                with pace_col:
+                    st.markdown("**Pace (possessions / 40 min)**")
+                    pace_df = team_pace(box).merge(games[["game_id", "date", "opponent"]], on="game_id")
                     st.dataframe(
-                        summary[["lineup_label", "stints", "net_rating"]].rename(
-                            columns={"lineup_label": "Lineup", "stints": "Stints", "net_rating": "Net Rating"}
+                        pace_df[["date", "opponent", "pace"]].rename(
+                            columns={"date": "Date", "opponent": "Opp", "pace": "Pace"}
                         ),
                         hide_index=True, width="stretch",
                     )
+                with situ_col:
+                    st.markdown("**Points by situation**")
+                    situ_df = points_by_situation(pbp)
+                    if not situ_df.empty:
+                        situ_pivot = situ_df.pivot_table(
+                            index="game_id", columns="origin", values="points", fill_value=0
+                        ).reset_index().merge(games[["game_id", "date", "opponent"]], on="game_id")
+                        situ_pivot = situ_pivot.drop(columns="game_id").rename(columns={"date": "Date", "opponent": "Opp"})
+                        st.dataframe(situ_pivot, hide_index=True, width="stretch")
 
-            st.markdown("---")
-            st.markdown("#### Roadmap")
+            with st.expander("Player Rate Stats (eFG%, TS%, USG%, AST/TO)", expanded=True):
+                st.caption(
+                    "Standard formulas from box score totals, averaged across all games. These are "
+                    "descriptive (what actually happened), not inferential, so they're valid at any "
+                    "game count -- unlike the correlation view in the Roadmap section below."
+                )
+                tps = traditional_plus_stats(box[box["team"] == "ARK"])
+                if not tps.empty:
+                    tps_summary = tps.groupby("player_name_matched", as_index=False).agg(
+                        gp=("game_id", "count"), min=("min", "mean"),
+                        efg_pct=("efg_pct", "mean"), ts_pct=("ts_pct", "mean"),
+                        usg_pct=("usg_pct", "mean"), ast_to_ratio=("ast_to_ratio", "mean"),
+                    )
+                    for c in ("min", "efg_pct", "ts_pct", "usg_pct", "ast_to_ratio"):
+                        tps_summary[c] = tps_summary[c].round(1)
+                    st.dataframe(
+                        tps_summary.rename(columns={
+                            "player_name_matched": "Player", "gp": "GP", "min": "MIN",
+                            "efg_pct": "eFG%", "ts_pct": "TS%", "usg_pct": "USG%", "ast_to_ratio": "AST/TO",
+                        }).sort_values("USG%", ascending=False),
+                        hide_index=True, width="stretch",
+                    )
 
-            st.markdown("**Unlocks automatically with more games**")
-            n_games = len(games)
-            games_pct = min(100, round(n_games / MIN_GAMES_FOR_CORRELATION * 100))
-            st.markdown(
-                '<div style="border-left:4px solid #94a3b8;padding:8px 14px;background:#f8fafc;">'
-                f'<b>Expanded correlation / trend analysis:</b> needs roughly {MIN_GAMES_FOR_CORRELATION}+ real games '
-                f'before it says anything reliable. Currently at <b>{n_games} of ~{MIN_GAMES_FOR_CORRELATION}</b>.'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-            st.progress(games_pct / 100, text=f"{n_games} / ~{MIN_GAMES_FOR_CORRELATION} games")
+            with st.expander("Shot Profile by Play Type", expanded=False):
+                eff_scope = st.radio("Split by", ["Team-wide", "Per player"], horizontal=True, key="gp_adv_eff_scope")
+                group_cols = ["player_name_matched"] if eff_scope == "Per player" else []
+                eff = shot_efficiency_by_type(pbp[pbp["team"] == "ARK"], group_cols=group_cols)
+                eff_cols = (["player_name_matched"] if group_cols else []) + [
+                    "origin", "attempts", "makes", "points", "pts_per_attempt", "fg_pct"
+                ]
+                rename_cols = {"player_name_matched": "Player", "origin": "Type", "attempts": "Att",
+                               "makes": "Makes", "points": "Pts", "pts_per_attempt": "Pts/Att", "fg_pct": "FG%"}
+                origin_df = eff["origin"]
+                st.dataframe(
+                    origin_df[[c for c in eff_cols if c in origin_df.columns]].rename(columns=rename_cols),
+                    hide_index=True, width="stretch",
+                )
 
-            st.markdown("**Planned, pending a different data source**")
-            st.caption(
-                "These don't unlock with more Arkansas games -- each needs data this app doesn't "
-                "ingest today (optical player tracking, hand-charted video, or a league-wide reference "
-                "dataset). Listed here so it's a stated plan, not an unexplained gap."
-            )
-            for name, why in ROADMAP_METRICS:
-                st.markdown(f"- **{name}** -- {why}")
+            with st.expander("Playmaking & Turnovers", expanded=False):
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.markdown("**Assist creation (points created)**")
+                    ac = assist_creation(pbp)
+                    st.dataframe(
+                        ac.rename(columns={
+                            "player_name_matched": "Player", "assists": "AST",
+                            "points_created": "Pts Created", "points_per_assist": "Pts/AST",
+                        }),
+                        hide_index=True, width="stretch",
+                    )
+                with col_b:
+                    st.markdown("**Turnover breakdown**")
+                    tb = turnover_breakdown(pbp)
+                    st.dataframe(
+                        tb.rename(columns={"player_name_matched": "Player", "subtype": "Type", "count": "Count"}),
+                        hide_index=True, width="stretch",
+                    )
+
+            with st.expander("Lineup Net Rating (5-man units)", expanded=False):
+                st.caption(
+                    "Point margin while each 5-man Arkansas unit was on the floor, reconstructed from "
+                    "substitutions and the running score. Small sample per unit -- read as early signal."
+                )
+                if starters.empty:
+                    st.info("No period-starters data loaded; lineup net rating needs it to seed each half's unit.")
+                else:
+                    stints = lineup_stints(pbp, starters)
+                    if stints.empty:
+                        st.info("No lineup stints could be reconstructed for these games.")
+                    else:
+                        summary = lineup_summary(stints)
+                        st.dataframe(
+                            summary[["lineup_label", "stints", "net_rating"]].rename(
+                                columns={"lineup_label": "Lineup", "stints": "Stints", "net_rating": "Net Rating"}
+                            ),
+                            hide_index=True, width="stretch",
+                        )
+
+            with st.expander("Roadmap -- What's Next", expanded=False):
+                st.markdown("**Unlocks automatically with more games**")
+                n_games = len(games)
+                games_pct = min(100, round(n_games / MIN_GAMES_FOR_CORRELATION * 100))
+                st.markdown(
+                    '<div style="border-left:4px solid #94a3b8;padding:8px 14px;background:#f8fafc;">'
+                    f'<b>Expanded correlation / trend analysis:</b> needs roughly {MIN_GAMES_FOR_CORRELATION}+ real games '
+                    f'before it says anything reliable. Currently at <b>{n_games} of ~{MIN_GAMES_FOR_CORRELATION}</b>.'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+                st.progress(games_pct / 100, text=f"{n_games} / ~{MIN_GAMES_FOR_CORRELATION} games")
+
+                st.markdown("**Planned, pending a different data source**")
+                st.caption(
+                    "These don't unlock with more Arkansas games -- each needs data this app doesn't "
+                    "ingest today (optical player tracking, hand-charted video, or a league-wide "
+                    "reference dataset). Listed here so it's a stated plan, not an unexplained gap."
+                )
+                for name, why in ROADMAP_METRICS:
+                    st.markdown(f"- **{name}** -- {why}")
