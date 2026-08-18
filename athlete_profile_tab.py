@@ -1248,112 +1248,109 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     with w3:
         st.markdown(pill_meter(latest_wellness["mood"],     "Mood",     max_val=10, good_max=4, warn_max=7, invert=False, suffix="/10"), unsafe_allow_html=True)
 
-    # ==========================================================================
-    # GPS / KINEXON SECTION
-    # ==========================================================================
     st.markdown("---")
-    st.markdown("### GPS / Kinexon — External Locomotor Load")
+    with st.expander("GPS / Kinexon -- External Locomotor Load", expanded=False):
 
-    if has_gps and gps_row:
-        # ── GPS 3.0 framing (Boskovic et al. 2024, Sport Performance & Science Reports) ──
-        # GPS metrics (player load, HSR, speed zones) measure external locomotor load.
-        # They are a WEAK PROXY for internal neuromuscular load — particularly in
-        # multidirectional sports like basketball where direction-change mechanics
-        # (cuts, stops, pivots) can account for ~70% of true mechanical work but are
-        # largely invisible to linear GPS 2.0 metrics.
-        # CORRECT INTERPRETATION: GPS shows session volume context. CMJ/RSI (force plate)
-        # is the actual neuromuscular load RESPONSE measure — the ground truth for fatigue.
-        # Decel count is the most GPS 3.0-compatible metric: captures direction-change
-        # intensity better than distance or player load.
-        st.markdown(
-            '<div style="background:#fefce8;border-left:3px solid #ca8a04;'
-            'border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:10px;">'
-            '<span style="font-size:11px;color:#713f12;">'
-            '<b>GPS = external locomotor load only.</b> Not a direct measure of neuromuscular fatigue. '
-            'Use CMJ/RSI (above) as the true neuromuscular response signal. '
-            'Decel count is the most relevant GPS metric for basketball injury risk — '
-            'drops below baseline indicate protective avoidance before subjective soreness appears. '
-            '<i>(Boskovic et al. 2024 GPS 3.0; Harper et al. 2019; Science of Multi-directional Sport)</i>'
-            '</span></div>',
-            unsafe_allow_html=True
-        )
-
-        g1, g2, g3 = st.columns(3)
-        g4, g5, g6 = st.columns(3)
-
-        def _gps_metric(col_widget, label, val, emoji, z):
-            delta = f"{z:+.1f}σ" if z is not None else "—"
-            col_widget.metric(label, f"{emoji} {val:.0f}", delta=delta, delta_color="off")
-
-        # Decel listed first — primary basketball signal
-        _gps_metric(g1, "Decel Count",      gps_row.get("decel_count", 0),      dc_emoji, dc_z)
-        _gps_metric(g2, "Accel Count",       gps_row.get("accel_count", 0),      ac_emoji, ac_z)
-        _gps_metric(g3, "Player Load",       gps_row.get("player_load", 0),      pl_emoji, pl_z)
-
-        # Distance metrics — volume context only, no z-score weighting
-        g4.metric("Distance (km)",   f"{gps_row.get('total_distance_km', 0):.2f}")
-        g5.metric("HSR (m)",         f"~{gps_row.get('hsr_distance_m', 0):.0f}")
-        g6.metric("Sprint (m)",      f"~{gps_row.get('sprint_distance_m', 0):.0f}")
-        st.caption("★ Primary signal  |  HSR/Sprint = volume context only — misses ~70% of multidirectional load (Boskovic et al. 2024)")
-
-        # 14-day GPS trend chart for this athlete
-        st.markdown("#### 14-Day GPS Trends")
-        cutoff_gps = pd.to_datetime(latest_date) - pd.Timedelta(days=14)
-        gps_trend  = training_load[
-            (training_load["player_id"] == athlete_id) &
-            (training_load["date"] >= cutoff_gps)
-        ].sort_values("date")
-
-        if len(gps_trend) > 0:
-            COLORS = ["#2E86AB", "#A23B72", "#F18F01"]
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=gps_trend["date"], y=gps_trend["player_load"],
-                name="Player Load", mode="lines+markers",
-                line=dict(color=COLORS[0], width=2),
-            ))
-            fig.add_trace(go.Scatter(
-                x=gps_trend["date"], y=gps_trend["accel_count"],
-                name="Accel Count", mode="lines+markers",
-                line=dict(color=COLORS[1], width=2), yaxis="y2",
-            ))
-            fig.add_trace(go.Scatter(
-                x=gps_trend["date"], y=gps_trend["decel_count"],
-                name="Decel Count", mode="lines+markers",
-                line=dict(color=COLORS[2], width=2, dash="dot"), yaxis="y2",
-            ))
-            fig.update_layout(
-                height=280,
-                yaxis =dict(title="Player Load (AU)"),
-                yaxis2=dict(title="Accel / Decel Count", overlaying="y", side="right"),
-                hovermode="x unified",
-                margin=dict(l=10, r=10, t=20, b=20),
-                legend=dict(orientation="h", y=-0.25),
+        if has_gps and gps_row:
+            # ── GPS 3.0 framing (Boskovic et al. 2024, Sport Performance & Science Reports) ──
+            # GPS metrics (player load, HSR, speed zones) measure external locomotor load.
+            # They are a WEAK PROXY for internal neuromuscular load — particularly in
+            # multidirectional sports like basketball where direction-change mechanics
+            # (cuts, stops, pivots) can account for ~70% of true mechanical work but are
+            # largely invisible to linear GPS 2.0 metrics.
+            # CORRECT INTERPRETATION: GPS shows session volume context. CMJ/RSI (force plate)
+            # is the actual neuromuscular load RESPONSE measure — the ground truth for fatigue.
+            # Decel count is the most GPS 3.0-compatible metric: captures direction-change
+            # intensity better than distance or player load.
+            st.markdown(
+                '<div style="background:#fefce8;border-left:3px solid #ca8a04;'
+                'border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:10px;">'
+                '<span style="font-size:11px;color:#713f12;">'
+                '<b>GPS = external locomotor load only.</b> Not a direct measure of neuromuscular fatigue. '
+                'Use CMJ/RSI (above) as the true neuromuscular response signal. '
+                'Decel count is the most relevant GPS metric for basketball injury risk — '
+                'drops below baseline indicate protective avoidance before subjective soreness appears. '
+                '<i>(Boskovic et al. 2024 GPS 3.0; Harper et al. 2019; Science of Multi-directional Sport)</i>'
+                '</span></div>',
+                unsafe_allow_html=True
             )
-            st.plotly_chart(fig, width='stretch')
+
+            g1, g2, g3 = st.columns(3)
+            g4, g5, g6 = st.columns(3)
+
+            def _gps_metric(col_widget, label, val, emoji, z):
+                delta = f"{z:+.1f}σ" if z is not None else "—"
+                col_widget.metric(label, f"{emoji} {val:.0f}", delta=delta, delta_color="off")
+
+            # Decel listed first — primary basketball signal
+            _gps_metric(g1, "Decel Count",      gps_row.get("decel_count", 0),      dc_emoji, dc_z)
+            _gps_metric(g2, "Accel Count",       gps_row.get("accel_count", 0),      ac_emoji, ac_z)
+            _gps_metric(g3, "Player Load",       gps_row.get("player_load", 0),      pl_emoji, pl_z)
+
+            # Distance metrics — volume context only, no z-score weighting
+            g4.metric("Distance (km)",   f"{gps_row.get('total_distance_km', 0):.2f}")
+            g5.metric("HSR (m)",         f"~{gps_row.get('hsr_distance_m', 0):.0f}")
+            g6.metric("Sprint (m)",      f"~{gps_row.get('sprint_distance_m', 0):.0f}")
+            st.caption("★ Primary signal  |  HSR/Sprint = volume context only — misses ~70% of multidirectional load (Boskovic et al. 2024)")
+
+            # 14-day GPS trend chart for this athlete
+            st.markdown("#### 14-Day GPS Trends")
+            cutoff_gps = pd.to_datetime(latest_date) - pd.Timedelta(days=14)
+            gps_trend  = training_load[
+                (training_load["player_id"] == athlete_id) &
+                (training_load["date"] >= cutoff_gps)
+            ].sort_values("date")
+
+            if len(gps_trend) > 0:
+                COLORS = ["#2E86AB", "#A23B72", "#F18F01"]
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=gps_trend["date"], y=gps_trend["player_load"],
+                    name="Player Load", mode="lines+markers",
+                    line=dict(color=COLORS[0], width=2),
+                ))
+                fig.add_trace(go.Scatter(
+                    x=gps_trend["date"], y=gps_trend["accel_count"],
+                    name="Accel Count", mode="lines+markers",
+                    line=dict(color=COLORS[1], width=2), yaxis="y2",
+                ))
+                fig.add_trace(go.Scatter(
+                    x=gps_trend["date"], y=gps_trend["decel_count"],
+                    name="Decel Count", mode="lines+markers",
+                    line=dict(color=COLORS[2], width=2, dash="dot"), yaxis="y2",
+                ))
+                fig.update_layout(
+                    height=280,
+                    yaxis =dict(title="Player Load (AU)"),
+                    yaxis2=dict(title="Accel / Decel Count", overlaying="y", side="right"),
+                    hovermode="x unified",
+                    margin=dict(l=10, r=10, t=20, b=20),
+                    legend=dict(orientation="h", y=-0.25),
+                )
+                st.plotly_chart(fig, width='stretch')
+            else:
+                st.info("Insufficient GPS history for trend chart.")
+
+            # GPS flag notes
+            gps_flags = []
+            for col_name, label in [("player_load", "Player Load"), ("accel_count", "Accel Count"), ("decel_count", "Decel Count")]:
+                val = gps_row.get(col_name, 0)
+                emoji, z = _gps_zscore(athlete_id, col_name, val, training_load, ref_date)
+                if emoji == "🔴" and z is not None:
+                    gps_flags.append(f"📡 {label} {val:.0f} — {abs(z):.1f}σ below baseline (high fatigue signal)")
+                elif emoji == "🟡" and z is not None:
+                    gps_flags.append(f"📡 {label} {val:.0f} — {abs(z):.1f}σ below baseline")
+
+            if gps_flags:
+                st.markdown("**GPS Flags:**")
+                for flag in gps_flags:
+                    st.warning(flag)
+            else:
+                st.success("📡 All GPS metrics within personal normal range")
+
         else:
-            st.info("Insufficient GPS history for trend chart.")
-
-        # GPS flag notes
-        gps_flags = []
-        for col_name, label in [("player_load", "Player Load"), ("accel_count", "Accel Count"), ("decel_count", "Decel Count")]:
-            val = gps_row.get(col_name, 0)
-            emoji, z = _gps_zscore(athlete_id, col_name, val, training_load, ref_date)
-            if emoji == "🔴" and z is not None:
-                gps_flags.append(f"📡 {label} {val:.0f} — {abs(z):.1f}σ below baseline (high fatigue signal)")
-            elif emoji == "🟡" and z is not None:
-                gps_flags.append(f"📡 {label} {val:.0f} — {abs(z):.1f}σ below baseline")
-
-        if gps_flags:
-            st.markdown("**GPS Flags:**")
-            for flag in gps_flags:
-                st.warning(flag)
-        else:
-            st.success("📡 All GPS metrics within personal normal range")
-
-    else:
-        st.info("No GPS data available for this athlete today." if has_gps else
-                "GPS columns not found in database — run generate_database.py to add GPS data.")
+            st.info("No GPS data available for this athlete today." if has_gps else
+                    "GPS columns not found in database — run generate_database.py to add GPS data.")
 
     # ==========================================================================
     # GAME PERFORMANCE (box score / play-by-play -- only present where that
@@ -1362,129 +1359,123 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     if db_path is not None:
         _render_game_performance_section(db_path, athlete_id)
 
-    # ==========================================================================
-    # PERSONAL BASELINE Z-SCORES (wellness + CMJ/RSI)
-    # ==========================================================================
     if HAVE_ENHANCED_MODULES:
         baselines = calculate_athlete_baselines(wellness, athlete_id, lookback_days=30)
 
         if baselines:
             st.markdown("---")
-            st.markdown("### Personal Baseline Comparison")
-            st.caption("Current values vs this athlete's 30-day average. "
-                       "Force plate provides objective fatigue signal.")
+            with st.expander("Personal Baseline Comparison", expanded=False):
+                st.caption("Current values vs this athlete's 30-day average. "
+                           "Force plate provides objective fatigue signal.")
 
-            z1, z2, z3 = st.columns(3)
+                z1, z2, z3 = st.columns(3)
 
-            with z1:
-                sleep_z = calculate_z_score(
-                    latest_wellness["sleep_hours"],
-                    baselines["sleep_hours"]["mean"],
-                    baselines["sleep_hours"]["std"],
-                )
-                st.markdown(create_z_score_display("Sleep Duration", latest_wellness["sleep_hours"], sleep_z, "higher_better", " hrs"), unsafe_allow_html=True)
-                soreness_z = calculate_z_score(
-                    latest_wellness["soreness"],
-                    baselines["soreness"]["mean"],
-                    baselines["soreness"]["std"],
-                )
-                st.markdown(create_z_score_display("Soreness", latest_wellness["soreness"], soreness_z, "lower_better", "/10"), unsafe_allow_html=True)
+                with z1:
+                    sleep_z = calculate_z_score(
+                        latest_wellness["sleep_hours"],
+                        baselines["sleep_hours"]["mean"],
+                        baselines["sleep_hours"]["std"],
+                    )
+                    st.markdown(create_z_score_display("Sleep Duration", latest_wellness["sleep_hours"], sleep_z, "higher_better", " hrs"), unsafe_allow_html=True)
+                    soreness_z = calculate_z_score(
+                        latest_wellness["soreness"],
+                        baselines["soreness"]["mean"],
+                        baselines["soreness"]["std"],
+                    )
+                    st.markdown(create_z_score_display("Soreness", latest_wellness["soreness"], soreness_z, "lower_better", "/10"), unsafe_allow_html=True)
 
-            with z2:
-                mood_z = calculate_z_score(
-                    latest_wellness["mood"],
-                    baselines["mood"]["mean"],
-                    baselines["mood"]["std"],
-                )
-                st.markdown(create_z_score_display("Mood", latest_wellness["mood"], mood_z, "higher_better", "/10"), unsafe_allow_html=True)
-                stress_z = calculate_z_score(
-                    latest_wellness["stress"],
-                    baselines["stress"]["mean"],
-                    baselines["stress"]["std"],
-                )
-                st.markdown(create_z_score_display("Stress", latest_wellness["stress"], stress_z, "lower_better", "/10"), unsafe_allow_html=True)
+                with z2:
+                    mood_z = calculate_z_score(
+                        latest_wellness["mood"],
+                        baselines["mood"]["mean"],
+                        baselines["mood"]["std"],
+                    )
+                    st.markdown(create_z_score_display("Mood", latest_wellness["mood"], mood_z, "higher_better", "/10"), unsafe_allow_html=True)
+                    stress_z = calculate_z_score(
+                        latest_wellness["stress"],
+                        baselines["stress"]["mean"],
+                        baselines["stress"]["std"],
+                    )
+                    st.markdown(create_z_score_display("Stress", latest_wellness["stress"], stress_z, "lower_better", "/10"), unsafe_allow_html=True)
 
-            with z3:
-                if cmj_z is not None:
-                    st.markdown(create_z_score_display("CMJ Height", latest_cmj, cmj_z, "higher_better", " cm"), unsafe_allow_html=True)
-                else:
-                    st.info("CMJ: insufficient baseline data")
-                if rsi_z is not None:
-                    st.markdown(create_z_score_display("RSI-Modified", latest_rsi, rsi_z, "higher_better", ""), unsafe_allow_html=True)
-                else:
-                    st.info("RSI: insufficient baseline data")
-
-            # Smart alerts (wellness + force plate)
-            alerts = add_z_score_alerts(
-                dict(latest_wellness),
-                baselines,
-                {"sleep": 7.0, "soreness": 7, "acwr": 1.5},  # Walsh 2021
-            )
-            if cmj_z is not None and cmj_z <= -2.0:
-                alerts.append({"type": "critical", "metric": "CMJ",
-                                "message": f"CMJ {latest_cmj:.1f} cm — {abs(cmj_z):.1f}σ below baseline (severe neuromuscular fatigue)",
-                                "color": "#ef4444"})
-            elif cmj_z is not None and cmj_z <= -1.0:
-                alerts.append({"type": "warning", "metric": "CMJ",
-                                "message": f"CMJ {latest_cmj:.1f} cm — {abs(cmj_z):.1f}σ below baseline (neuromuscular fatigue)",
-                                "color": "#f59e0b"})
-            if rsi_z is not None and rsi_z <= -2.0:
-                alerts.append({"type": "critical", "metric": "RSI",
-                                "message": f"RSI {latest_rsi:.2f} — {abs(rsi_z):.1f}σ below baseline (reduced reactive strength)",
-                                "color": "#ef4444"})
-            elif rsi_z is not None and rsi_z <= -1.0:
-                alerts.append({"type": "warning", "metric": "RSI",
-                                "message": f"RSI {latest_rsi:.2f} — {abs(rsi_z):.1f}σ below baseline",
-                                "color": "#f59e0b"})
-
-            if alerts:
-                st.markdown("**Alerts**")
-                for a in alerts:
-                    if a["type"] == "critical":
-                        st.error(a["message"])
-                    elif a["type"] == "warning":
-                        st.warning(a["message"])
+                with z3:
+                    if cmj_z is not None:
+                        st.markdown(create_z_score_display("CMJ Height", latest_cmj, cmj_z, "higher_better", " cm"), unsafe_allow_html=True)
                     else:
-                        st.info(a["message"])
+                        st.info("CMJ: insufficient baseline data")
+                    if rsi_z is not None:
+                        st.markdown(create_z_score_display("RSI-Modified", latest_rsi, rsi_z, "higher_better", ""), unsafe_allow_html=True)
+                    else:
+                        st.info("RSI: insufficient baseline data")
 
-    # ==========================================================================
-    # 7-DAY TRENDS  (wellness + force plate overlay)
-    # ==========================================================================
+                # Smart alerts (wellness + force plate)
+                alerts = add_z_score_alerts(
+                    dict(latest_wellness),
+                    baselines,
+                    {"sleep": 7.0, "soreness": 7, "acwr": 1.5},  # Walsh 2021
+                )
+                if cmj_z is not None and cmj_z <= -2.0:
+                    alerts.append({"type": "critical", "metric": "CMJ",
+                                    "message": f"CMJ {latest_cmj:.1f} cm — {abs(cmj_z):.1f}σ below baseline (severe neuromuscular fatigue)",
+                                    "color": "#ef4444"})
+                elif cmj_z is not None and cmj_z <= -1.0:
+                    alerts.append({"type": "warning", "metric": "CMJ",
+                                    "message": f"CMJ {latest_cmj:.1f} cm — {abs(cmj_z):.1f}σ below baseline (neuromuscular fatigue)",
+                                    "color": "#f59e0b"})
+                if rsi_z is not None and rsi_z <= -2.0:
+                    alerts.append({"type": "critical", "metric": "RSI",
+                                    "message": f"RSI {latest_rsi:.2f} — {abs(rsi_z):.1f}σ below baseline (reduced reactive strength)",
+                                    "color": "#ef4444"})
+                elif rsi_z is not None and rsi_z <= -1.0:
+                    alerts.append({"type": "warning", "metric": "RSI",
+                                    "message": f"RSI {latest_rsi:.2f} — {abs(rsi_z):.1f}σ below baseline",
+                                    "color": "#f59e0b"})
+
+                if alerts:
+                    st.markdown("**Alerts**")
+                    for a in alerts:
+                        if a["type"] == "critical":
+                            st.error(a["message"])
+                        elif a["type"] == "warning":
+                            st.warning(a["message"])
+                        else:
+                            st.info(a["message"])
+
     st.markdown("---")
-    st.markdown("### 7-Day Wellness & Force Plate Trends")
+    with st.expander("7-Day Wellness & Force Plate Trends", expanded=False):
 
-    week_ago   = latest_date - timedelta(days=7)
-    weekly     = wellness[
-        (wellness["player_id"] == athlete_id) &
-        (wellness["date"] >= week_ago) &
-        (wellness["date"] <= latest_date)
-    ].sort_values("date")
-    weekly_fp  = force_plate[
-        (force_plate["player_id"] == athlete_id) &
-        (force_plate["date"] >= week_ago) &
-        (force_plate["date"] <= latest_date)
-    ].sort_values("date")
+        week_ago   = latest_date - timedelta(days=7)
+        weekly     = wellness[
+            (wellness["player_id"] == athlete_id) &
+            (wellness["date"] >= week_ago) &
+            (wellness["date"] <= latest_date)
+        ].sort_values("date")
+        weekly_fp  = force_plate[
+            (force_plate["player_id"] == athlete_id) &
+            (force_plate["date"] >= week_ago) &
+            (force_plate["date"] <= latest_date)
+        ].sort_values("date")
 
-    if len(weekly) > 0:
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=weekly["date"], y=weekly["sleep_hours"], mode="lines+markers",
-                                 name="Sleep (hrs)", line=dict(color="#2E86AB", width=2)))
-        fig.add_trace(go.Scatter(x=weekly["date"], y=weekly["soreness"], mode="lines+markers",
-                                 name="Soreness (0–10)", line=dict(color="#A23B72", width=2)))
-        if len(weekly_fp) > 0:
-            fig.add_trace(go.Scatter(x=weekly_fp["date"], y=weekly_fp["cmj_height_cm"], mode="lines+markers",
-                                     name="CMJ (cm)", line=dict(color="#F18F01", width=2, dash="dot"), yaxis="y2"))
-            fig.add_trace(go.Scatter(x=weekly_fp["date"], y=weekly_fp["rsi_modified"], mode="lines+markers",
-                                     name="RSI-Mod", line=dict(color="#44BBA4", width=2, dash="dot"), yaxis="y2"))
-        fig.update_layout(
-            title=f"{selected_athlete} — Weekly Trends",
-            yaxis =dict(title="Wellness"),
-            yaxis2=dict(title="Force Plate", overlaying="y", side="right"),
-            height=320, hovermode="x unified",
-        )
-        st.plotly_chart(fig, width='stretch')
-    else:
-        st.info("Insufficient data for 7-day trends")
+        if len(weekly) > 0:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=weekly["date"], y=weekly["sleep_hours"], mode="lines+markers",
+                                     name="Sleep (hrs)", line=dict(color="#2E86AB", width=2)))
+            fig.add_trace(go.Scatter(x=weekly["date"], y=weekly["soreness"], mode="lines+markers",
+                                     name="Soreness (0–10)", line=dict(color="#A23B72", width=2)))
+            if len(weekly_fp) > 0:
+                fig.add_trace(go.Scatter(x=weekly_fp["date"], y=weekly_fp["cmj_height_cm"], mode="lines+markers",
+                                         name="CMJ (cm)", line=dict(color="#F18F01", width=2, dash="dot"), yaxis="y2"))
+                fig.add_trace(go.Scatter(x=weekly_fp["date"], y=weekly_fp["rsi_modified"], mode="lines+markers",
+                                         name="RSI-Mod", line=dict(color="#44BBA4", width=2, dash="dot"), yaxis="y2"))
+            fig.update_layout(
+                title=f"{selected_athlete} — Weekly Trends",
+                yaxis =dict(title="Wellness"),
+                yaxis2=dict(title="Force Plate", overlaying="y", side="right"),
+                height=320, hovermode="x unified",
+            )
+            st.plotly_chart(fig, width='stretch')
+        else:
+            st.info("Insufficient data for 7-day trends")
 
     # ==========================================================================
     # BASKETBALL-SPECIFIC RISK CONTEXT
@@ -1503,114 +1494,105 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     # real team data before deployment. Ghost function (injury_mechanism_insight_box)
     # removed from V1 to avoid implying a capability that is not yet built.
     # ==========================================================================
-    col_bsrc_title, col_bsrc_badge = st.columns([3, 1])
-    with col_bsrc_title:
-        st.markdown("### Basketball-Specific Risk Context")
-    with col_bsrc_badge:
-        st.markdown(
-            '<div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;'
-            'padding:4px 10px;margin-top:8px;text-align:center;">'
-            '<span style="font-size:10px;font-weight:700;color:#1e40af;'
-            'letter-spacing:0.1em;">V1 — CORE FLAGS</span></div>',
-            unsafe_allow_html=True
+    with st.expander("Basketball-Specific Risk Context", expanded=False):
+        st.caption("V1 -- CORE FLAGS")
+
+        context = st.radio(
+            "Next activity:", ["Practice", "Competition"],
+            horizontal=True, key=f"context_{athlete_id}",
         )
 
-    context = st.radio(
-        "Next activity:", ["Practice", "Competition"],
-        horizontal=True, key=f"context_{athlete_id}",
-    )
+        # V1 implementation — clinical flags with correct caveats
+        # Cross-reference requirement enforced: GPS signals never actioned alone
+        _flags_bsrc = []
 
-    # V1 implementation — clinical flags with correct caveats
-    # Cross-reference requirement enforced: GPS signals never actioned alone
-    _flags_bsrc = []
+        if cmj_z is not None and cmj_z < -1.0:
+            severity = "HIGH" if cmj_z < -1.5 else "MODERATE"
+            _flags_bsrc.append((
+                severity,
+                "CMJ below personal baseline",
+                f"z = {cmj_z:.2f} ({abs(cmj_z):.1f}σ below 30-day average). "
+                "Neuromuscular output is reduced. "
+                + ("Consider modifying or removing from high-intensity decel drills today. "
+                   if context == "Competition"
+                   else "Reduce plyometric and change-of-direction volume in practice. ")
+                + "This is the primary actionable signal."
+            ))
 
-    if cmj_z is not None and cmj_z < -1.0:
-        severity = "HIGH" if cmj_z < -1.5 else "MODERATE"
-        _flags_bsrc.append((
-            severity,
-            "CMJ below personal baseline",
-            f"z = {cmj_z:.2f} ({abs(cmj_z):.1f}σ below 30-day average). "
-            "Neuromuscular output is reduced. "
-            + ("Consider modifying or removing from high-intensity decel drills today. "
-               if context == "Competition"
-               else "Reduce plyometric and change-of-direction volume in practice. ")
-            + "This is the primary actionable signal."
-        ))
+        if rsi_z is not None and rsi_z < -1.0:
+            _flags_bsrc.append((
+                "HIGH" if rsi_z < -1.5 else "MODERATE",
+                "RSI below personal baseline",
+                f"z = {rsi_z:.2f}. Reactive strength index reduced — landing mechanics "
+                "and first-step explosiveness likely impaired. "
+                "Warrants action alongside CMJ flag if both present."
+            ))
 
-    if rsi_z is not None and rsi_z < -1.0:
-        _flags_bsrc.append((
-            "HIGH" if rsi_z < -1.5 else "MODERATE",
-            "RSI below personal baseline",
-            f"z = {rsi_z:.2f}. Reactive strength index reduced — landing mechanics "
-            "and first-step explosiveness likely impaired. "
-            "Warrants action alongside CMJ flag if both present."
-        ))
+        if dc_z is not None and dc_z < -1.0:
+            # GPS signal — requires CMJ/RSI cross-reference per Clubb 2025
+            cmj_also_low = cmj_z is not None and cmj_z < -1.0
+            _flags_bsrc.append((
+                "MODERATE",
+                "Decel count below personal baseline (GPS)",
+                f"z = {dc_z:.2f}. Reduced braking activity vs 30-day average. "
+                + ("CMJ is also reduced — combined signal warrants load modification. "
+                   if cmj_also_low
+                   else "CMJ is within normal range — monitor but do not act on GPS signal alone. "
+                        "Possible causes: session structure, not fatigue. (Clubb 2025)")
+            ))
 
-    if dc_z is not None and dc_z < -1.0:
-        # GPS signal — requires CMJ/RSI cross-reference per Clubb 2025
-        cmj_also_low = cmj_z is not None and cmj_z < -1.0
-        _flags_bsrc.append((
-            "MODERATE",
-            "Decel count below personal baseline (GPS)",
-            f"z = {dc_z:.2f}. Reduced braking activity vs 30-day average. "
-            + ("CMJ is also reduced — combined signal warrants load modification. "
-               if cmj_also_low
-               else "CMJ is within normal range — monitor but do not act on GPS signal alone. "
-                    "Possible causes: session structure, not fatigue. (Clubb 2025)")
-        ))
+        if sleep_v < 7.0:
+            _flags_bsrc.append((
+                "HIGH" if sleep_v < 6.0 else "MODERATE",
+                f"Sleep {sleep_v:.1f}h — below 7h threshold",
+                ("Below 6h: hard floor — PROTECT status applies regardless of other signals. "
+                 if sleep_v < 6.0
+                 else "Reaction time and neuromuscular coordination impaired at <7h (Walsh 2021 consensus; "
+                      "2025 meta OR=1.34). Compound risk if CMJ is also depressed.")
+            ))
 
-    if sleep_v < 7.0:
-        _flags_bsrc.append((
-            "HIGH" if sleep_v < 6.0 else "MODERATE",
-            f"Sleep {sleep_v:.1f}h — below 7h threshold",
-            ("Below 6h: hard floor — PROTECT status applies regardless of other signals. "
-             if sleep_v < 6.0
-             else "Reaction time and neuromuscular coordination impaired at <7h (Walsh 2021 consensus; "
-                  "2025 meta OR=1.34). Compound risk if CMJ is also depressed.")
-        ))
+        if sore_v > 7:
+            _flags_bsrc.append((
+                "MODERATE",
+                f"Soreness {sore_v:.0f}/10",
+                "Above threshold for monitoring (Hulin et al. 2016). "
+                "Check location — localised joint soreness warrants medical review "
+                "before high-intensity deceleration work."
+            ))
 
-    if sore_v > 7:
-        _flags_bsrc.append((
-            "MODERATE",
-            f"Soreness {sore_v:.0f}/10",
-            "Above threshold for monitoring (Hulin et al. 2016). "
-            "Check location — localised joint soreness warrants medical review "
-            "before high-intensity deceleration work."
-        ))
-
-    if not _flags_bsrc:
-        st.markdown(
-            '<div style="background:#f0fdf4;border-left:4px solid #16a34a;'
-            'border-radius:0 8px 8px 0;padding:10px 14px;">'
-            '<span style="font-size:13px;color:#166534;">'
-            '<b>No elevated risk signals today.</b> All key indicators within personal normal range. '
-            'Cleared for ' + context.lower() + '.</span></div>',
-            unsafe_allow_html=True
-        )
-    else:
-        for sev, flag_title, flag_detail in _flags_bsrc:
-            bg   = "#fef2f2" if sev == "HIGH"     else "#fffbeb"
-            bc   = "#dc2626" if sev == "HIGH"     else "#d97706"
-            tc   = "#991b1b" if sev == "HIGH"     else "#92400e"
-            icon = "⚠"       if sev == "HIGH"     else "◑"
+        if not _flags_bsrc:
             st.markdown(
-                f'<div style="background:{bg};border-left:4px solid {bc};'
-                f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
-                f'<div style="font-size:11px;font-weight:700;color:{bc};'
-                f'letter-spacing:0.08em;margin-bottom:3px;">{icon} {sev} — {flag_title}</div>'
-                f'<div style="font-size:12px;color:#1e293b;line-height:1.5;">{flag_detail}</div>'
-                f'</div>',
+                '<div style="background:#f0fdf4;border-left:4px solid #16a34a;'
+                'border-radius:0 8px 8px 0;padding:10px 14px;">'
+                '<span style="font-size:13px;color:#166534;">'
+                '<b>No elevated risk signals today.</b> All key indicators within personal normal range. '
+                'Cleared for ' + context.lower() + '.</span></div>',
                 unsafe_allow_html=True
             )
+        else:
+            for sev, flag_title, flag_detail in _flags_bsrc:
+                bg   = "#fef2f2" if sev == "HIGH"     else "#fffbeb"
+                bc   = "#dc2626" if sev == "HIGH"     else "#d97706"
+                tc   = "#991b1b" if sev == "HIGH"     else "#92400e"
+                icon = "⚠"       if sev == "HIGH"     else "◑"
+                st.markdown(
+                    f'<div style="background:{bg};border-left:4px solid {bc};'
+                    f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
+                    f'<div style="font-size:11px;font-weight:700;color:{bc};'
+                    f'letter-spacing:0.08em;margin-bottom:3px;">{icon} {sev} — {flag_title}</div>'
+                    f'<div style="font-size:12px;color:#1e293b;line-height:1.5;">{flag_detail}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
-    st.markdown(
-        '<div style="font-size:10px;color:#94a3b8;margin-top:6px;">'
-        'V1 flags: CMJ/RSI (primary), decel count (GPS — cross-reference required), sleep, soreness. '
-        'V2 will add position-specific mechanism context and richer basketball injury pattern language '
-        'once validated against real team data.'
-        '</div>',
-        unsafe_allow_html=True
-    )
+        st.markdown(
+            '<div style="font-size:10px;color:#94a3b8;margin-top:6px;">'
+            'V1 flags: CMJ/RSI (primary), decel count (GPS — cross-reference required), sleep, soreness. '
+            'V2 will add position-specific mechanism context and richer basketball injury pattern language '
+            'once validated against real team data.'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
 
 
