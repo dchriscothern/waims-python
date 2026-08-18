@@ -59,7 +59,7 @@ except ImportError:
 
 import sys
 HERE_PATH = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE_PATH.parent / "common"))
+sys.path.insert(0, str(HERE_PATH / "common"))
 
 try:
     from sport_config_extended import get_sport_config, get_team_config, get_thresholds
@@ -145,8 +145,13 @@ if HAVE_SPORT_CONFIG:
         ACTIVE_THRESHOLDS = get_thresholds(SPORT_PATHS["team"])
     except Exception:
         ACTIVE_THRESHOLDS = _FALLBACK_THRESHOLDS
+    try:
+        ACTIVE_KEY_EVIDENCE = get_sport_config(SPORT_PATHS["sport"])["key_evidence"]
+    except Exception:
+        ACTIVE_KEY_EVIDENCE = None
 else:
     ACTIVE_THRESHOLDS = _FALLBACK_THRESHOLDS
+    ACTIVE_KEY_EVIDENCE = None
 
 # ==============================================================================
 # PAGE CONFIG
@@ -1825,7 +1830,7 @@ if "rd" in tab_map:
 # ── Athlete Profiles ──────────────────────────────────────────────────────────
 if "ap" in tab_map:
     with tab_map["ap"], _section_guard("Athlete Profiles"):
-        athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries, db_path=DB_PATH, thresholds=ACTIVE_THRESHOLDS)
+        athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries, db_path=DB_PATH, thresholds=ACTIVE_THRESHOLDS, sport_key=ACTIVE_SPORT_KEY, key_evidence=ACTIVE_KEY_EVIDENCE)
 
 # ==============================================================================
 # TAB 3: TRENDS
