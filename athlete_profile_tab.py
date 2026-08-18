@@ -900,8 +900,9 @@ _DEFAULT_THRESHOLDS = {
 }
 
 
-def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None, db_path=None, thresholds=None):
+def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, injuries=None, db_path=None, thresholds=None, sport_key=None, key_evidence=None):
     thresholds = thresholds or _DEFAULT_THRESHOLDS
+    sport_key = sport_key or "wnba"
     rsi_zscore_high = thresholds["rsi_zscore_flag"] * 1.5  # no separate "high" tier defined for RSI; scaled to match the CMJ flag->high ratio
     st.header("Athlete Profiles")
     st.caption(
@@ -1631,24 +1632,60 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     #      Papers marked REJECTED disappear from the queue
     #      Update decisions by editing research_log.json on GitHub
     with st.expander("Evidence Base — Thresholds & Citations"):
+        st.markdown(
+            '<div style="background:#fffbeb;border-left:3px solid #d97706;'
+            'border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:10px;">'
+            '<span style="font-size:11px;color:#78350f;">'
+            '<b>Verification status:</b> the citations below have not been individually '
+            're-checked against source papers (only newly-monitored papers in the queue at '
+            'the bottom go through that automated review). One known issue: Mah et al. 2011 '
+            'is labeled as a female-basketball study in the WNBA evidence list and as '
+            '"includes male subjects" in the men\'s list -- these can\'t both be right for the '
+            'same paper. Cross-check before citing any of this in a research or interview context.'
+            '</span></div>',
+            unsafe_allow_html=True
+        )
 
-        st.markdown("#### Active Thresholds")
+        _is_mens = sport_key == "mens"
+        st.markdown(f"#### Active Thresholds ({'Men\'s College Basketball' if _is_mens else 'WNBA'})")
         st.markdown(
             "| Signal | Threshold | Basis |\n"
             "|---|---|---|\n"
-            "| Sleep | <7h flag · <6h hard floor | Walsh 2021 BJSM consensus; 2025 meta OR=1.34; Mah et al. 2011 (basketball) |\n"
-            "| CMJ | z <-1.0 flag · z <-1.5 high | Gathercole 2015; Pernigoni 2024 basketball SR |\n"
-            "| RSI | z <-1.0 flag · z <-1.5 high | Gathercole 2015 |\n"
-            "| Soreness | >7/10 requires action | Hulin et al. 2016 |\n"
+            f"| Sleep | <{thresholds['sleep_flag_hrs']:g}h flag · <{thresholds['sleep_minimum_hrs']:g}h hard floor | "
+            "Walsh 2021 BJSM consensus; Mah et al. 2011 (basketball, population labeling disputed -- see caveat above) |\n"
+            f"| CMJ | z <{thresholds['cmj_zscore_flag']:g} flag · z <{thresholds['cmj_zscore_high']:g} high | "
+            + ("Gathercole 2015" if _is_mens else "Gathercole 2015; Pernigoni 2024 basketball SR (female)") + " |\n"
+            f"| RSI | z <{thresholds['rsi_zscore_flag']:g} flag · z <{rsi_zscore_high:g} high | Gathercole 2015 |\n"
+            f"| Soreness | >{thresholds['soreness_action']:g}/10 requires action | Hulin et al. 2016 |\n"
             "| Decel count | z <-1.0 cross-ref CMJ/RSI | Clubb 2025; Pimenta et al. 2026 SCJ |\n"
-            "| ACWR | >1.5 contextual flag only | Gabbett 2016; demoted Impellizzeri 2020 |\n"
+            f"| ACWR | >{thresholds['acwr_flag']:g} contextual flag only | Gabbett 2016; demoted Impellizzeri 2020 |\n"
         )
 
-        with st.expander("Full citation log"):
+        if key_evidence:
+            st.markdown(
+                f"#### Evidence Base -- {'Men\'s College Basketball (Power 5)' if _is_mens else 'WNBA'}"
+            )
+            st.caption(
+                "From common/sport_config_extended.py's per-sport evidence list -- curated for this "
+                "population's gender, age, and competition level, not shared unmodified with the other sport."
+            )
+            for entry in key_evidence:
+                st.markdown(f"- {entry}")
+
+        with st.expander("Full citation log (detailed, WNBA-original -- not yet split per sport)"):
+            st.caption(
+                "This detailed narrative log predates the per-sport split above and still reflects "
+                "the WNBA (female, professional) evidence base as originally written. For Arkansas "
+                "(men's college), rely on the sport-specific list above instead -- e.g. the CMJ/RSI "
+                "section below cites two female-specific recovery-rate findings (Pernigoni 2024, "
+                "Goulart 2022) that the men's evidence list deliberately excludes, since female "
+                "athletes recovering CMJ faster than males doesn't transfer as a men's threshold basis."
+            )
             st.markdown(
                 "**Sleep**\n"
                 "- Mah et al. 2011 Sleep -- Stanford basketball: sleep extension improved reaction time "
-                "and sprint performance over 5-7 weeks. Most basketball-specific sleep study.\n"
+                "and sprint performance over 5-7 weeks. Most basketball-specific sleep study. "
+                "*(Population label disputed -- see verification note above.)*\n"
                 "- Mah et al. 2018 Sleep Health -- 628 collegiate athletes: 42.4% poor sleep quality, "
                 "39.1% insufficient sleep (<7h). Established prevalence baseline.\n"
                 "- Walsh et al. 2021 BJSM -- consensus statement, <7h threshold basis\n"
@@ -1660,8 +1697,10 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
                 "\n"
                 "**CMJ/RSI**\n"
                 "- Gathercole et al. 2015 -- CMJ/RSI as neuromuscular fatigue markers\n"
-                "- Pernigoni et al. 2024 (44-study basketball SR) -- female: minimal CMJ drop at 24h\n"
-                "- Goulart et al. 2022 (female meta-analysis) -- faster recovery vs male literature\n"
+                "- Pernigoni et al. 2024 (44-study basketball SR) -- female: minimal CMJ drop at 24h "
+                "*(WNBA-relevant only -- see caption above)*\n"
+                "- Goulart et al. 2022 (female meta-analysis) -- faster recovery vs male literature "
+                "*(WNBA-relevant only -- see caption above)*\n"
                 "\n"
                 "**Deceleration**\n"
                 "- Clubb 2025 Sportsmith -- thresholds arbitrary, dwell time sensitivity, "
