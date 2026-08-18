@@ -526,6 +526,19 @@ INGEST_DROP_SPEC = {
     "_processed": {"required": {"player_id", "date", "readiness_score", "injury_risk_score"}, "dates": ["date"], "numeric": ["readiness_score", "injury_risk_score"]},
 }
 
+# Vendor-labeled display names for the zone picker -- plain title-casing the
+# key alone ("Force Plate", "Velocity Based Training") loses the vendor
+# context that's the whole point of the shape being ready for that vendor.
+INGEST_ZONE_LABELS = {
+    "wellness": "Wellness (Kinexon-shaped)",
+    "training_load": "Training Load (Kinexon-shaped)",
+    "force_plate": "Force Plate (VALD ForceDecks-shaped)",
+    "velocity_based_training": "Velocity Based Training / VBS (Perch, GymAware, Vitruve, PUSH)",
+    "injuries": "Injuries",
+    "schedule": "Schedule",
+    "_processed": "Processed",
+}
+
 
 def _latest_drop_file(folder: Path) -> Path | None:
     if not folder.exists():
@@ -3078,7 +3091,7 @@ if "di" in tab_map:
             "Target drop zone",
             options=list(INGEST_DROP_SPEC.keys()),
             key="data_intake_upload_zone",
-            format_func=lambda key: key.replace("_", " ").title(),
+            format_func=lambda key: INGEST_ZONE_LABELS.get(key, key.replace("_", " ").title()),
         )
         st.caption("Nothing is written to the drop folder until you click confirm.")
         uploaded_intake_file = st.file_uploader(
