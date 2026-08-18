@@ -389,10 +389,14 @@ class TestAuth:
         except ImportError:
             pytest.skip("auth.py not available")
 
-        for username, user in DEMO_USERS.items():
-            role = user["role"]
-            assert role in TAB_ACCESS, \
-                f"Role '{role}' (user: {username}) missing from TAB_ACCESS"
+        # DEMO_USERS is sport-scoped ({"wnba": {username: {...}}, "mens": {...}}),
+        # not a flat {username: {...}} dict -- each app instance only exposes
+        # credentials for its own sport.
+        for sport, users in DEMO_USERS.items():
+            for username, user in users.items():
+                role = user["role"]
+                assert role in TAB_ACCESS, \
+                    f"Role '{role}' (user: {username}, sport: {sport}) missing from TAB_ACCESS"
 
     def test_sport_scientist_sees_all_tabs(self):
         try:
@@ -449,10 +453,11 @@ class TestAuth:
         except ImportError:
             pytest.skip("auth.py not available")
 
-        for username, user in DEMO_USERS.items():
-            assert "password" in user, f"{username} missing password"
-            assert "role" in user,     f"{username} missing role"
-            assert "display" in user,  f"{username} missing display name"
+        for sport, users in DEMO_USERS.items():
+            for username, user in users.items():
+                assert "password" in user, f"{sport}/{username} missing password"
+                assert "role" in user,     f"{sport}/{username} missing role"
+                assert "display" in user,  f"{sport}/{username} missing display name"
 
 
 # ==============================================================================
