@@ -1,15 +1,15 @@
-name: WAIMS CI - Unit Tests
+name: WAIMS CI - Unit + Rendering Tests
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, sandbox ]
   pull_request:
     branches: [ main, master ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Run unit tests (no database required)
+    name: Run unit + AppTest rendering tests
 
     steps:
       - name: Checkout repo
@@ -26,9 +26,16 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run unit tests (excluding DB tests)
+      - name: Run unit tests (excluding DB integration tests)
         run: |
           pytest test_waims.py -v --tb=short -k "not db"
+
+      - name: Run AppTest rendering tests
+        # waims_demo.db (WNBA) and waims-mens/data/waims_arkansas.db
+        # (Arkansas) are both committed to the repo, so these run
+        # against real data with no generation step needed.
+        run: |
+          pytest test_app_rendering.py -v --tb=short
 
       - name: Upload test results
         if: always()
