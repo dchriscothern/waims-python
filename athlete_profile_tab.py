@@ -1082,6 +1082,8 @@ def athlete_profile_tab(wellness, training_load, acwr, force_plate, players, inj
     # ==========================================================================
     st.markdown("---")
     st.markdown("### Key Metrics")
+    st.caption("CMJ/RSI/asymmetry shaped for a VALD ForceDecks export; Load/Accels shaped for a Kinexon export "
+               "(see the Data Intake tab). Neither is a live API poll -- both ingest as a dropped CSV.")
 
     c1, c2, c3, c4 = st.columns(4)
 
