@@ -34,6 +34,7 @@ ROADMAP_METRICS = [
     ("Expected Shot Quality (qSQ) / EPV", "Needs precise shot-location coordinates and defender distance at release, not just paint/perimeter tags."),
     ("Potential / Secondary Assists", "Needs every pass tracked, not just the ones that led to a made shot -- our play-by-play only logs actual assists on makes."),
     ("Play-type efficiency (PnR, isolation, post-up, spot-up)", "This is Synergy Sports-style video-charted data. Hand-chartable from film (see the manual-tracking guide) -- not derivable from this data source."),
+    ("Composite value metrics (BPM/RAPTOR/EPM-style single-number rating)", "A different kind of blocker than the rest of this list: these are regression models calibrated against thousands of player-seasons league-wide, not something more Arkansas games alone can produce -- needs a much larger reference dataset, not just more depth on this one team."),
 ]
 
 BOX_SCORE_DISPLAY_COLUMNS = {
