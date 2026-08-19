@@ -35,6 +35,7 @@ ROADMAP_METRICS = [
     ("Potential / Secondary Assists", "Needs every pass tracked, not just the ones that led to a made shot -- our play-by-play only logs actual assists on makes."),
     ("Play-type efficiency (PnR, isolation, post-up, spot-up)", "This is Synergy Sports-style video-charted data. Hand-chartable from film (see the manual-tracking guide) -- not derivable from this data source."),
     ("Composite value metrics (BPM/RAPTOR/EPM-style single-number rating)", "A different kind of blocker than the rest of this list: these are regression models calibrated against thousands of player-seasons league-wide, not something more Arkansas games alone can produce -- needs a much larger reference dataset, not just more depth on this one team."),
+    ("Narrative scouting reports (strengths, swing skills, NBA comp, floor/ceiling, team fit)", "Same blocker as play-type efficiency above, not a new one -- this is the standard format scouting departments use (measurements & production -> strengths -> swing skills -> comp -> team fit), built on top of the same Synergy/Sports Code video-charted data. Once play-type data exists, this becomes a presentation layer on it, not a separate data problem."),
 ]
 
 BOX_SCORE_DISPLAY_COLUMNS = {
