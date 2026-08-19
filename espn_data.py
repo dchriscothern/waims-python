@@ -213,6 +213,25 @@ def _parse_box_score(summary: dict, event_id: str, game_date: str) -> list:
             try: return float(stat_dict.get(key, default) or default)
             except: return default
 
+        # ESPN returns shooting stats as combined "made-attempted" strings
+        # (e.g. "fg": "5-7", "3pt": "0-0", "ft": "5-8"), not separate
+        # made/attempted fields -- split them here rather than looking up
+        # keys ("fgm", "fga", etc.) that don't exist in the response, which
+        # silently defaulted everything to 0.
+        def made_attempted(key):
+            raw = str(stat_dict.get(key, "") or "")
+            if "-" not in raw:
+                return 0, 0
+            made, _, attempted = raw.partition("-")
+            try:
+                return int(made), int(attempted)
+            except ValueError:
+                return 0, 0
+
+        fgm, fga = made_attempted("fg")
+        three_pm, three_pa = made_attempted("3pt")
+        ftm, fta = made_attempted("ft")
+
         rows.append({
             "event_id":    event_id,
             "date":        game_date,
@@ -222,18 +241,20 @@ def _parse_box_score(summary: dict, event_id: str, game_date: str) -> list:
             "minutes":     minutes,
             "pts":         si("pts"),
             "reb":         si("reb"),
+            "oreb":        si("oreb"),
+            "dreb":        si("dreb"),
             "ast":         si("ast"),
             "stl":         si("stl"),
             "blk":         si("blk"),
             "tov":         si("to"),        # ESPN uses "to" for turnovers
             "pf":          si("pf"),
-            "fgm":         si("fgm"),
-            "fga":         si("fga"),
-            "fg_pct":      sf("fg%") / 100 if sf("fg%") > 1 else sf("fg%"),
-            "three_pm":    si("3pm"),
-            "three_pa":    si("3pa"),
-            "ftm":         si("ftm"),
-            "fta":         si("fta"),
+            "fgm":         fgm,
+            "fga":         fga,
+            "fg_pct":      round(fgm / fga * 100, 1) if fga else None,
+            "three_pm":    three_pm,
+            "three_pa":    three_pa,
+            "ftm":         ftm,
+            "fta":         fta,
             "plus_minus":  si("+/-"),
         })
 
