@@ -353,3 +353,47 @@ def points_by_situation(pbp: pd.DataFrame) -> pd.DataFrame:
         shots.groupby(["game_id", "origin"], as_index=False)["points"].sum()
         .sort_values(["game_id", "origin"])
     )
+
+
+# ── WNBA real box-score rate stats ───────────────────────────────────────────
+#
+# game_box_scores (WNBA, from espn_data.py) is real per-player, per-game data
+# for the real roster -- unlike the rest of WAIMS's WNBA side, which is
+# synthetic. It has no oreb/dreb split (only combined reb), so team
+# possessions/PPP/pace can't be computed to the same standard as
+# team_possessions_and_ppp() above; this deliberately only computes what the
+# schema actually supports.
+
+def wnba_traditional_plus_stats(box: pd.DataFrame) -> pd.DataFrame:
+    """Per-player-per-game eFG%, TS%, Usage%, and AST/TO for the real WNBA
+    roster in game_box_scores -- same formulas as traditional_plus_stats()
+    above, adapted for this table's column names (minutes already numeric,
+    three_pm/three_pa instead of fg3m/fg3a, one team per game_box_scores row
+    set so no team filter is needed for team totals).
+    """
+    rows = []
+    for event_id, game_df in box.groupby("event_id"):
+        team_min = game_df["minutes"].fillna(0).sum()
+        team_fga, team_fta, team_tov = game_df["fga"].sum(), game_df["fta"].sum(), game_df["tov"].sum()
+        team_poss_proxy = team_fga + 0.44 * team_fta + team_tov
+        for _, p in game_df.iterrows():
+            p_min = p["minutes"] or 0
+            efg = ((p["fgm"] + 0.5 * p["three_pm"]) / p["fga"] * 100) if p["fga"] else None
+            ts_denom = 2 * (p["fga"] + 0.44 * p["fta"])
+            ts = (p["pts"] / ts_denom * 100) if ts_denom else None
+            usg = None
+            if p_min and team_min and team_poss_proxy:
+                usg = (
+                    (p["fga"] + 0.44 * p["fta"] + p["tov"]) * (team_min / 5)
+                    / (p_min * team_poss_proxy) * 100
+                )
+            ast_to = (p["ast"] / p["tov"]) if p["tov"] else None
+            rows.append({
+                "event_id": event_id, "player_id": p["player_id"], "player_name": p["player_name"],
+                "min": round(p_min, 1),
+                "efg_pct": round(efg, 1) if efg is not None else None,
+                "ts_pct": round(ts, 1) if ts is not None else None,
+                "usg_pct": round(usg, 1) if usg is not None else None,
+                "ast_to_ratio": round(ast_to, 2) if ast_to is not None else None,
+            })
+    return pd.DataFrame(rows)

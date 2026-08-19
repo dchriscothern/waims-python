@@ -11,12 +11,16 @@ Sections:
   6. Model Feature Audit        — what the RF model actually learned
 """
 
+import sqlite3
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
 from scipy import stats
+
+from game_analytics import traditional_plus_stats, wnba_traditional_plus_stats
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -631,7 +635,97 @@ def _per_player_section(df, players):
         st.plotly_chart(fig2, width='stretch')
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SECTION 6: MODEL FEATURE AUDIT
+# SECTION 6: REAL GAME STATS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _real_game_stats_section(db_path):
+    """Real per-player rate stats (eFG%, TS%, Usage%, AST/TO) from whichever
+    real game table this sport actually has. Not tied to the synthetic
+    athlete roster -- for WNBA in particular, game_box_scores is real ESPN
+    data for the real Wings roster, which has no identity link to the
+    anonymized synthetic players (Player G1, Player G2, ...) used everywhere
+    else in this app. Showing it here, separate from the per-athlete views,
+    avoids implying a connection that doesn't exist.
+    """
+    try:
+        conn = sqlite3.connect(str(db_path) if db_path else "waims_demo.db")
+        tables = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+    except sqlite3.OperationalError:
+        st.info("No database available.")
+        return
+
+    if "game_box_scores" in tables:
+        st.markdown("### 🏀 Real Game Stats -- WNBA (Dallas Wings)")
+        st.markdown(
+            '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;'
+            'padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;">'
+            'Real data</span>',
+            unsafe_allow_html=True,
+        )
+        st.caption(
+            "From ESPN box scores (espn_data.py) for the real Wings roster -- **not** the "
+            "anonymized synthetic players used in the rest of this app; there's no identity "
+            "link between them, so this is shown as its own real-team view rather than "
+            "attached to a selected synthetic athlete. eFG%/TS%/Usage%/AST-TO only -- "
+            "team pace/PPP isn't computed here yet (see game_analytics.py's WNBA section note)."
+        )
+        box = pd.read_sql_query("SELECT * FROM game_box_scores", conn)
+        conn.close()
+        stats_df = wnba_traditional_plus_stats(box)
+        if stats_df.empty:
+            st.info("No WNBA box score data loaded yet.")
+            return
+        summary = stats_df.groupby("player_name", as_index=False).agg(
+            gp=("event_id", "count"), min=("min", "mean"),
+            efg_pct=("efg_pct", "mean"), ts_pct=("ts_pct", "mean"),
+            usg_pct=("usg_pct", "mean"), ast_to_ratio=("ast_to_ratio", "mean"),
+        )
+        for c in ("min", "efg_pct", "ts_pct", "usg_pct", "ast_to_ratio"):
+            summary[c] = summary[c].round(1)
+        st.dataframe(
+            summary.rename(columns={
+                "player_name": "Player", "gp": "GP", "min": "MIN",
+                "efg_pct": "eFG%", "ts_pct": "TS%", "usg_pct": "USG%", "ast_to_ratio": "AST/TO",
+            }).sort_values("USG%", ascending=False),
+            hide_index=True, width="stretch",
+        )
+
+    elif "player_game_stats" in tables:
+        st.markdown("### 🏀 Real Game Stats -- Arkansas Razorbacks")
+        st.caption(
+            "Same rate stats as above, for Arkansas's real roster. See the Game Performance "
+            "tab for the fuller version (shot detail, play-type efficiency, lineup net rating)."
+        )
+        box = pd.read_sql_query("SELECT * FROM player_game_stats WHERE team='ARK'", conn)
+        conn.close()
+        stats_df = traditional_plus_stats(box)
+        if stats_df.empty:
+            st.info("No Arkansas box score data loaded yet.")
+            return
+        summary = stats_df.groupby("player_name_matched", as_index=False).agg(
+            gp=("game_id", "count"), min=("min", "mean"),
+            efg_pct=("efg_pct", "mean"), ts_pct=("ts_pct", "mean"),
+            usg_pct=("usg_pct", "mean"), ast_to_ratio=("ast_to_ratio", "mean"),
+        )
+        for c in ("min", "efg_pct", "ts_pct", "usg_pct", "ast_to_ratio"):
+            summary[c] = summary[c].round(1)
+        st.dataframe(
+            summary.rename(columns={
+                "player_name_matched": "Player", "gp": "GP", "min": "MIN",
+                "efg_pct": "eFG%", "ts_pct": "TS%", "usg_pct": "USG%", "ast_to_ratio": "AST/TO",
+            }).sort_values("USG%", ascending=False),
+            hide_index=True, width="stretch",
+        )
+
+    else:
+        conn.close()
+        st.info("No real game data loaded for this sport yet.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 7: MODEL FEATURE AUDIT
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _model_audit_section():
@@ -717,9 +811,12 @@ def correlation_explorer_tab(wellness, training_load, force_plate, acwr, injurie
         'padding:10px 14px;margin-bottom:14px;">'
         '<span style="font-size:12px;color:#7f1d1d;">'
         '<b>Wellness, load, force-plate, ACWR, and injury metrics here are synthetic demo data</b> '
-        '(see sidebar). "Game:" columns are real for Arkansas, synthetic for WNBA. Any correlation '
-        'involving a synthetic metric demonstrates the analysis mechanism only -- it is not a real '
-        'finding about a real athlete, since one side of the relationship was randomly generated.'
+        '(see sidebar). "Game:" columns are real for both sports (Arkansas: parsed box scores/'
+        'play-by-play; WNBA: ESPN box scores for the real Wings roster) -- but for WNBA there is '
+        'no identity link between the real players in the game data and the anonymized synthetic '
+        'players everywhere else, so those correlations still pair a real team-day outcome with a '
+        'synthetic individual signal. Any correlation involving a synthetic metric demonstrates the '
+        'analysis mechanism only -- it is not a real finding about a real athlete.'
         '</span></div>',
         unsafe_allow_html=True,
     )
@@ -757,7 +854,8 @@ def correlation_explorer_tab(wellness, training_load, force_plate, acwr, injurie
     # Section tabs
     sec = st.radio(
         "Section",
-        ["Heatmap", "Top Correlations", "Lag Analysis", "Conditional Risk", "Per-Player", "Model Audit"],
+        ["Heatmap", "Top Correlations", "Lag Analysis", "Conditional Risk", "Per-Player",
+         "Real Game Stats", "Model Audit"],
         horizontal=True,
     )
 
@@ -779,6 +877,9 @@ def correlation_explorer_tab(wellness, training_load, force_plate, acwr, injurie
 
     elif sec == "Per-Player":
         _per_player_section(df, players)
+
+    elif sec == "Real Game Stats":
+        _real_game_stats_section(db_path)
 
     elif sec == "Model Audit":
         _model_audit_section()
