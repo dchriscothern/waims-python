@@ -199,21 +199,38 @@ waims-python/
 
 ### Sport selection on Streamlit Cloud
 
-Locally, `WAIMS_SPORT` as an environment variable works reliably. On
-Streamlit Community Cloud, the Secrets panel that's supposed to set it has
-proven unreliable in practice (documented upstream:
-streamlit/streamlit#4123 — Secrets don't always propagate to `os.environ`).
-The code has a fallback chain: `os.environ` → `st.secrets` → the page's own
-`?sport=` query parameter. **The query-param route is the one that's
-actually been reliable:**
+Locally, `WAIMS_SPORT` as an environment variable works reliably. Two
+other mechanisms turned out **not** to be reliable on Streamlit Community
+Cloud and are no longer the recommended path:
 
-- WNBA: `https://your-app.streamlit.app/`
-- Arkansas: `https://your-app.streamlit.app/?sport=mens`
+- The Secrets panel that's supposed to set `WAIMS_SPORT` has proven
+  unreliable in practice (documented upstream: streamlit/streamlit#4123 —
+  Secrets don't always propagate to `os.environ`, and in practice the
+  panel has sometimes failed to save the value at all).
+- Appending `?sport=mens` to the shared app's URL hits a separate Cloud
+  platform bug: *any* query string on the deployed URL — not just
+  `?sport=mens` — returns a false "You do not have access to this app or
+  it does not exist" error from Cloud's own routing/auth layer, even in an
+  already-authenticated, already-warm session. Confirmed by testing with
+  an unrelated dummy query string (`?foo=bar`), which failed the same way.
 
-One app, one URL, bookmark both variants. If you'd rather have two fully
-separate Cloud apps with their own URLs instead, that also works — deploy
-twice from the same repo and set `WAIMS_SPORT = "mens"` in the second
-app's Secrets — just budget time for the Secrets panel to be flaky.
+**The reliable approach: deploy Arkansas as its own app pointed at a
+wrapper entry file**, `dashboard_mens.py` (repo root). It sets
+`os.environ["WAIMS_SPORT"] = "mens"` in code, then runs `dashboard.py` —
+this only depends on Cloud correctly running the file you tell it to,
+which is the one part of the platform that hasn't been flaky.
+
+1. Deploy a second app from the same repo/branch (`main`).
+2. Set its **Main file path** to `dashboard_mens.py` instead of
+   `dashboard.py`. Leave Secrets empty — nothing to configure there.
+3. The original app (pointed at `dashboard.py`) continues to serve WNBA
+   by default with no changes.
+
+- WNBA: `https://your-app.streamlit.app/` (main file: `dashboard.py`)
+- Arkansas: `https://your-arkansas-app.streamlit.app/` (main file:
+  `dashboard_mens.py`)
+
+Two separate URLs, no query string or Secrets-panel dependency involved.
 
 3. (Optional) API key secrets, same as `.env` above:
    ```
