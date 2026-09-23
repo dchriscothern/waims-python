@@ -218,7 +218,8 @@ Cloud and are no longer the recommended path:
 wrapper entry file**, `dashboard_mens.py` (repo root). It sets
 `os.environ["WAIMS_SPORT"] = "mens"` in code, then runs `dashboard.py` —
 this only depends on Cloud correctly running the file you tell it to,
-which is the one part of the platform that hasn't been flaky.
+which is the one part of the platform that hasn't been flaky. This
+shipped via PR #41 (merged 2026-08-27) and is confirmed live.
 
 1. Deploy a second app from the same repo/branch (`main`).
 2. Set its **Main file path** to `dashboard_mens.py` instead of

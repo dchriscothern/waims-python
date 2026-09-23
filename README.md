@@ -27,6 +27,8 @@ Dashboard opens at `http://localhost:8501`
 pytest test_waims.py -v -k "not db"
 pytest test_waims.py::TestDatabaseIntegrity -v
 pytest test_oura_integration.py -v
+pytest test_app_rendering.py -v          # Streamlit AppTest rendering coverage
+pytest test_arkansas_real_roster.py -v   # Arkansas/mens real-data checks
 ```
 
 `pytest.ini` registers the `db` marker used by the database integration tests.
@@ -49,7 +51,7 @@ Rule-based weighted formula — not ML. Deterministic and fully explainable.
 Weights: Sleep 15pts · Soreness 10pts · Mood 5pts · Stress 5pts · CMJ 15pts · RSI 10pts · Schedule 10pts.  
 Preferred for daily operational decisions because every flag has a traceable reason.
 
-**3. Generative AI Query Layer** (`smart_query.py`, Ask tab)  
+**3. Generative AI Query Layer** (`smart_query.py`, Insights tab)  
 Calls Claude API to answer natural-language questions about your monitoring data.  
 Does not make clinical decisions — translates data into plain English for coaches and GMs.
 
@@ -57,7 +59,9 @@ Does not make clinical decisions — translates data into plain English for coac
 
 ## Features
 
-### 8 Interactive Tabs
+### Role-Gated Tabs (10 total, plus a separate Athlete View)
+
+Which tabs a signed-in user sees depends on role (`TAB_ACCESS` in `auth.py`) — e.g. a GM only sees Command Center (summary) and Availability, while Sport Scientist/Medical see all of them. The Game Performance tab only appears on the Arkansas/mens deployment (`WAIMS_SPORT=mens`) — it reads box-score/play-by-play tables that don't exist in the WNBA database.
 
 | Tab | Audience | Purpose |
 |-----|----------|---------|
@@ -298,6 +302,8 @@ Before real athlete data enters WAIMS:
 | `healthcheck.py` | Pre-demo startup diagnostic — 10 checks, terminal + Streamlit mode |
 | `test_waims.py` | Pytest suite for readiness formula, queries, z-scores, auth, data quality, and DB integrity |
 | `test_oura_integration.py` | Oura demo-mode smoke tests and WAIMS schema mapping checks |
+| `test_app_rendering.py` | Streamlit `AppTest` harness — renders each tab and asserts no exceptions |
+| `test_arkansas_real_roster.py` | Checks against Arkansas's real parsed box-score/play-by-play data |
 | `pytest.ini` | Pytest configuration — registers db mark for database tests |
 | `.github/workflows/ci.yml` | GitHub Actions CI — runs unit tests on every push automatically |
 
@@ -314,8 +320,9 @@ Before real athlete data enters WAIMS:
 
 **Running tests locally:**
 ```bash
-pytest test_waims.py -v -k "not db"   # no database required
+pytest test_waims.py -v -k "not db"    # no database required
 pytest test_waims.py -v                # full suite with waims_demo.db
+pytest test_app_rendering.py -v        # renders every tab, checks for exceptions
 python healthcheck.py                  # pre-demo diagnostic (terminal)
 streamlit run healthcheck.py           # pre-demo diagnostic (browser)
 ```
