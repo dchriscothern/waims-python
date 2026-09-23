@@ -32,6 +32,7 @@ MIN_GAMES_FOR_CORRELATION = 20
 ROADMAP_METRICS = [
     ("Offensive Gravity", "Needs optical player/ball tracking (defender X/Y/Z position at every moment) -- not extractable from a box score or play-by-play log."),
     ("Expected Shot Quality (qSQ) / EPV", "Needs precise shot-location coordinates and defender distance at release, not just paint/perimeter tags."),
+    ("Expected Points Suppressed (xPS) -- defensive value beyond steals/blocks", "Same blocker as Offensive Gravity above: measuring deterrence (opponent rim frequency/FG% while a defender is on the floor), contest quality (shot alteration without a block), and point-of-attack delay requires Second Spectrum-style optical tracking (defender position, contest distance, shot clock at release) -- not derivable from OCR'd box scores or play-by-play text."),
     ("Potential / Secondary Assists", "Needs every pass tracked, not just the ones that led to a made shot -- our play-by-play only logs actual assists on makes."),
     ("Play-type efficiency (PnR, isolation, post-up, spot-up)", "This is Synergy Sports-style video-charted data. Hand-chartable from film (see the manual-tracking guide) -- not derivable from this data source."),
     ("Composite value metrics (BPM/RAPTOR/EPM-style single-number rating)", "A different kind of blocker than the rest of this list: these are regression models calibrated against thousands of player-seasons league-wide, not something more Arkansas games alone can produce -- needs a much larger reference dataset, not just more depth on this one team."),
