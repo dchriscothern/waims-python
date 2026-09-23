@@ -200,20 +200,32 @@ waims-python/
 ### Sport selection on Streamlit Cloud
 
 Locally, `WAIMS_SPORT` as an environment variable works reliably. On
-Streamlit Community Cloud, the Secrets panel that's supposed to set it has
-proven unreliable in practice (documented upstream:
-streamlit/streamlit#4123 — Secrets don't always propagate to `os.environ`).
-The code has a fallback chain: `os.environ` → `st.secrets` → the page's own
-`?sport=` query parameter. **The query-param route is the one that's
-actually been reliable:**
+Streamlit Community Cloud, **both** of the code's other two mechanisms
+have proven unreliable in practice:
 
-- WNBA: `https://your-app.streamlit.app/`
-- Arkansas: `https://your-app.streamlit.app/?sport=mens`
+- The Secrets panel that's supposed to set `WAIMS_SPORT` doesn't
+  reliably persist it (documented upstream: streamlit/streamlit#4123 —
+  Secrets don't always propagate to `os.environ`).
+- Appending `?sport=mens` to the shared app's URL hits a separate Cloud
+  routing bug: **any** query string on a deployed app's URL returns a
+  false "You do not have access to this app or it does not exist" page
+  from Cloud's own auth layer, reproduced with an unrelated dummy query
+  string too. This is a Cloud platform bug, not something fixable from
+  the repo — don't rely on `?sport=` links for this app on Cloud.
 
-One app, one URL, bookmark both variants. If you'd rather have two fully
-separate Cloud apps with their own URLs instead, that also works — deploy
-twice from the same repo and set `WAIMS_SPORT = "mens"` in the second
-app's Secrets — just budget time for the Secrets panel to be flaky.
+**What actually works:** a dedicated `dashboard_mens.py` entry point
+that sets `os.environ["WAIMS_SPORT"] = "mens"` in code, then
+`runpy.run_path()`s `dashboard.py` — deployed as a **second, separate
+Streamlit Cloud app** with Main file path = `dashboard_mens.py` and
+Secrets left empty. This sidesteps both broken mechanisms since Cloud
+only has to run the file it's told to run. Two apps, two URLs — no
+query param, no Secrets panel dependency.
+
+`dashboard_mens.py` was restored into `sandbox` on 2026-09-23 (it had
+been stranded on an unmerged branch, `fix-arkansas-cloud-deploy-v2`) and
+verified locally with Streamlit's `AppTest` harness — no exceptions,
+Arkansas login screen renders. Commit it once you're ready to make it
+official.
 
 3. (Optional) API key secrets, same as `.env` above:
    ```

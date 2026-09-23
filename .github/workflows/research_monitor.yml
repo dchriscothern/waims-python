@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   review:
@@ -28,10 +29,27 @@ jobs:
       - name: Run evidence monitor
         run: python research_monitor.py --days 7 --save --html
 
-      - name: Commit updated review artifacts
-        run: |
-          git config user.name "WAIMS Evidence Monitor"
-          git config user.email "monitor@waims"
-          git add research_log.json research_report_*.html
-          git diff --staged --quiet || git commit -m "Evidence review $(date +%Y-%m-%d)"
-          git push
+      - name: Set date
+        id: date
+        run: echo "today=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      # main is protected against direct pushes (PR required), so a plain
+      # `git push` here fails every run -- open a PR instead and let the
+      # weekly evidence review land through the normal review process.
+      - name: Open PR with updated review artifacts
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: |
+            research_log.json
+            research_report_*.html
+          commit-message: "Evidence review ${{ steps.date.outputs.today }}"
+          committer: "WAIMS Evidence Monitor <monitor@waims>"
+          author: "WAIMS Evidence Monitor <monitor@waims>"
+          title: "Evidence review ${{ steps.date.outputs.today }}"
+          body: |
+            Automated weekly evidence review — PubMed + RSS scan of the last 7 days.
+
+            Opened as a PR (instead of pushing directly) because `main` requires
+            pull requests for all changes.
+          branch: "evidence-review-${{ github.run_id }}"
+          delete-branch: true

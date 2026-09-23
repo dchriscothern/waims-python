@@ -18,7 +18,12 @@ did. Which sport you get is decided entirely by `get_active_sport()` in
 1. `WAIMS_SPORT` environment variable (reliable locally)
 2. `st.secrets["WAIMS_SPORT"]` (Streamlit Cloud's Secrets panel — proven
    unreliable in practice, see `SETUP_GUIDE.md`)
-3. `?sport=` query parameter on the page URL (the reliable Cloud option)
+3. `?sport=` query parameter on the page URL — **not reliable on Cloud**,
+   despite an earlier version of this doc calling it "the reliable Cloud
+   option." Any query string on this app's Cloud URL triggers a false
+   "app doesn't exist" error from Cloud's own routing layer. The actual
+   working Cloud path is a dedicated `dashboard_mens.py` entry point
+   deployed as a second, separate Cloud app — see `SETUP_GUIDE.md`.
 4. Falls back to `wnba` if none of the above are set
 
 `waims-mens/` holds Arkansas-specific data files (`roster_arkansas.py`,
