@@ -75,16 +75,20 @@ Rule: UI files should not contain heavy data processing.
 
 ---
 
-## Tab Structure (8 tabs)
+## Tab Structure (role-gated, up to 10 tabs)
 
-1. Roster Overview
-2. Athlete Profile
-3. GPS & Load
-4. Availability & Injuries
-5. Force Plate (CMJ/RSI)
-6. Z-Score Baselines
-7. Research Context
-8. [Update name when finalized]
+1. Command Center
+2. Today's Readiness
+3. Athlete Profiles
+4. Trends & Load
+5. Jump Testing
+6. Availability & Injuries
+7. Forecast
+8. Insights
+9. Data Intake
+10. Game Performance — Arkansas/mens app only (`WAIMS_SPORT=mens`); hidden on WNBA since it reads Arkansas-only tables
+
+Which tabs a signed-in user sees depends on role (`TAB_ACCESS` in `auth.py`) — e.g. `gm` never sees Trends/Jump Testing/Insights/Data Intake, `athlete` only sees Today's Readiness.
 
 ---
 

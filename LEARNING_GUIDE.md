@@ -6,7 +6,7 @@ For interviews, presentations, and self-study. Explains the *why* behind every d
 
 ## What Is WAIMS?
 
-WAIMS (Watchlist Athlete Injury Monitoring System) is a professional-grade athlete monitoring dashboard built for a WNBA team context. It combines:
+WAIMS (Wellness & Athlete Injury Management System) is a professional-grade athlete monitoring dashboard built for a WNBA team context. It combines:
 
 - **Subjective data** — daily wellness questionnaires (sleep, soreness, stress, mood)
 - **Objective neuromuscular data** — force plate testing (CMJ, RSI-Modified)
@@ -30,7 +30,9 @@ Pro tools (Catapult, Kinexon, Teamworks) all structure their interfaces around r
 
 ---
 
-## 10 Tabs Explained
+## Tabs Explained
+
+Tabs are role-gated (`TAB_ACCESS` in `auth.py`) — which of these a signed-in user sees depends on their role. A coach never sees Jump Testing or Insights; a GM sees Command Center (summary only) and Availability; Sport Scientist and Medical see everything. There's also a separate **Athlete View** (not a tab — a whole simplified page shown instead of the tab bar when logged in as the `athlete` role): one readiness answer, sleep/soreness/stress on one line, and a recovery checklist.
 
 ### 🏀 Tab 1 — Command Center
 The most important tab. Answers in one glance:
@@ -47,8 +49,8 @@ The analyst version of Tab 1. Every player, every signal, every z-score visible.
 ### 👤 Tab 3 — Athlete Profiles
 The full story per athlete. Radar chart covers six dimensions: Sleep / Physical / Mental / Load / Neuro / GPS. The GPS section has a 14-day trend chart with Player Load on the left axis and Accel/Decel Count on the right — divergence between these two axes is a key fatigue signal.
 
-### 📈 Tab 4 — Trends
-7-day rolling average overlaid on raw daily values. Used to identify gradual drift vs acute spikes. A coach saying "she's been off all week" is visible here before it becomes a flag.
+### 📈 Tab 4 — Trends & Load
+7-day rolling average overlaid on raw daily values for wellness, force plate, **and** GPS/Kinexon load — one merged tab rather than separate Trends and GPS tabs. Used to identify gradual drift vs acute spikes. A coach saying "she's been off all week" is visible here before it becomes a flag. Player Load ACWR and accel/decel drops vs team median live here too: on a hard training day everyone's distance goes up, so when only one player's accels/decels drop, that's the signal.
 
 ### 💪 Tab 5 — Jump Testing
 CMJ and RSI-Modified. Tested weekly (Mondays in the synthetic data). Z-scored vs personal 30-day baseline. Research shows CMJ drops of ≥ 2σ predict impaired performance and elevated injury risk (Gathercole 2015). Asymmetry > 10% flags lateral imbalance.
@@ -56,17 +58,19 @@ CMJ and RSI-Modified. Tested weekly (Mondays in the synthetic data). Z-scored vs
 ### 🚨 Tab 6 — Availability & Injuries
 The medical/GM view. Status board (AVAILABLE / QUESTIONABLE / OUT), season availability %, and full injury log. Real deployments would integrate with team EMR.
 
-### 📡 Tab 7 — GPS & Load
-Kinexon full session breakdown. Player Load ACWR (acute:chronic for GPS load — same concept as training load ACWR). Accel/decel drops vs team median and personal baseline. Key insight: on a hard training day, everyone's distance goes up; when only one player's accels/decels drop, that's the signal.
+### 🤖 Tab 7 — Forecast
+The GM/staff view. 7-day risk watchlist plus the load-projection tool ("what happens to readiness if she plays tonight vs sits"). "Why she's here" narrative pulls every contributing flag. GPS flags appear at the bottom of each risk card and add weight to the composite risk score (at lower weight than CMJ/RSI, because objective mechanical signals are prioritised over load metrics).
 
-### 🤖 Tab 8 — Forecast
-The GM view. 7-day risk watchlist. "Why she's here" narrative pulls every contributing flag. GPS flags appear at the bottom of each risk card and add weight to the composite risk score (at lower weight than CMJ/RSI, because objective mechanical signals are prioritised over load metrics).
+### 🔍 Tab 8 — Insights
+Merges what used to be two separate tabs (Ask the Watchlist + Correlation Explorer) plus model validation philosophy and the data-quality audit log:
+- **Ask** — natural-language shortcuts, now with an in-browser **Voice Query** mic button (Chrome/Edge, Web Speech API — no extra packages). Type or speak "who didn't sleep well" and get an instant answer, no tab switching.
+- **Correlations** — the research tool covered in depth below (lag analysis, conditional risk table, real WNBA/Arkansas rate stats).
 
-### 🔍 Tab 9 — Ask the Watchlist
-Natural language shortcuts. No SQL. No dashboard literacy required. Type "accel drop" — get the list of athletes whose accel count is ≥ 1σ below their personal 30-day norm, with 🔴/🟡/🟢 status. Staff who aren't sport scientists can use this independently.
+### 📥 Tab 9 — Data Intake
+New since the original build. The operator-facing surface for getting real files into WAIMS: upload a CSV/Excel into a drop-zone lane (wellness, GPS, force plate, etc.), see a live validation preview (rows detected, required columns, warnings) before anything is written, plus connector status cards and ingest audit history. Built for the transition from synthetic demo data to a real team's actual file exports.
 
-### 🔬 Tab 10 — Correlation Explorer
-The research tool. What makes WAIMS more than a monitoring dashboard — it's an analytical discovery environment. Five sub-sections covered in detail below.
+### 🎯 Tab 10 — Game Performance
+**Arkansas/mens deployment only** — hidden entirely on the WNBA app since it reads Arkansas-only tables (`player_game_stats`, `play_by_play_events`) that don't exist in the WNBA database. Real box scores, player game log, shot detail, and advanced possession/lineup metrics parsed from actual game data.
 
 ---
 
@@ -204,6 +208,18 @@ GPS z-score drop flags (`flag_accel_drop`, `flag_decel_drop`, `flag_load_drop`) 
 
 ## Research Tool Recommendations
 
+This is separate from the automated evidence-review pipeline
+(`research_monitor.py`, weekly via GitHub Actions, surfaced in the
+Insights tab's Evidence Review inbox — WATCHLIST → CANDIDATE →
+APPROVED → INTEGRATED). That system runs targeted PubMed searches plus
+practitioner RSS feeds automatically and only tells you when something
+new shows up against WAIMS's existing signals/thresholds — as of
+2026-09-23 it's confirmed running end-to-end (weekly cron opens a PR
+with the update, no manual step needed). It doesn't do open-ended
+literature review, though — for digging into a new question, an
+interview talking point, or a Correlation Explorer finding that needs
+backing, use the tools below.
+
 For finding sports science literature to support your work:
 
 | Tool | Best Use | Cost |
@@ -225,7 +241,7 @@ For finding sports science literature to support your work:
 ## Interview Talking Points
 
 ### "Walk me through the system"
-Start at Tab 1 (Command Center). "A coach opens this at 7am and knows in 10 seconds who can go hard today. This card is red — here's why. Now let me show you the science behind that flag..." → Tab 10 (Correlations).
+Start at Tab 1 (Command Center). "A coach opens this at 7am and knows in 10 seconds who can go hard today. This card is red — here's why. Now let me show you the science behind that flag..." → Tab 8, Insights → Correlations section.
 
 ### "Why GPS accel/decel and not just distance?"
 "Total distance is a quantity metric. Accel and decel count are quality metrics — they capture the explosive, high-force movements that actually drive injury risk. An athlete who runs 6km but with half her normal acceleration events is showing a protective movement pattern. That's often the pre-clinical signal before a soft-tissue injury."
