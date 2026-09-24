@@ -206,19 +206,85 @@ GPS z-score drop flags (`flag_accel_drop`, `flag_decel_drop`, `flag_load_drop`) 
 
 ---
 
+## Automated Evidence Review System
+
+### Why build this instead of just re-reading the literature occasionally?
+
+Thresholds decay. A sleep cutoff or a CMJ flag that was well-supported
+in 2021 needs to stay well-supported — sports science keeps publishing,
+and a monitoring tool that never checks back against new research is
+just running on someone's old opinion. Most teams handle this
+informally, if at all. WAIMS handles it as a standing system: a
+scheduled GitHub Action, not a person remembering to check PubMed.
+
+### How it works
+
+`research_monitor.py` runs automatically every Monday morning (`cron`
+in `.github/workflows/research_monitor.yml`, also triggerable on demand
+via `workflow_dispatch`). Each run:
+
+1. **Queries PubMed** across 10 topics mapped directly to WAIMS signals
+   — Sleep & Athlete Injury Risk, CMJ/RSI as a Fatigue Marker, Basketball
+   Load Monitoring, Female Athlete Monitoring & Recovery, Deceleration
+   Monitoring, GPS Load Monitoring, ACWR Methodology, Menstrual Cycle &
+   Athletic Performance, Basketball Injury Epidemiology, and Travel &
+   Circadian Load. Each query is narrowly scoped (title/abstract term
+   matching plus exclusion terms) specifically to keep out unrelated
+   clinical noise — a sleep query, for instance, excludes insomnia drug
+   trials.
+2. **Pulls practitioner RSS feeds** from high-trust sports-science
+   voices (Martin Buchheit, SPSR, the BJSM blog, Sportsmith, and
+   others) — the applied-practice side, not just peer-reviewed papers.
+3. **De-duplicates and scores** everything against a decision ladder
+   modeled on how a real performance department would triage new
+   evidence, not just dump it in a spreadsheet:
+
+```
+WATCHLIST   -> interesting, single study, monitor for replication
+CANDIDATE   -> appears in a meta-analysis/systematic review; schedule formal staff review
+APPROVED    -> reviewed by performance staff, approved for a WAIMS update
+INTEGRATED  -> the change actually landed in code, RESEARCH_FOUNDATION.md, README, roadmap
+REJECTED    -> reviewed, not applicable (wrong population, sport, etc.)
+```
+
+4. **Opens a pull request** with the updated `research_log.json` and an
+   HTML decision report — it doesn't push directly or auto-apply
+   anything. A human still reviews and merges.
+
+The **formal policy** behind the ladder (Orlando Magic-style, per the
+module's own docstring): *no threshold or weighting change ships
+without a supporting meta-analysis or systematic review.* A single new
+study goes to WATCHLIST, not production. This is the same evidence
+discipline real performance departments use to avoid chasing every new
+paper — WAIMS just automates the watching part.
+
+New findings surface in the **Insights tab's Evidence Review inbox**,
+where they wait to be triaged — foundational papers already backing
+WAIMS's current thresholds (Walsh 2021, Gabbett 2016, Gathercole 2015,
+etc.) live in `RESEARCH_FOUNDATION.md` and aren't re-surfaced here; this
+system is a forward-looking inbox for *new* research only.
+
+**Status:** confirmed running end-to-end as of 2026-09-23 — the weekly
+run genuinely finds new papers, commits the update, and opens its own
+PR with no manual step. This closes the "season loop" mentioned earlier
+in this guide: evidence review → threshold updates → model retraining
+→ improved flag accuracy, on a real, running schedule rather than as an
+aspiration.
+
+**Interview framing:** *"Most monitoring tools ship thresholds once and
+never revisit them. WAIMS has a standing weekly check against new sports
+science literature, with a formal decision ladder so a single new study
+can't silently change production behavior — that's the same discipline
+NBA performance departments use, just automated instead of ad hoc."*
+
+---
+
 ## Research Tool Recommendations
 
-This is separate from the automated evidence-review pipeline
-(`research_monitor.py`, weekly via GitHub Actions, surfaced in the
-Insights tab's Evidence Review inbox — WATCHLIST → CANDIDATE →
-APPROVED → INTEGRATED). That system runs targeted PubMed searches plus
-practitioner RSS feeds automatically and only tells you when something
-new shows up against WAIMS's existing signals/thresholds — as of
-2026-09-23 it's confirmed running end-to-end (weekly cron opens a PR
-with the update, no manual step needed). It doesn't do open-ended
-literature review, though — for digging into a new question, an
-interview talking point, or a Correlation Explorer finding that needs
-backing, use the tools below.
+The automated system above only watches for new research against
+WAIMS's *existing* signals — it doesn't do open-ended literature review.
+For digging into a new question, an interview talking point, or backing
+a fresh Correlation Explorer finding, use the tools below instead.
 
 For finding sports science literature to support your work:
 
