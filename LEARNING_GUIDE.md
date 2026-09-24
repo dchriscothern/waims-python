@@ -208,6 +208,18 @@ GPS z-score drop flags (`flag_accel_drop`, `flag_decel_drop`, `flag_load_drop`) 
 
 ## Research Tool Recommendations
 
+This is separate from the automated evidence-review pipeline
+(`research_monitor.py`, weekly via GitHub Actions, surfaced in the
+Insights tab's Evidence Review inbox — WATCHLIST → CANDIDATE →
+APPROVED → INTEGRATED). That system runs targeted PubMed searches plus
+practitioner RSS feeds automatically and only tells you when something
+new shows up against WAIMS's existing signals/thresholds — as of
+2026-09-23 it's confirmed running end-to-end (weekly cron opens a PR
+with the update, no manual step needed). It doesn't do open-ended
+literature review, though — for digging into a new question, an
+interview talking point, or a Correlation Explorer finding that needs
+backing, use the tools below.
+
 For finding sports science literature to support your work:
 
 | Tool | Best Use | Cost |
